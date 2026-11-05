@@ -4,6 +4,9 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
 )
 
+const OpponentsMax = 4
+const LandSizeMax = 2
+
 type NewGameSettings struct {
     Difficulty data.DifficultySetting
     Opponents int

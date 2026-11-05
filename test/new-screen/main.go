@@ -3,8 +3,9 @@ package main
 import (
     "log"
 
+    "github.com/bfalese/civ-of-magic/game/magic/setupview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
 
@@ -14,13 +15,13 @@ import (
 
 type Engine struct {
     LbxCache *lbx.LbxCache
-    NewGameScreen *setup.NewGameScreen
+    NewGameScreen *setupview.NewGameScreen
 }
 
 func NewEngine() (*Engine, error) {
     cache := lbx.AutoCache()
 
-    screen := setup.MakeNewGameScreen(cache)
+    screen := setupview.MakeNewGameScreen(cache)
 
     return &Engine{
         LbxCache: cache,
@@ -40,11 +41,11 @@ func (engine *Engine) Update() error {
     }
 
     switch engine.NewGameScreen.Update() {
-        case setup.NewGameStateRunning:
-        case setup.NewGameStateOk:
+        case setupview.NewGameStateRunning:
+        case setupview.NewGameStateOk:
             log.Printf("Creating new game with settings: %+v", engine.NewGameScreen.Settings)
             return ebiten.Termination
-        case setup.NewGameStateCancel:
+        case setupview.NewGameStateCancel:
             log.Printf("Cancel")
             return ebiten.Termination
     }

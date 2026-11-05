@@ -1,4 +1,4 @@
-package setup
+package setupview
 
 import (
     "fmt"
@@ -24,6 +24,8 @@ import (
     _ "github.com/hajimehoshi/ebiten/v2/vector"
 
     "github.com/hajimehoshi/ebiten/v2"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+
 )
 
 type NewWizardScreenState int
@@ -179,7 +181,7 @@ type NewWizardScreen struct {
     LbxFonts []*font.LbxFont
     Fonts NewWizardFonts
 
-    WizardSlots []WizardSlot
+    WizardSlots []setup.WizardSlot
     ImageCache util.ImageCache
 
     Spells spellbook.Spells
@@ -193,7 +195,7 @@ type NewWizardScreen struct {
 
     State NewWizardScreenState
 
-    CustomWizard WizardCustom
+    CustomWizard setup.WizardCustom
 
     CurrentWizard int
     Active bool
@@ -256,7 +258,7 @@ func (screen *NewWizardScreen) MakeCustomNameUI(previousUI UIFunc, selectRace bo
                 draw.DrawBooks(window, options, &screen.ImageCache, screen.CustomWizard.Books, screen.BooksOrderRandom())
             }
 
-            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, JoinAbilities(screen.CustomWizard.Retorts))
+            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, setup.JoinAbilities(screen.CustomWizard.Retorts))
 
             return
         },
@@ -463,7 +465,7 @@ func (screen *NewWizardScreen) MakeSelectWizardUI() *uilib.UI {
             screen.CustomWizard.Retorts = append(screen.CustomWizard.Retorts, screen.WizardSlots[wizard].ExtraRetort)
         }
 
-        screen.CustomWizard.StartingSpells.AddAllSpells(GetStartingSpells(&screen.CustomWizard, screen.Spells))
+        screen.CustomWizard.StartingSpells.AddAllSpells(setup.GetStartingSpells(&screen.CustomWizard, screen.Spells))
 
         screen.State = NewWizardScreenStateCustomName
         screen.UI = screen.MakeCustomNameUI(func () (NewWizardScreenState, *uilib.UI) {
@@ -640,7 +642,7 @@ func (screen *NewWizardScreen) Load(cache *lbx.LbxCache) error {
     screen.LbxFonts = fonts
     screen.Fonts = MakeNewWizardFonts(cache)
 
-    screen.WizardSlots = DefaultWizardSlots()
+    screen.WizardSlots = setup.DefaultWizardSlots()
 
     if screen.State == NewWizardScreenStateSelectWizard {
         screen.UI = screen.MakeSelectWizardUI()
@@ -677,7 +679,7 @@ func (screen *NewWizardScreen) MakeCustomWizardBooksUI(previousUI UIFunc) *uilib
     imageCache := util.MakeImageCache(screen.LbxCache)
 
     picksLeft := func() int {
-        picks := MaxPicks
+        picks := setup.MaxPicks
 
         for _, ability := range screen.CustomWizard.Retorts {
             picks -= ability.PickCost()
@@ -747,14 +749,14 @@ func (screen *NewWizardScreen) MakeCustomWizardBooksUI(previousUI UIFunc) *uilib
     checkRetorts := func() {
         var removed []data.Retort
         for _, retort := range slices.Clone(screen.CustomWizard.Retorts) {
-            if !SatisifiedDependencies(retort, &screen.CustomWizard) {
+            if !setup.SatisifiedDependencies(retort, &screen.CustomWizard) {
                 screen.CustomWizard.ToggleRetort(retort, 0)
                 removed = append(removed, retort)
             }
         }
 
         if len(removed) > 0 {
-            screen.UI.AddElement(uilib.MakeErrorElement(screen.UI, screen.LbxCache, &imageCache, fmt.Sprintf("Retorts %v became ineligible", JoinAbilities(removed)), func(){}))
+            screen.UI.AddElement(uilib.MakeErrorElement(screen.UI, screen.LbxCache, &imageCache, fmt.Sprintf("Retorts %v became ineligible", setup.JoinAbilities(removed)), func(){}))
         }
     }
 
@@ -944,7 +946,7 @@ func (screen *NewWizardScreen) MakeCustomWizardBooksUI(previousUI UIFunc) *uilib
             return false
         }
 
-        return SatisifiedDependencies(ability, &screen.CustomWizard)
+        return setup.SatisifiedDependencies(ability, &screen.CustomWizard)
     }
 
     for ability := range produceAbilityPositions() {
@@ -958,7 +960,7 @@ func (screen *NewWizardScreen) MakeCustomWizardBooksUI(previousUI UIFunc) *uilib
                 } else if picksLeft() == 0 {
                     screen.UI.AddElement(uilib.MakeErrorElement(screen.UI, screen.LbxCache, &imageCache, "You have already made all your picks", func(){}))
                 } else {
-                    if SatisifiedDependencies(ability.Ability, &screen.CustomWizard) {
+                    if setup.SatisifiedDependencies(ability.Ability, &screen.CustomWizard) {
                         screen.UI.AddElement(uilib.MakeErrorElement(screen.UI, screen.LbxCache, &imageCache, fmt.Sprintf("You don't have enough picks left to make this selection. You need %v picks", 3 - picksLeft()), func(){}))
                     } else {
                         screen.UI.AddElement(uilib.MakeErrorElement(screen.UI, screen.LbxCache, &imageCache, ability.Ability.DependencyExplanation(), func(){}))
@@ -1055,7 +1057,7 @@ func (screen *NewWizardScreen) MakeCustomWizardBooksUI(previousUI UIFunc) *uilib
 
             ui.StandardDraw(window)
 
-            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, JoinAbilities(screen.CustomWizard.Retorts))
+            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, setup.JoinAbilities(screen.CustomWizard.Retorts))
             screen.Fonts.NameFontBright.PrintOptions(window, 223, 185, font.FontOptions{Justify: font.FontJustifyCenter, Scale: scale.ScaleAmount}, fmt.Sprintf("%v picks", picksLeft()))
         },
         HandleKeys: func(keys []ebiten.Key){
@@ -1118,7 +1120,7 @@ func (screen *NewWizardScreen) MakeSelectSpellsUI(previousUI UIFunc) *uilib.UI {
     var doPreviousMagicUI func (magic data.MagicType)
 
     makeUIForMagic := func (magic data.MagicType) *uilib.UI {
-        spellInfo := MakeChooseSpellInfo(screen.Spells, magic, screen.CustomWizard.MagicLevel(magic))
+        spellInfo := setup.MakeChooseSpellInfo(screen.Spells, magic, screen.CustomWizard.MagicLevel(magic))
 
         // reset starting spells
         screen.CustomWizard.StartingSpells.RemoveSpellsByMagic(magic)
@@ -1301,7 +1303,7 @@ func (screen *NewWizardScreen) MakeSelectSpellsUI(previousUI UIFunc) *uilib.UI {
                 windyBorder, _ := screen.ImageCache.GetImage("newgame.lbx", 47, 0)
                 window.DrawImage(windyBorder, scale.ScaleOptions(options))
 
-                screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, JoinAbilities(screen.CustomWizard.Retorts))
+                screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, setup.JoinAbilities(screen.CustomWizard.Retorts))
                 screen.Fonts.NameFontBright.PrintOptions(window, 223, 185, font.FontOptions{Justify: font.FontJustifyCenter, Scale: scale.ScaleAmount}, fmt.Sprintf("%v picks", picksLeft()))
 
                 showDescription := func(y float64, text string, background *ebiten.Image){
@@ -1567,7 +1569,7 @@ func (screen *NewWizardScreen) MakeSelectRaceUI(previousUI UIFunc) *uilib.UI {
 
             fonts.Race.PrintOptions(window, 243, 132, font.FontOptions{Justify: font.FontJustifyCenter, Scale: scale.ScaleAmount, DropShadow: true}, "Myrran Races:")
 
-            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, JoinAbilities(screen.CustomWizard.Retorts))
+            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, setup.JoinAbilities(screen.CustomWizard.Retorts))
 
             ui.StandardDraw(window)
         },
@@ -1643,7 +1645,7 @@ func (screen *NewWizardScreen) MakeSelectBannerUI(previousUI UIFunc) *uilib.UI {
 
             screen.Fonts.SelectFont.PrintOptions(window, 245, 2, font.FontOptions{Justify: font.FontJustifyCenter, Scale: scale.ScaleAmount}, "Select Banner")
 
-            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, JoinAbilities(screen.CustomWizard.Retorts))
+            screen.Fonts.AbilityFontSelected.PrintOptions(window, 12, 180, font.FontOptions{Scale: scale.ScaleAmount}, setup.JoinAbilities(screen.CustomWizard.Retorts))
 
             ui.StandardDraw(window)
         },

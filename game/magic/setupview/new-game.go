@@ -1,4 +1,4 @@
-package setup
+package setupview
 
 import (
     "log"
@@ -11,11 +11,11 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
 
     "github.com/hajimehoshi/ebiten/v2"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+
 )
 
 const DifficultyMax = 4
-const OpponentsMax = 4
-const LandSizeMax = 2
 const MagicMax = 2
 
 type NewGameState int
@@ -31,7 +31,7 @@ type NewGameScreen struct {
 
     State NewGameState
 
-    Settings NewGameSettings
+    Settings setup.NewGameSettings
 
     UI *uilib.UI
 }
@@ -230,7 +230,7 @@ func MakeNewGameScreen(cache *lbx.LbxCache) *NewGameScreen {
         State: NewGameStateRunning,
         Cache: cache,
         ImageCache: util.MakeImageCache(cache),
-        Settings: NewGameSettings{
+        Settings: setup.NewGameSettings{
             Difficulty: 0,
             Opponents: 3,
             LandSize: 1,

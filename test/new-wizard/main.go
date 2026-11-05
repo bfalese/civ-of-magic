@@ -3,8 +3,9 @@ package main
 import (
     "log"
 
+    "github.com/bfalese/civ-of-magic/game/magic/setupview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
 
@@ -14,13 +15,13 @@ import (
 
 type Engine struct {
     LbxCache *lbx.LbxCache
-    NewWizardScreen *setup.NewWizardScreen
+    NewWizardScreen *setupview.NewWizardScreen
 }
 
 func NewEngine() (*Engine, error) {
     cache := lbx.AutoCache()
 
-    screen := setup.MakeNewWizardScreen(cache)
+    screen := setupview.MakeNewWizardScreen(cache)
 
     // screen.Activate()
 
@@ -44,11 +45,11 @@ func (engine *Engine) Update() error {
     */
 
     switch engine.NewWizardScreen.Update() {
-        case setup.NewWizardScreenStateFinished:
+        case setupview.NewWizardScreenStateFinished:
             wizard := engine.NewWizardScreen.CustomWizard
             log.Printf("New wizard: %+v", wizard)
             return ebiten.Termination
-        case setup.NewWizardScreenStateCanceled:
+        case setupview.NewWizardScreenStateCanceled:
             return ebiten.Termination
     }
 

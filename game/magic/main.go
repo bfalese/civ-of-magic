@@ -26,6 +26,8 @@ import (
     "os"
     */
 
+    "github.com/bfalese/civ-of-magic/game/magic/setupview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/system"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
@@ -127,35 +129,35 @@ func runIntro(yield coroutine.YieldFunc, game *MagicGame) {
 }
 
 func runNewGame(yield coroutine.YieldFunc, game *MagicGame) (bool, setup.NewGameSettings) {
-    newGame := setup.MakeNewGameScreen(game.Cache)
+    newGame := setupview.MakeNewGameScreen(game.Cache)
 
     game.Drawer = func(screen *ebiten.Image) {
         newGame.Draw(screen)
     }
 
     state := newGame.Update()
-    for state == setup.NewGameStateRunning {
+    for state == setupview.NewGameStateRunning {
         yield()
         state = newGame.Update()
     }
 
-    return state == setup.NewGameStateCancel, newGame.Settings
+    return state == setupview.NewGameStateCancel, newGame.Settings
 }
 
 func runNewWizard(yield coroutine.YieldFunc, game *MagicGame) (bool, setup.WizardCustom) {
-    newWizard := setup.MakeNewWizardScreen(game.Cache)
+    newWizard := setupview.MakeNewWizardScreen(game.Cache)
 
     game.Drawer = func(screen *ebiten.Image) {
         newWizard.Draw(screen)
     }
 
     state := newWizard.Update()
-    for state != setup.NewWizardScreenStateFinished && state != setup.NewWizardScreenStateCanceled {
+    for state != setupview.NewWizardScreenStateFinished && state != setupview.NewWizardScreenStateCanceled {
         yield()
         state = newWizard.Update()
     }
 
-    return state == setup.NewWizardScreenStateCanceled, newWizard.CustomWizard
+    return state == setupview.NewWizardScreenStateCanceled, newWizard.CustomWizard
 }
 
 func runMainMenu(yield coroutine.YieldFunc, game *MagicGame, gameLoader *OriginalGameLoader, music *musiclib.Music) (*gamelib.Game, mainview.MainScreenState) {
