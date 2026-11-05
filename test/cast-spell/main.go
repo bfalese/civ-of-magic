@@ -3,6 +3,8 @@ package main
 import (
     "log"
 
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/core/data"
@@ -84,7 +86,7 @@ func (engine *Engine) MakeUI() *uilib.UI {
     ui.SetElementsFromArray(nil)
 
     page := 0
-    more := spellbook.MakeSpellBookCastUI(ui, engine.Cache, spells, make(map[spellbook.Spell]int), 60, spellbook.Spell{}, 0, true, &Caster{}, &page, func (result spellbook.Spell, picked bool){
+    more := spellbookview.MakeSpellBookCastUI(ui, engine.Cache, spells, make(map[spellbook.Spell]int), 60, spellbook.Spell{}, 0, true, &Caster{}, &page, func (result spellbook.Spell, picked bool){
         if picked {
             log.Printf("Picked spell %+v", result)
         }

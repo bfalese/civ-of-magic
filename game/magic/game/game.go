@@ -18,6 +18,8 @@ import (
     "bufio"
     "compress/gzip"
 
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/bfalese/civ-of-magic/game/magic/scale"
@@ -5584,7 +5586,7 @@ func (game *Game) ShowApprenticeUI(yield coroutine.YieldFunc, player *playerlib.
     defer game.PopDrawer()
 
     power := game.Model.ComputePower(player)
-    spellbook.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, player.ResearchingSpell, player.ResearchProgress, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, false, nil, player, &newDrawer)
+    spellbookview.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, player.ResearchingSpell, player.ResearchProgress, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, false, nil, player, &newDrawer)
 }
 
 func (game *Game) ResearchNewSpell(yield coroutine.YieldFunc, player *playerlib.Player){
@@ -5598,7 +5600,7 @@ func (game *Game) ResearchNewSpell(yield coroutine.YieldFunc, player *playerlib.
 
     if len(player.ResearchCandidateSpells.Spells) > 0 {
         power := game.Model.ComputePower(player)
-        spellbook.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, spellbook.Spell{}, 0, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, true, &player.ResearchingSpell, player, &newDrawer)
+        spellbookview.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, spellbook.Spell{}, 0, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, true, &player.ResearchingSpell, player, &newDrawer)
     }
 }
 
@@ -5738,7 +5740,7 @@ func (game *Game) ShowSpellBookCastUI(yield coroutine.YieldFunc, player *playerl
         mana: player.Mana,
     }
 
-    game.HudUI.AddElements(spellbook.MakeSpellBookCastUI(game.HudUI, game.Cache, overlandSpells, make(map[spellbook.Spell]int), player.ComputeOverworldCastingSkill(), player.CastingSpell, player.CastingSpellProgress, true, &castPlayer, &player.CastingSpellPage, func (spell spellbook.Spell, picked bool){
+    game.HudUI.AddElements(spellbookview.MakeSpellBookCastUI(game.HudUI, game.Cache, overlandSpells, make(map[spellbook.Spell]int), player.ComputeOverworldCastingSkill(), player.CastingSpell, player.CastingSpellProgress, true, &castPlayer, &player.CastingSpellPage, func (spell spellbook.Spell, picked bool){
         if picked {
             if spell.Name == "Create Artifact" || spell.Name == "Enchant Item" {
 

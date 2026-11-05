@@ -1,4 +1,4 @@
-package spellbook
+package spellbookview
 
 import (
     "fmt"
@@ -14,6 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/core/data"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
@@ -26,7 +27,7 @@ import (
 
 type Page struct {
     Title string
-    Spells Spells
+    Spells spellbook.Spells
     // true if this page should render a title even if the spells are empty
     ForceRender bool
     // true if the text for the spell should always use normal font rather than alien
@@ -46,17 +47,17 @@ func magicToOrder(magic data.MagicType) int {
     return -1
 }
 
-func computeHalfPages(spells Spells, max int) []Page {
+func computeHalfPages(spells spellbook.Spells, max int) []Page {
     var halfPages []Page
 
-    sections := []Section{SectionSummoning, SectionSpecial, SectionCitySpell, SectionEnchantment, SectionUnitSpell, SectionCombatSpell}
+    sections := []spellbook.Section{spellbook.SectionSummoning, spellbook.SectionSpecial, spellbook.SectionCitySpell, spellbook.SectionEnchantment, spellbook.SectionUnitSpell, spellbook.SectionCombatSpell}
 
     for _, section := range sections {
         sectionSpells := spells.GetSpellsBySection(section)
         numSpells := len(sectionSpells.Spells)
 
         for i := 0; i < int(math.Ceil(float64(numSpells) / float64(max))); i++ {
-            var pageSpells Spells
+            var pageSpells spellbook.Spells
 
             for j := 0; j < max; j++ {
                 index := i * max + j
@@ -237,7 +238,7 @@ func RightSideFlipRightDistortions1(page *ebiten.Image) util.Distortion {
  *
  * This function does all 3, which makes it kind of ugly and has too many parameters.
  */
-func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells Spells, knownSpells Spells, researchSpells Spells, researchingSpell Spell, researchProgress int, researchPoints float64, castingSkill int, learnedSpell Spell, pickResearchSpell bool, chosenSpell *Spell, caster SpellCaster, drawFunc *func(screen *ebiten.Image)) {
+func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells spellbook.Spells, knownSpells spellbook.Spells, researchSpells spellbook.Spells, researchingSpell spellbook.Spell, researchProgress int, researchPoints float64, castingSkill int, learnedSpell spellbook.Spell, pickResearchSpell bool, chosenSpell *spellbook.Spell, caster spellbook.SpellCaster, drawFunc *func(screen *ebiten.Image)) {
     ui := &uilib.UI{
         Draw: func(ui *uilib.UI, screen *ebiten.Image){
             ui.StandardDraw(screen)
@@ -255,14 +256,14 @@ func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells Spe
     fadeSpeed := uint64(7)
 
     /*
-    spells, err := ReadSpellsFromCache(cache)
+    spells, err := spellbook.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         return
     }
     */
 
-    spellDescriptions, err := ReadSpellDescriptionsFromCache(cache)
+    spellDescriptions, err := spellbook.ReadSpellDescriptionsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spell descriptions: %v", err)
         return
@@ -388,11 +389,11 @@ func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells Spe
         return wrapped
     }
 
-    knownSpell := func(spell Spell) bool {
+    knownSpell := func(spell spellbook.Spell) bool {
         return knownSpells.Contains(spell)
     }
 
-    slices.SortFunc(allSpells.Spells, func(a, b Spell) int {
+    slices.SortFunc(allSpells.Spells, func(a, b spellbook.Spell) int {
         if a.Magic != b.Magic {
             return cmp.Compare(magicToOrder(a.Magic), magicToOrder(b.Magic))
         }
@@ -409,7 +410,7 @@ func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells Spe
     }
 
     // sort research spells by turns to research
-    slices.SortFunc(researchSpells.Spells, func(a, b Spell) int {
+    slices.SortFunc(researchSpells.Spells, func(a, b spellbook.Spell) int {
         turnsA := a.ResearchCost / caster.ComputeEffectiveResearchPerTurn(researchPoints, a)
         turnsB := b.ResearchCost / caster.ComputeEffectiveResearchPerTurn(researchPoints, b)
 
@@ -602,7 +603,7 @@ func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells Spe
     flipLeftSide := 0
     flipRightSide := 1
 
-    openPage := func (isOk func(Page, Spell) bool){
+    openPage := func (isOk func(Page, spellbook.Spell) bool){
         currentPage := 0
         found := false
 
@@ -625,18 +626,18 @@ func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells Spe
         }
     }
 
-    openPage(func (page Page, spell Spell) bool {
+    openPage(func (page Page, spell spellbook.Spell) bool {
         return page.IsResearch
     })
 
     if researchingSpell.Valid() {
-        openPage(func (page Page, findSpell Spell) bool {
+        openPage(func (page Page, findSpell spellbook.Spell) bool {
             return page.IsResearch && findSpell.Name == researchingSpell.Name
         })
     }
 
     if learnedSpell.Valid() {
-        openPage(func (page Page, findSpell Spell) bool {
+        openPage(func (page Page, findSpell spellbook.Spell) bool {
             return !page.IsResearch && findSpell.Name == learnedSpell.Name
         })
     }
@@ -720,7 +721,7 @@ func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells Spe
         RightClick: func(element *uilib.UIElement){
             // FIXME: when not in research mode, this should still allow the user to right click on a known spell to
             // view its help entry
-            var spell *Spell
+            var spell *spellbook.Spell
             if researchSpellIndex >= 0 && researchSpellIndex < len(researchPage1.Spells.Spells) {
                 spell = &researchPage1.Spells.Spells[researchSpellIndex]
             } else {
@@ -1147,7 +1148,7 @@ func makeAdditionalPowerElements(cache *lbx.LbxCache, imageCache *util.ImageCach
 // selected a spell or because they canceled the ui
 // if a spell is chosen then it will be passed in as the first argument to the callback along with true
 // if the ui is cancelled then the second argument will be false
-func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charges map[Spell]int, castingSkill int, currentSpell Spell, currentProgress int, overland bool, caster SpellCaster, currentPage *int, chosenCallback func(Spell, bool)) []*uilib.UIElement {
+func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells spellbook.Spells, charges map[spellbook.Spell]int, castingSkill int, currentSpell spellbook.Spell, currentProgress int, overland bool, caster spellbook.SpellCaster, currentPage *int, chosenCallback func(spellbook.Spell, bool)) []*uilib.UIElement {
     var elements []*uilib.UIElement
 
     imageCache := util.MakeImageCache(cache)
@@ -1164,7 +1165,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
         black, black, black,
     }
 
-    getMagicIcon := func(spell Spell) *ebiten.Image {
+    getMagicIcon := func(spell spellbook.Spell) *ebiten.Image {
         index := -1
         switch spell.Magic {
             case data.LifeMagic: index = 7
@@ -1233,7 +1234,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
     group := uilib.MakeGroup()
     ui.AddGroup(group)
 
-    slices.SortFunc(spells.Spells, func(a, b Spell) int {
+    slices.SortFunc(spells.Spells, func(a, b spellbook.Spell) int {
         // HACK: when casting Create Artifact, the override spell cost is stored in the currentSpell
         // so we just replace the spell being compared with the currentSpell to get the correct cost
         if a.Name == currentSpell.Name {
@@ -1272,7 +1273,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
         }
 
         if filter.Size() > 0 {
-            var out Spells
+            var out spellbook.Spells
 
             for _, magic := range filter.Values() {
                 out.AddAllSpells(useSpells.GetSpellsByMagic(magic))
@@ -1282,7 +1283,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
         }
     }
 
-    canCast := func (spell Spell) bool {
+    canCast := func (spell spellbook.Spell) bool {
         // in combat a spell is castable if the caster (a hero) has charges available for that spell,
         // or if the caster has the spell in their spellbook and the casting skill is high enough
         if !overland {
@@ -1305,7 +1306,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
 
     spellPages := computeHalfPages(useSpells, 6)
 
-    renderPage := func(screen *ebiten.Image, options ebiten.DrawImageOptions, page Page, highlightedSpell Spell){
+    renderPage := func(screen *ebiten.Image, options ebiten.DrawImageOptions, page Page, highlightedSpell spellbook.Spell){
         // section := spells.Spells[0].Section
 
         titleX, titleY := options.GeoM.Apply(float64(60), float64(1))
@@ -1462,7 +1463,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
 
         if page < len(spellPages) {
             var options ebiten.DrawImageOptions
-            renderPage(out, options, spellPages[page], Spell{})
+            renderPage(out, options, spellPages[page], spellbook.Spell{})
             // out.Fill(color.RGBA{R: 255, G: 0, B: 0, A: 255})
 
             /*
@@ -1481,10 +1482,10 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
     }
 
     // the spell the user is mousing over
-    var highlightedSpell Spell
+    var highlightedSpell spellbook.Spell
 
     // invoke to shut down the ui and return a result
-    var shutdown func(Spell, bool)
+    var shutdown func(spellbook.Spell, bool)
 
     var spellButtons []*uilib.UIElement
     setupSpells := func(page int) {
@@ -1495,7 +1496,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
             return
         }
 
-        makeSpell := func(rect image.Rectangle, spell Spell) *uilib.UIElement {
+        makeSpell := func(rect image.Rectangle, spell spellbook.Spell) *uilib.UIElement {
 
             turnsRemaining := 0
             if overland {
@@ -1514,7 +1515,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
                 },
                 NotInside: func(this *uilib.UIElement){
                     if highlightedSpell.Name == spell.Name {
-                        highlightedSpell = Spell{}
+                        highlightedSpell = spellbook.Spell{}
                     }
                 },
                 Tooltip: func (element *uilib.UIElement) (string, *font.Font) {
@@ -1535,7 +1536,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
                             // if the user clicked on the same spell being cast then select an invalid spell, which
                             // is the same thing as not casting any spell
                             if spell.Name == currentSpell.Name {
-                                shutdown(Spell{}, true)
+                                shutdown(spellbook.Spell{}, true)
                             } else {
                                 shutdown(spell, true)
                             }
@@ -1626,7 +1627,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
     _ = pageSideLeft
     _ = pageSideRight
 
-    shutdown = func(spell Spell, picked bool){
+    shutdown = func(spell spellbook.Spell, picked bool){
         // FIXME: for some spells a confirmation dialog box will ask if you really want to cast the spell
         // since there may not be any valid targets for the spell. Disjunction/Disjunction True are like that
         // when there are no global enchantments
@@ -1707,11 +1708,11 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
 
             if flipping {
                 options.GeoM.Translate(15, 5)
-                renderPage(screen, options, spellPages[showPageLeft], Spell{})
+                renderPage(screen, options, spellPages[showPageLeft], spellbook.Spell{})
 
                 if showPageRight < len(spellPages) {
                     options.GeoM.Translate(134, 0)
-                    renderPage(screen, options, spellPages[showPageRight], Spell{})
+                    renderPage(screen, options, spellPages[showPageRight], spellbook.Spell{})
                 }
 
                 if bookFlipIndex > 0 && (ui.Counter - bookFlipIndex) / bookFlipSpeed < uint64(len(bookFlip)) {
@@ -1768,7 +1769,7 @@ func MakeSpellBookCastUI(ui *uilib.UI, cache *lbx.LbxCache, spells Spells, charg
         Rect: cancelRect,
         Layer: 1,
         LeftClick: func(this *uilib.UIElement){
-            shutdown(Spell{}, false)
+            shutdown(spellbook.Spell{}, false)
         },
         Draw: func(element *uilib.UIElement, screen *ebiten.Image){
             // vector.StrokeRect(screen, float32(cancelRect.Min.X), float32(cancelRect.Min.Y), float32(cancelRect.Dx()), float32(cancelRect.Dy()), 1, color.RGBA{R: 255, G: 255, B: 255, A: 255}, false)
