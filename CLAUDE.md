@@ -69,7 +69,8 @@ make wasm                           # GOOS=js GOARCH=wasm build
 ## Workflow
 
 - Branch per change, squash-merge into `master`, keep branches short-lived.
-- Large refactors: do mechanical moves in their own commits (move only, no logic changes),
-  and make sure `go build ./... && go test ./lib/... ./game/...` passes after each.
+- Large refactors: do mechanical moves in their own commits (move only, no logic changes;
+  helpers in `scripts/refactor/`),
+  and make sure `go build ./... && go test ./core/... ./lib/... ./game/...` passes after each.
 - Upstream (kazzmir) will diverge quickly once folders move; cherry-pick fixes if needed, don't merge.
 - Write a new `docs/handoff/NNN-*.md` at the end of a work session: what changed, what's next, open questions.
