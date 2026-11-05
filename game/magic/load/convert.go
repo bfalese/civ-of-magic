@@ -27,7 +27,6 @@ import (
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
 
-    "github.com/hajimehoshi/ebiten/v2"
 )
 
 func fromRaceValue(raceValue int) data.Race {
@@ -89,7 +88,6 @@ func (saveGame *SaveGame) ConvertMap(terrainData *terrain.TerrainData, plane dat
         Data: terrainData,
         Map: terrain.MakeMap(WorldHeight, WorldWidth),
         Plane: plane,
-        TileCache: make(map[int]*ebiten.Image),
         ExtraMap: make(map[image.Point]map[maplib.ExtraKind]maplib.ExtraTile),
         CityProvider: cityProvider,
     }

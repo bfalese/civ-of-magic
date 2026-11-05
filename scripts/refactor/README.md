@@ -14,7 +14,8 @@ They don't fix imports; let the compiler tell you, then run `prune-imports.sh`.
 
 Known limits of the qualifier rewrite (regex, not a Go parser):
 - Leaves strings and `//` comments alone, but not `/* */` blocks.
-- Skips struct-literal keys (`Name: x`) and struct field names (`Spells Spells`), which can
-  misfire on unusual formatting. The compiler catches what's left.
+- Skips struct-literal keys (`Name: x`) and struct field names (`Spells Spells`). Map-literal
+  keys look the same (`DirectionNorth: 1`) and are skipped too; the compiler reports them as
+  undefined, and you qualify them by hand.
 - If the code uses the package name as a variable (`artifact := ...`), import the package with
   an alias such as `artifactlib`.

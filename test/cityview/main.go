@@ -10,6 +10,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/set"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
@@ -114,7 +115,6 @@ func NewEngine() (*Engine, error) {
     gameMap := maplib.Map{
         Data: terrainData,
         Map: terrain.GenerateLandCellularAutomata(20, 20, terrainData, data.PlaneArcanus),
-        TileCache: make(map[int]*ebiten.Image),
         CityProvider: &NoMaplibCityProvider{},
     }
 
@@ -251,7 +251,7 @@ func (engine *Engine) Draw(screen *ebiten.Image) {
     engine.CityScreen.Draw(screen, func (where *ebiten.Image, geom ebiten.GeoM, counter uint64) {
         overworld := game.Overworld{
             Camera: camera.MakeCameraAt(cameraX, cameraY),
-            Map: engine.Map,
+            Map: mapview.Renderer{Map: engine.Map},
             Cities: []*citylib.City{engine.CityScreen.City},
             Stacks: []*playerlib.UnitStack{},
             SelectedStack: nil,

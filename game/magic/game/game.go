@@ -18,6 +18,8 @@ import (
     "bufio"
     "compress/gzip"
 
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
+
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/keybinds"
@@ -662,8 +664,8 @@ func (game *Game) Shutdown() {
 func (game *Game) UpdateImages() {
     game.ImageCache = util.MakeImageCache(game.Cache)
     game.Fog = nil
-    game.Model.ArcanusMap.ResetCache()
-    game.Model.MyrrorMap.ResetCache()
+    mapview.ResetCache(game.Model.ArcanusMap)
+    mapview.ResetCache(game.Model.MyrrorMap)
 
     mouseData, err := mouselib.MakeMouseData(game.Cache, &game.ImageCache)
     if err != nil {
@@ -919,7 +921,7 @@ func (game *Game) doCityListView(yield coroutine.YieldFunc) {
         if plane == data.PlaneMyrror {
             use = myrrorCities
         }
-        game.GetMap(plane).DrawMinimap(screen, use, x, y, 1, player.GetFog(plane), counter, false)
+        mapview.DrawMinimap(game.GetMap(plane), screen, use, x, y, 1, player.GetFog(plane), counter, false)
     }
 
     quit := false
@@ -971,7 +973,7 @@ func (game *Game) doArmyView(yield coroutine.YieldFunc) {
     }
 
     drawMinimap := func (screen *ebiten.Image, x int, y int, fog data.FogMap, plane data.Plane, counter uint64){
-        game.GetMap(plane).DrawMinimap(screen, citiesMiniMap, x, y, 1, fog, counter, false)
+        mapview.DrawMinimap(game.GetMap(plane), screen, citiesMiniMap, x, y, 1, fog, counter, false)
     }
 
     showVault := func(){
@@ -4414,7 +4416,7 @@ func (game *Game) doCityScreen(yield coroutine.YieldFunc, city *citylib.City, pl
     overworld := Overworld{
         Camera: camera.MakeCameraAt(city.X, city.Y).UpdateSize(4, 4),
         Counter: 0,
-        Map: mapUse,
+        Map: mapview.Renderer{Map: mapUse},
         Cities: cities,
         Stacks: stacks,
         SelectedStack: nil,
@@ -8552,7 +8554,7 @@ func (game *Game) DrawGame(screen *ebiten.Image){
     overworld := Overworld{
         Camera: game.Camera,
         Counter: useCounter,
-        Map: game.Model.CurrentMap(),
+        Map: mapview.Renderer{Map: game.Model.CurrentMap()},
         Cities: cities,
         CitiesMiniMap: citiesMiniMap,
         Stacks: stacks,

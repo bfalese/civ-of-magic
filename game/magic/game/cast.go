@@ -14,6 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
@@ -1930,7 +1931,7 @@ func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellb
         return Overworld{
             Camera: game.Camera,
             Counter: game.Counter,
-            Map: game.Model.CurrentMap(),
+            Map: mapview.Renderer{Map: game.Model.CurrentMap()},
             Cities: cities,
             CitiesMiniMap: citiesMiniMap,
             Stacks: stacks,

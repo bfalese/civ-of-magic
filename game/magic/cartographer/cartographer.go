@@ -12,6 +12,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/functional"
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
@@ -132,7 +133,7 @@ func MakeCartographer(cache *lbx.LbxCache, cities []*citylib.City, stacks []*pla
         return color.RGBA{}
     }
 
-    tileImage0, _ := arcanusMap.GetTileImage(0, 0, 0)
+    tileImage0, _ := mapview.GetTileImage(arcanusMap, 0, 0, 0)
 
     renderMap := func (plane data.Plane) *ebiten.Image {
         showMap := ebiten.NewImage(20*11, 18*9)
@@ -161,7 +162,7 @@ func MakeCartographer(cache *lbx.LbxCache, cities []*citylib.City, stacks []*pla
         for x := range useFog {
             for y := range useFog[x] {
                 if useFog[x][y] != data.FogTypeUnexplored {
-                    tileImage, err := useMap.GetTileImage(x, y, 0)
+                    tileImage, err := mapview.GetTileImage(useMap, x, y, 0)
                     if err == nil {
                         options.GeoM.Reset()
                         options.GeoM.Translate(float64(x*tileImage.Bounds().Dx()), float64(y*tileImage.Bounds().Dy()))

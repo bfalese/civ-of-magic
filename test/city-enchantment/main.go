@@ -93,7 +93,6 @@ func (engine *Engine) MakeUI() (*uilib.UI, context.Context, error) {
     gameMap := maplib.Map{
         Data: terrainData,
         Map: terrain.GenerateLandCellularAutomata(20, 20, terrainData, data.PlaneArcanus),
-        TileCache: make(map[int]*ebiten.Image),
     }
 
     player := &playerlib.Player{

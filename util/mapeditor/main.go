@@ -59,7 +59,6 @@ func makeEmptyMap(terrainData *terrain.TerrainData, height int, width int, plane
         Data: terrainData,
         Map: terrain.MakeMap(height, width),
         Plane: plane,
-        TileCache: make(map[int]*ebiten.Image),
         ExtraMap: make(map[image.Point]map[maplib.ExtraKind]maplib.ExtraTile),
         CityProvider: nil,
     }

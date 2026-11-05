@@ -3,9 +3,9 @@
 # Deletes bottom-up within each file so line numbers stay valid.
 # usage: scripts/refactor/prune-imports.sh   (from the repo root)
 
-for pass in 1 2 3 4 5; do
+for pass in $(seq 1 20); do
     errors=$(go build ./... 2>&1 \
-        | grep -E '^[^ ]+\.go:[0-9]+:[0-9]+: ".*" imported and not used$' \
+        | grep -E '^[^ ]+\.go:[0-9]+:[0-9]+: ".*" imported (as [a-zA-Z_][a-zA-Z0-9_]* )?and not used$' \
         | sort -u -t: -k1,1 -k2,2nr)
     [ -z "$errors" ] && exit 0
     echo "$errors"
@@ -14,5 +14,5 @@ for pass in 1 2 3 4 5; do
         sed -i "${line}{/^[[:space:]]*\([a-zA-Z_][a-zA-Z0-9_]* \)\?\"/d}" "$file"
     done
 done
-echo "still failing after 5 passes" >&2
+echo "still failing after 20 passes" >&2
 exit 1

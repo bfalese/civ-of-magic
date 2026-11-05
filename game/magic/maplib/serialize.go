@@ -10,7 +10,6 @@ import (
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/core/data"
 
-    "github.com/hajimehoshi/ebiten/v2"
 )
 
 type ExtraMapData struct {
@@ -285,7 +284,6 @@ func ReconstructMap(mapData SerializedMap, terrainData *terrain.TerrainData, cit
         Map: &terrain.Map{
             Terrain: mapData.Map,
         },
-        TileCache: make(map[int]*ebiten.Image),
         Data: terrainData,
         CityProvider: cityProvider,
         ExtraMap: extras,

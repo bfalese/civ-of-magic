@@ -11,6 +11,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/functional"
     // "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
     "github.com/bfalese/civ-of-magic/core/data"
@@ -22,7 +23,6 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"
@@ -71,7 +71,7 @@ func (game *Game) ComputeRoadTime(path []image.Point, stack *playerlib.UnitStack
 }
 
 type RoadMap struct {
-    *maplib.Map
+    mapview.Renderer
 
     CurrentRoad pathfinding.Path
     // the value is an index into CurrentRoad of which path element this is
@@ -89,11 +89,11 @@ func (roadMap *RoadMap) UpdateRoad(path pathfinding.Path) {
 }
 
 func (roadMap *RoadMap) DrawLayer2(camera_ camera.Camera, animationCounter uint64, imageCache *util.ImageCache, screen *ebiten.Image, geom ebiten.GeoM) {
-    roadMap.DrawLayer2Internal(camera_, animationCounter, imageCache, screen, geom, roadMap)
+    mapview.DrawLayer2Internal(roadMap.Map, camera_, animationCounter, imageCache, screen, geom, roadMap)
 }
 
 func (roadMap *RoadMap) DrawTileLayer2(screen *ebiten.Image, imageCache *util.ImageCache, getOptions func() *ebiten.DrawImageOptions, animationCounter uint64, tileX int, tileY int){
-    roadMap.Map.DrawTileLayer2(screen, imageCache, getOptions, animationCounter, tileX, tileY)
+    mapview.DrawTileLayer2(roadMap.Map, screen, imageCache, getOptions, animationCounter, tileX, tileY)
 
     index, ok := roadMap.Road[image.Pt(tileX, tileY)]
     if !ok {
@@ -264,7 +264,7 @@ func (game *Game) ShowRoadBuilder(yield coroutine.YieldFunc, engineerStack *play
     var cityMap map[image.Point]*citylib.City
 
     roadMap := RoadMap{
-        Map: game.Model.CurrentMap(),
+        Renderer: mapview.Renderer{Map: game.Model.CurrentMap()},
     }
 
     makeOverworld := func () Overworld {
