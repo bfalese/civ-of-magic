@@ -13,7 +13,7 @@ import (
     "math"
 
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     "github.com/bfalese/civ-of-magic/game/magic/maplib"

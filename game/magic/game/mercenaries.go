@@ -6,7 +6,7 @@ import (
 
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/scale"

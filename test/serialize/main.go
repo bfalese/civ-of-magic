@@ -18,7 +18,7 @@ import (
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/hero"
     "github.com/bfalese/civ-of-magic/game/magic/settings"
     "github.com/bfalese/civ-of-magic/game/magic/setup"

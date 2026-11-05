@@ -6,7 +6,7 @@ import (
 
 	"github.com/bfalese/civ-of-magic/game/arena/player"
 	"github.com/bfalese/civ-of-magic/core/data"
-	"github.com/bfalese/civ-of-magic/game/magic/units"
+	"github.com/bfalese/civ-of-magic/core/units"
 )
 
 func TestCloneCost(t *testing.T) {

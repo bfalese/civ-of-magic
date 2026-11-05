@@ -12,7 +12,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/lib/functional"

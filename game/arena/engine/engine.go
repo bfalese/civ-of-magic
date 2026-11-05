@@ -15,7 +15,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/optional"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"

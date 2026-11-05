@@ -14,7 +14,7 @@ import (
 	"github.com/bfalese/civ-of-magic/game/magic/player"
 	"github.com/bfalese/civ-of-magic/game/magic/setup"
 	"github.com/bfalese/civ-of-magic/core/spellbook"
-	"github.com/bfalese/civ-of-magic/game/magic/units"
+	"github.com/bfalese/civ-of-magic/core/units"
 	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 	"github.com/bfalese/civ-of-magic/lib/lbx"
 	netlib "github.com/bfalese/civ-of-magic/lib/net"

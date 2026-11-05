@@ -7,7 +7,7 @@ import (
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/core/spellbook"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/core/data"
 )
 
