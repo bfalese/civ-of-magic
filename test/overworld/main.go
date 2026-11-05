@@ -414,7 +414,7 @@ func createScenario4(cache *lbx.LbxCache) *gamelib.Game {
 
     introCity.Buildings.Insert(buildinglib.BuildingSmithy)
 
-    game.Events <- &gamelib.GameEventNewBuilding{
+    game.Events <- &gamecore.GameEventNewBuilding{
         City: introCity,
         Player: player,
         // Building: buildinglib.BuildingSmithy,
@@ -1389,7 +1389,7 @@ func createScenario14(cache *lbx.LbxCache) *gamelib.Game {
     player.LiftFog(x, y, 4, data.PlaneArcanus)
     game.Camera.Center(x, y)
 
-    game.Events <- &gamelib.GameEventLearnedSpell{
+    game.Events <- &gamecore.GameEventLearnedSpell{
         Player: player,
         // Spell: allSpells.FindByName("Earth Lore"),
         Spell: allSpells.FindByName("Magic Spirit"),

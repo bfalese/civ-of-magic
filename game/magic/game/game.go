@@ -171,15 +171,6 @@ type GameEventSelectLocationForSpell struct {
     SelectedFunc func (yield coroutine.YieldFunc, tileX int, tileY int)
 }
 
-type GameEventLearnedSpell struct {
-    Player *playerlib.Player
-    Spell spellbook.Spell
-}
-
-type GameEventResearchSpell struct {
-    Player *playerlib.Player
-}
-
 type GameEventCastGlobalEnchantment struct {
     Player *playerlib.Player
     Enchantment data.Enchantment
@@ -213,12 +204,6 @@ type GameEventSummonHero struct {
 type GameEventShowBanish struct {
     Attacker *playerlib.Player
     Defender *playerlib.Player
-}
-
-type GameEventNewBuilding struct {
-    City *citylib.City
-    Building buildinglib.Building
-    Player *playerlib.Player
 }
 
 type GameEventCityName struct {
@@ -2217,11 +2202,11 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         if !scroll.Old {
                             game.Model.ScrollEvents = append(game.Model.ScrollEvents, scroll)
                         }
-                    case *GameEventLearnedSpell:
-                        learnedSpell := event.(*GameEventLearnedSpell)
+                    case *gamecore.GameEventLearnedSpell:
+                        learnedSpell := event.(*gamecore.GameEventLearnedSpell)
                         game.doLearnSpell(yield, learnedSpell.Player, learnedSpell.Spell)
-                    case *GameEventResearchSpell:
-                        researchSpell := event.(*GameEventResearchSpell)
+                    case *gamecore.GameEventResearchSpell:
+                        researchSpell := event.(*gamecore.GameEventResearchSpell)
                         game.ResearchNewSpell(yield, researchSpell.Player)
                     case *GameEventInvokeRoutine:
                         invokeRoutine := event.(*GameEventInvokeRoutine)
@@ -2260,8 +2245,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         game.ApplyTreasure(yield, treasure.Player, treasure.Treasure)
                         yield()
 
-                    case *GameEventNewBuilding:
-                        buildingEvent := event.(*GameEventNewBuilding)
+                    case *gamecore.GameEventNewBuilding:
+                        buildingEvent := event.(*gamecore.GameEventNewBuilding)
                         game.Camera.Center(buildingEvent.City.X, buildingEvent.City.Y)
                         game.Music.PushSong(musiclib.SongBuildingFinished)
                         game.showNewBuilding(yield, buildingEvent.City, buildingEvent.Building, buildingEvent.Player)
@@ -6204,257 +6189,9 @@ func (game *Game) DissipateEnchantments(player *playerlib.Player, power int) {
 
 
 func (game *Game) StartPlayerTurn(player *playerlib.Player) {
-    if player.IsHuman() {
-        game.Model.ScrollEvents = nil
-    }
-
-    if player.Skip {
+    if !game.Model.StartPlayerTurn(player, game.doCastSpell) {
         return
     }
-
-    player.MovedStacksThisTurn = 0
-    player.SuppressAutoNextTurn = false
-
-    disbandedMessages := game.DisbandUnits(player)
-
-    if player.IsHuman() && len(disbandedMessages) > 0 {
-        select {
-            case game.Events<- &gamecore.GameEventScroll{Title: "", Text: strings.Join(disbandedMessages, "\n")}:
-            default:
-        }
-    }
-
-    power := game.Model.ComputePower(player)
-
-    game.DissipateEnchantments(player, power)
-
-    // timestop may have dissipated by now
-    timeStop := player.HasEnchantment(data.EnchantmentTimeStop)
-
-    player.Gold += player.GoldPerTurn()
-    if player.Gold < 0 {
-        player.Gold = 0
-    }
-
-    player.Mana += player.ManaPerTurn(power, game.Model)
-
-    if timeStop {
-        player.Mana -= data.EnchantmentTimeStop.UpkeepMana()
-    }
-
-    player.Mana = max(0, player.Mana)
-
-    if !player.CastingSpell.Invalid() {
-        // mana spent on the skill is the minimum of {player's mana, casting skill, remaining cost for spell}
-        manaSpent := player.Mana
-        if manaSpent > player.RemainingCastingSkill {
-            manaSpent = player.RemainingCastingSkill
-        }
-
-        spellCost := player.ComputeEffectiveSpellCost(player.CastingSpell, true)
-
-        remainingMana := spellCost - player.CastingSpellProgress
-        if remainingMana < manaSpent {
-            manaSpent = remainingMana
-        }
-
-        player.IncreaseCastingSkillProgress(manaSpent)
-
-        if spellCost <= player.CastingSpellProgress {
-            game.doCastSpell(player, player.CastingSpell)
-            player.CastingSpell = spellbook.Spell{}
-            player.CastingSpellProgress = 0
-        }
-    }
-
-    if player.ResearchingSpell.Valid() {
-        if !timeStop {
-            // log.Printf("wizard %v power=%v researching=%v progress=%v/%v perturn=%v", player.Wizard.Name, power, player.ResearchingSpell.Name, player.ResearchProgress, player.ResearchingSpell.ResearchCost, player.SpellResearchPerTurn(power))
-            player.ResearchProgress += player.ComputeEffectiveResearchPerTurn(player.SpellResearchPerTurn(power), player.ResearchingSpell)
-            if player.ResearchProgress >= player.ResearchingSpell.ResearchCost {
-
-                if player.IsHuman() {
-                    select {
-                        case game.Events<- &GameEventLearnedSpell{Player: player, Spell: player.ResearchingSpell}:
-                        default:
-                    }
-                }
-
-                log.Printf("wizard %v learned %v", player.Wizard.Name, player.ResearchingSpell.Name)
-
-                player.LearnSpell(player.ResearchingSpell)
-
-                if player.IsHuman() {
-                    select {
-                        case game.Events<- &GameEventResearchSpell{Player: player}:
-                        default:
-                    }
-                }
-            }
-        }
-    } else if game.Model.TurnNumber > 0 {
-
-        if player.IsHuman() {
-            select {
-                case game.Events<- &GameEventResearchSpell{Player: player}:
-                default:
-            }
-        }
-    }
-
-    player.CastingSkillPower += player.CastingSkillPerTurn(power)
-
-    // reset casting skill for this turn
-    player.RemainingCastingSkill = player.ComputeOverworldCastingSkill()
-
-    var removeCities []*citylib.City
-
-    if !timeStop {
-        for _, city := range player.Cities {
-            cityEvents := city.DoNextTurn(game.GetMap(city.Plane))
-            for _, event := range cityEvents {
-                switch event.(type) {
-                case *citylib.CityEventPopulationGrowth:
-                    if player.IsHuman() {
-                        growthEvent := event.(*citylib.CityEventPopulationGrowth)
-
-                        verb := "grown"
-                        if !growthEvent.Grow {
-                            verb = "shrunk"
-                        }
-
-                        scrollEvent := gamecore.GameEventScroll{
-                            Title: "CITY GROWTH",
-                            Text: fmt.Sprintf("%v has %v to a population of %v.", city.Name, verb, city.Citizens()),
-                        }
-
-                        select {
-                            case game.Events<- &scrollEvent:
-                            default:
-                        }
-                    }
-                case *citylib.CityEventCityAbandoned:
-                    removeCities = append(removeCities, city)
-                    if player.IsHuman() {
-                        select {
-                            case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The city of %v has been abandoned.", city.Name)}:
-                            default:
-                        }
-                    }
-                case *citylib.CityEventNewBuilding:
-                    newBuilding := event.(*citylib.CityEventNewBuilding)
-
-                    if player.IsHuman() {
-                        select {
-                            case game.Events<- &GameEventNewBuilding{City: city, Building: newBuilding.Building, Player: player}:
-                            default:
-                        }
-                    } else {
-                        log.Printf("Year=%v AI %v(%v) city %v created %v", game.Model.TurnNumber, player.Wizard.Name, player.GetBanner(), city.Name, game.Model.BuildingInfo.Name(newBuilding.Building))
-                    }
-                case *citylib.CityEventOutpostDestroyed:
-                    removeCities = append(removeCities, city)
-                    if player.IsHuman() {
-                        select {
-                            case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The outpost of %v has been deserted.", city.Name)}:
-                            default:
-                        }
-                    }
-                case *citylib.CityEventOutpostHamlet:
-                    if player.IsHuman() {
-                        select {
-                            case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The outpost of %v has grown into a hamlet.", city.Name)}:
-                            default:
-                        }
-                    }
-                case *citylib.CityEventNewUnit:
-                    newUnit := event.(*citylib.CityEventNewUnit)
-                    overworldUnit := units.MakeOverworldUnitFromUnit(newUnit.Unit, city.X, city.Y, city.Plane, city.GetBanner(), player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
-                    // only normal units get weapon bonuses
-                    if overworldUnit.GetRace() != data.RaceFantastic {
-                        overworldUnit.SetWeaponBonus(newUnit.WeaponBonus)
-                    }
-
-                    // automatically apply chaos channels to new normal units
-                    // checking the race is probably redundant because a new unit built by the city will never be a hero nor fantastic
-                    if overworldUnit.GetRace() != data.RaceHero && overworldUnit.GetRace() != data.RaceFantastic && player.HasEnchantment(data.EnchantmentDoomMastery) {
-                        game.Model.ApplyChaosChannels(overworldUnit)
-                    }
-
-                    overworldUnit.AddExperience(newUnit.Experience)
-                    player.CreateUnit(overworldUnit)
-                    game.Model.ResolveStackAt(city.X, city.Y, city.Plane)
-
-                    if player.AIBehavior != nil {
-                        player.AIBehavior.ProducedUnit(city, player)
-                        log.Printf("Year=%v AI %v(%v) city %v created unit %v", game.Model.TurnNumber, player.Wizard.Name, player.GetBanner(), city.Name, overworldUnit.GetName())
-                    }
-                }
-            }
-        }
-    }
-
-    game.Model.DoBuildRoads(player)
-    game.Model.DoPurify(player)
-
-    for _, stack := range player.Stacks {
-
-        // every unit gains 1 experience at each turn
-        unitExperience := game.GetExperienceBonus(stack)
-        for _, unit := range stack.Units() {
-            switch unit.GetRace() {
-                case data.RaceHero: game.AddExperience(player, unit, 1)
-                case data.RaceFantastic: // nothing
-                default:
-                    game.AddExperience(player, unit, unitExperience)
-            }
-        }
-
-        // base healing rate is 5%. in a town is 10%, with animists guild is 16.67%
-        rate := 0.05
-
-        city := player.FindCity(stack.X(), stack.Y(), stack.Plane())
-
-        if city != nil {
-            rate = 0.1
-            if city.Buildings.Contains(buildinglib.BuildingAnimistsGuild) {
-                rate = 0.1667
-            }
-
-            if city.HasEnchantment(data.CityEnchantmentStreamOfLife) {
-                rate = 1
-            }
-        }
-
-        // any healer in the same stack provides an additional 20% healing rate
-        for _, unit := range stack.Units() {
-            if unit.HasAbility(data.AbilityHealer) {
-                rate += 0.2
-                break
-            }
-        }
-
-        // heal all the way up
-        if player.HasEnchantment(data.EnchantmentHerbMastery) {
-            rate = 1
-        }
-
-        gamecore.HandleStasis(stack)
-
-        stack.NaturalHeal(rate)
-        stack.ResetMoves()
-        stack.EnableMovers()
-    }
-
-    for _, city := range removeCities {
-        player.RemoveCity(city)
-    }
-
-    game.Model.MaybeHireHero(player)
-    game.Model.MaybeHireMercenaries(player)
-    game.Model.MaybeBuyFromMerchant(player)
-
-    player.UpdateFogVisibility()
 
     if player.GlobalEnchantments.Contains(data.EnchantmentAwareness) {
         game.doExploreFogForAwareness(player)

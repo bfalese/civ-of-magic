@@ -1,6 +1,9 @@
 package game
 
 import (
+    "github.com/bfalese/civ-of-magic/core/spellbook"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/core/artifact"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
@@ -60,4 +63,19 @@ type GameEventHireHero struct {
 
 type GameEventHeroLevelUp struct {
     Hero *herolib.Hero
+}
+
+type GameEventLearnedSpell struct {
+    Player *playerlib.Player
+    Spell spellbook.Spell
+}
+
+type GameEventResearchSpell struct {
+    Player *playerlib.Player
+}
+
+type GameEventNewBuilding struct {
+    City *citylib.City
+    Building buildinglib.Building
+    Player *playerlib.Player
 }
