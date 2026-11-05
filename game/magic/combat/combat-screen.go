@@ -61,43 +61,6 @@ const (
 
 /* compute the distance between two tiles by moving in one of the 8 directions
  */
-func computeTileDistance(x1 int, y1 int, x2 int, y2 int) int {
-    distance := 0
-
-    for x1 != x2 || y1 != y2 {
-        xDiff := int(math.Abs(float64(x1 - x2)))
-        yDiff := int(math.Abs(float64(y1 - y2)))
-        if xDiff > 0 && yDiff > 0 {
-            distance += 1
-            if x1 < x2 {
-                x1 += 1
-            } else {
-                x1 -= 1
-            }
-            if y1 < y2 {
-                y1 += 1
-            } else {
-                y1 -= 1
-            }
-        } else if xDiff > 0 && yDiff == 0 {
-            distance += 1
-            if x1 < x2 {
-                x1 += 1
-            } else {
-                x1 -= 1
-            }
-        } else if yDiff > 0 && xDiff == 0 {
-            distance += 1
-            if y1 < y2 {
-                y1 += 1
-            } else {
-                y1 -= 1
-            }
-        }
-    }
-
-    return distance
-}
 
 type DamageIndicator struct {
     X int
@@ -434,12 +397,6 @@ const (
     UnitPositionUnder
 )
 
-type Targeting int
-const (
-    TargetFriend Targeting = iota
-    TargetEnemy
-    TargetEither
-)
 
 /* needs a new name, but creates a projectile that is already at the target
  */
@@ -2938,13 +2895,6 @@ func (actions *CombatActions) ExtraControl() bool {
 
 func (actions *CombatActions) SingleAuto() bool {
     return actions.singleAuto
-}
-
-func abs(a int) int {
-    if a < 0 {
-        return -a
-    }
-    return a
 }
 
 // return a tile to move the vortex to. must be a cardinal direction (no diagonals)

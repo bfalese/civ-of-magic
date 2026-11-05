@@ -104,3 +104,11 @@ type CombatEventCreateLightningBolt struct {
 type CombatUpdates struct {
     SingleAuto bool
 }
+
+// which units a targeted spell may pick
+type Targeting int
+const (
+    TargetFriend Targeting = iota
+    TargetEnemy
+    TargetEither
+)

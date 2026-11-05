@@ -19,7 +19,6 @@ import (
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
-    "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/optional"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -1469,6 +1468,16 @@ func TestRemoteRangeDamage(test *testing.T) {
 
 }
 
+// stands in for a frontend animation with no frames: a looping one never finishes,
+// a non-looping one finishes on the first Next() (same as util.MakeAnimation(nil, loop))
+type testAnimation struct {
+    loop bool
+}
+
+func (animation *testAnimation) Next() bool {
+    return animation.loop
+}
+
 type proxySpellSystem struct {
     TestSpellSystem
 }
@@ -1477,8 +1486,8 @@ func makeSpellSystem(model *CombatModel) proxySpellSystem {
     makeProjectile := func (target *ArmyUnit, effect func(*ArmyUnit)) *Projectile {
         // a projectile that explodes immediately and invokes the effect
         return &Projectile{
-            Animation: util.MakeAnimation(nil, true),
-            Explode: util.MakeAnimation(nil, false),
+            Animation: &testAnimation{loop: true},
+            Explode: &testAnimation{loop: false},
             Exploding: true,
             Target: target,
             Effect: effect,
