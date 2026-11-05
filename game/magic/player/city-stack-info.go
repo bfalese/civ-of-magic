@@ -3,8 +3,8 @@ package player
 import (
     "image"
 
-    citylib "github.com/kazzmir/master-of-magic/game/magic/city"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
+    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
 )
 
 // stores information about every stack and city for fast lookups

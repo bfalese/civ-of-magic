@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kazzmir/master-of-magic/game/magic/data"
-	"github.com/kazzmir/master-of-magic/game/network-combat/engine/crypto"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
-	"github.com/kazzmir/master-of-magic/lib/lbx"
-	netlib "github.com/kazzmir/master-of-magic/lib/net"
+	"github.com/bfalese/civ-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/game/network-combat/engine/crypto"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/lib/lbx"
+	netlib "github.com/bfalese/civ-of-magic/lib/net"
 )
 
 func configuredTestState() protocol.GameState {

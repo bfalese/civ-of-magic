@@ -10,9 +10,9 @@ import (
     "compress/gzip"
     "archive/zip"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/set"
-    herolib "github.com/kazzmir/master-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/set"
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
 )
 
 const NumHeroes = 35

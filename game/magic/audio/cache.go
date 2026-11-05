@@ -1,7 +1,7 @@
 package audio
 
 import (
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
     audiolib "github.com/hajimehoshi/ebiten/v2/audio"
 )
 

@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/runningstatus"
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	"github.com/bfalese/civ-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/runningstatus"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 type Logger interface {

@@ -1,8 +1,8 @@
 package game
 
 import (
-    "github.com/kazzmir/master-of-magic/lib/coroutine"
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/lib/coroutine"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
 )
 
 // make two wizards mutually aware. returns a diplomacy event when the human

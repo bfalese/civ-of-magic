@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/game/magic/units"
+	"github.com/bfalese/civ-of-magic/game/magic/units"
 )
 
 func TestUnitShopFilters(t *testing.T) {

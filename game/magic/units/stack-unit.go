@@ -1,11 +1,11 @@
 package units
 
 import (
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/artifact"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/pathfinding"
-    "github.com/kazzmir/master-of-magic/lib/fraction"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/pathfinding"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
 )
 
 type StackUnit interface {

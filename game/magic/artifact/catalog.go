@@ -3,9 +3,9 @@ package artifact
 import (
     "slices"
 
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 // NotPremade is CatalogIndex for an item that is not one of the 250

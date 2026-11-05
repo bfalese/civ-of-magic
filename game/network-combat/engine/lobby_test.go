@@ -15,7 +15,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 // chatText verifies local-time prefixes while allowing content assertions to

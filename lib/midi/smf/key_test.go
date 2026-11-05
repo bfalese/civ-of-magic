@@ -3,7 +3,7 @@ package smf
 import (
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi"
 )
 
 func writeFile(file string, sig Message) {

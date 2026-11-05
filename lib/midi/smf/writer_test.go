@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi"
 )
 
 // SpecSMF1Missing is like SpecSMF1 but with missing data for last track

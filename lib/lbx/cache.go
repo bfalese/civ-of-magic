@@ -13,7 +13,7 @@ import (
     "slices"
     // "path/filepath"
 
-    "github.com/kazzmir/master-of-magic/data"
+    "github.com/bfalese/civ-of-magic/data"
     "github.com/hajimehoshi/ebiten/v2"
 )
 

@@ -10,10 +10,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kazzmir/master-of-magic/game/magic/spellbook"
-	"github.com/kazzmir/master-of-magic/game/magic/units"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
-	"github.com/kazzmir/master-of-magic/lib/lbx"
+	"github.com/bfalese/civ-of-magic/game/magic/spellbook"
+	"github.com/bfalese/civ-of-magic/game/magic/units"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 func main() {

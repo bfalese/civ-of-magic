@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/smf"
+	"github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 func New() *Song {

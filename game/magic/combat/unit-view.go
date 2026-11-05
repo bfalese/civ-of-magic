@@ -4,13 +4,13 @@ import (
     "log"
     "fmt"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/font"
-    uilib "github.com/kazzmir/master-of-magic/game/magic/ui"
-    fontslib "github.com/kazzmir/master-of-magic/game/magic/fonts"
-    "github.com/kazzmir/master-of-magic/game/magic/util"
-    "github.com/kazzmir/master-of-magic/game/magic/scale"
-    "github.com/kazzmir/master-of-magic/game/magic/unitview"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/font"
+    uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
+    fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/game/magic/scale"
+    "github.com/bfalese/civ-of-magic/game/magic/unitview"
 
     "github.com/hajimehoshi/ebiten/v2"
 )

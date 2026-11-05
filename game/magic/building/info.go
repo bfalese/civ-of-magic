@@ -3,8 +3,8 @@ package building
 import (
     "fmt"
     "bytes"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 func parseName(name []byte) string {

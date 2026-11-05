@@ -3,7 +3,7 @@ package drivers
 import (
 	"fmt"
 
-	midilib "github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	midilib "github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 type readerState int

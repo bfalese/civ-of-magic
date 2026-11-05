@@ -8,9 +8,9 @@ import (
     "image"
     "image/color"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    // "github.com/kazzmir/master-of-magic/lib/xbr"
-    "github.com/kazzmir/master-of-magic/game/magic/shaders"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    // "github.com/bfalese/civ-of-magic/lib/xbr"
+    "github.com/bfalese/civ-of-magic/game/magic/shaders"
     "github.com/hajimehoshi/ebiten/v2"
 )
 

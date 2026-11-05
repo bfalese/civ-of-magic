@@ -4,10 +4,10 @@ import (
     "fmt"
     "slices"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    citylib "github.com/kazzmir/master-of-magic/game/magic/city"
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
 )
 
 type RandomEventType int

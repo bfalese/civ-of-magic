@@ -3,13 +3,13 @@ package game
 import (
     "testing"
 
-    buildinglib "github.com/kazzmir/master-of-magic/game/magic/building"
-    citylib "github.com/kazzmir/master-of-magic/game/magic/city"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    herolib "github.com/kazzmir/master-of-magic/game/magic/hero"
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 func TestEarthquakeBuildingProtected(test *testing.T) {

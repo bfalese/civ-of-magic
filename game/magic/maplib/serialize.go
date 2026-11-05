@@ -5,10 +5,10 @@ import (
     "fmt"
     "encoding/json"
 
-    "github.com/kazzmir/master-of-magic/lib/set"
-    "github.com/kazzmir/master-of-magic/game/magic/terrain"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
 
     "github.com/hajimehoshi/ebiten/v2"
 )

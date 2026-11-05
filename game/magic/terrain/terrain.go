@@ -6,9 +6,9 @@ import (
     "fmt"
     "slices"
 
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 // terrain tiles are indicies 0-0x259 for arcanus, and 0x2fA - 0x5f4 for myrror

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 // All matchmaking state is accessed within manager.lock.With.

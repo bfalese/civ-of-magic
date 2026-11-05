@@ -4,10 +4,10 @@ import (
     "log"
     "time"
 
-    "github.com/kazzmir/master-of-magic/game/magic/util"
-    "github.com/kazzmir/master-of-magic/game/magic/audio"
-    "github.com/kazzmir/master-of-magic/game/magic/scale"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/game/magic/audio"
+    "github.com/bfalese/civ-of-magic/game/magic/scale"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 
     "github.com/hajimehoshi/ebiten/v2"
     audiolib "github.com/hajimehoshi/ebiten/v2/audio"

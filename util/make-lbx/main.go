@@ -7,7 +7,7 @@ import (
     "bufio"
     _ "image/png"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 func main() {

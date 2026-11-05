@@ -5,9 +5,9 @@ import (
     "testing"
 
     "github.com/hajimehoshi/ebiten/v2"
-    "github.com/kazzmir/master-of-magic/game/magic/keybinds"
-    settingslib "github.com/kazzmir/master-of-magic/game/magic/settings"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/game/magic/keybinds"
+    settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
 )
 
 func TestSerializedGameOldJSONLeavesPreferencesNil(test *testing.T) {

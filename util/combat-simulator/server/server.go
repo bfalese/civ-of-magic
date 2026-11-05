@@ -13,7 +13,7 @@ import (
     "strings"
     "flag"
 
-    "github.com/kazzmir/master-of-magic/util/combat-simulator/server/multiplayer"
+    "github.com/bfalese/civ-of-magic/util/combat-simulator/server/multiplayer"
 
     "golang.org/x/crypto/acme/autocert"
     // "golang.org/x/crypto/acme"

@@ -1,7 +1,7 @@
 package main
 
 import (
-    "github.com/kazzmir/master-of-magic/game/network-combat/engine"
+    "github.com/bfalese/civ-of-magic/game/network-combat/engine"
 )
 
 func main() {

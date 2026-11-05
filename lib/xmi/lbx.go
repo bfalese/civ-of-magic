@@ -1,8 +1,8 @@
 package xmi
 
 import (
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/midi/smf"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 func ReadMidi(file *lbx.LbxFile, index int) (*smf.SMF, error) {

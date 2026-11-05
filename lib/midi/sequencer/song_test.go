@@ -3,8 +3,8 @@ package sequencer
 import (
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
-	"github.com/kazzmir/master-of-magic/lib/midi/smf"
+	"github.com/bfalese/civ-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 func TestAddEvents(t *testing.T) {

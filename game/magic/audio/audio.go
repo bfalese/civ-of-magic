@@ -6,8 +6,8 @@ import (
     "io"
     "encoding/binary"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/voc"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/voc"
     audiolib "github.com/hajimehoshi/ebiten/v2/audio"
 )
 

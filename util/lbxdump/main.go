@@ -13,16 +13,16 @@ import (
     "archive/zip"
     "flag"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/font"
-    "github.com/kazzmir/master-of-magic/lib/set"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/artifact"
-    "github.com/kazzmir/master-of-magic/game/magic/audio"
-    "github.com/kazzmir/master-of-magic/game/magic/game"
-    "github.com/kazzmir/master-of-magic/game/magic/hero"
-    "github.com/kazzmir/master-of-magic/game/magic/building"
-    helplib "github.com/kazzmir/master-of-magic/game/magic/help"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/font"
+    "github.com/bfalese/civ-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/game/magic/audio"
+    "github.com/bfalese/civ-of-magic/game/magic/game"
+    "github.com/bfalese/civ-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/game/magic/building"
+    helplib "github.com/bfalese/civ-of-magic/game/magic/help"
 )
 
 func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, voc bool) error {

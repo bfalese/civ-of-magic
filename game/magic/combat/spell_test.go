@@ -3,12 +3,12 @@ package combat
 import (
     "testing"
 
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
-    herolib "github.com/kazzmir/master-of-magic/game/magic/hero"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
 )
 
 type TestSpellSystem struct {

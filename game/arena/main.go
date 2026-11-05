@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kazzmir/master-of-magic/game/arena/engine"
+	"github.com/bfalese/civ-of-magic/game/arena/engine"
 )
 
 func main() {

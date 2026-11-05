@@ -1,7 +1,7 @@
 package multiplayer
 
 import (
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 func (manager *Manager) handleGameSetup(user *User, clientID uint64, command protocol.Message) {

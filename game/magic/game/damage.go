@@ -3,9 +3,9 @@ package game
 import (
     "math"
 
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/combat"
 )
 
 // an implementation of combat/UnitDamage that wraps a StackUnit for the purpose of applying damage to a StackUnit

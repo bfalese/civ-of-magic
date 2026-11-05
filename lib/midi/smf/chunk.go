@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 // chunk is a chunk of a SMF file.

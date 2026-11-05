@@ -1,7 +1,7 @@
 package midi
 
 import (
-	"github.com/kazzmir/master-of-magic/lib/midi/drivers"
+	"github.com/bfalese/civ-of-magic/lib/midi/drivers"
 )
 
 // FindInPort returns the midi in port that contains the given name

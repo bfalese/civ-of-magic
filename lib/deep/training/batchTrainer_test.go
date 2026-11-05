@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/lib/deep"
+	"github.com/bfalese/civ-of-magic/lib/deep"
 )
 
 func Benchmark_xor(b *testing.B) {

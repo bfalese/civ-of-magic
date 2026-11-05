@@ -8,9 +8,9 @@ import (
     "math/rand/v2"
     "math"
 
-    "github.com/kazzmir/master-of-magic/lib/set"
-    "github.com/kazzmir/master-of-magic/lib/algorithm"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/lib/algorithm"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
 )
 
 // a continent is a list of points that are indices into the Terrain matrix

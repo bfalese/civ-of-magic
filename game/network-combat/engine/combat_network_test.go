@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kazzmir/master-of-magic/game/magic/combat"
-	"github.com/kazzmir/master-of-magic/game/magic/data"
-	"github.com/kazzmir/master-of-magic/game/magic/player"
-	"github.com/kazzmir/master-of-magic/game/magic/setup"
-	"github.com/kazzmir/master-of-magic/game/magic/units"
+	"github.com/bfalese/civ-of-magic/game/magic/combat"
+	"github.com/bfalese/civ-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/game/magic/player"
+	"github.com/bfalese/civ-of-magic/game/magic/setup"
+	"github.com/bfalese/civ-of-magic/game/magic/units"
 )
 
 type armyPackets struct {

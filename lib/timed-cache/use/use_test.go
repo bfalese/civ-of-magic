@@ -4,7 +4,7 @@ import (
     "time"
     "testing"
 
-    "github.com/kazzmir/master-of-magic/lib/timed-cache"
+    "github.com/bfalese/civ-of-magic/lib/timed-cache"
 )
 
 func TestCache(test *testing.T){

@@ -3,8 +3,8 @@ package main
 import (
     "log"
     "fmt"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/game/magic/game"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/game"
 )
 
 func main(){

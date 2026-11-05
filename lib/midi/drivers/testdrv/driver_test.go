@@ -5,8 +5,8 @@ package testdrv
 import (
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/drivers"
-	"github.com/kazzmir/master-of-magic/lib/midi/drivers/internal/drivertest"
+	"github.com/bfalese/civ-of-magic/lib/midi/drivers"
+	"github.com/bfalese/civ-of-magic/lib/midi/drivers/internal/drivertest"
 )
 
 func runTest(t *testing.T, fn func(*testing.T, drivers.In, drivers.Out)) func(*testing.T) {

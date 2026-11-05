@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ebitenui/ebitenui/widget"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 func (match *matchmakingUI) newGameChat() *widget.Container {

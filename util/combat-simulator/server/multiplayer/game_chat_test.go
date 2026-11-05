@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 func TestPrivateGameChat(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/drivers"
-	"github.com/kazzmir/master-of-magic/lib/midi/smf"
+	"github.com/bfalese/civ-of-magic/lib/midi/drivers"
+	"github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 /*

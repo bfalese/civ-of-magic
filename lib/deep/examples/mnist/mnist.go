@@ -8,8 +8,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/kazzmir/master-of-magic/lib/deep/training"
-	"github.com/kazzmir/master-of-magic/lib/deep"
+	"github.com/bfalese/civ-of-magic/lib/deep/training"
+	"github.com/bfalese/civ-of-magic/lib/deep"
 )
 
 /*

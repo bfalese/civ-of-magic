@@ -1,15 +1,15 @@
 package game
 
 import (
-    "github.com/kazzmir/master-of-magic/lib/coroutine"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/scale"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/util"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
-    "github.com/kazzmir/master-of-magic/game/magic/mouse"
-    "github.com/kazzmir/master-of-magic/game/magic/music"
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/lib/coroutine"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/scale"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/game/magic/mouse"
+    "github.com/bfalese/civ-of-magic/game/magic/music"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

@@ -1,8 +1,8 @@
 package midi
 
 import (
-	"github.com/kazzmir/master-of-magic/lib/midi/drivers"
-	midilib "github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	"github.com/bfalese/civ-of-magic/lib/midi/drivers"
+	midilib "github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 func _channelMessage(typ, channel, data1, data2 byte) Message {

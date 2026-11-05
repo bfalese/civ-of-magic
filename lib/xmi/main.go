@@ -13,8 +13,8 @@ import (
     "cmp"
     "slices"
 
-    "github.com/kazzmir/master-of-magic/lib/midi/smf"
-    "github.com/kazzmir/master-of-magic/lib/midi"
+    "github.com/bfalese/civ-of-magic/lib/midi/smf"
+    "github.com/bfalese/civ-of-magic/lib/midi"
 )
 
 const debug = false
