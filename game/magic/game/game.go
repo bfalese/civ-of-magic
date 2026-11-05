@@ -186,7 +186,7 @@ type GameEventRunUI struct {
 type GameEventSelectLocationForSpell struct {
     Spell spellbook.Spell
     Player *playerlib.Player
-    LocationType LocationType
+    LocationType gamecore.LocationType
     SelectedFunc func (yield coroutine.YieldFunc, tileX int, tileY int)
 }
 
@@ -623,13 +623,7 @@ func (game *Game) UpdateImages() {
 }
 
 func (game *Game) GetPlayerByBanner(banner data.BannerType) *playerlib.Player {
-    for _, player := range game.Model.Players {
-        if player.GetBanner() == banner {
-            return player
-        }
-    }
-
-    return nil
+    return game.Model.GetPlayerByBanner(banner)
 }
 
 type CityValidArea map[image.Point]bool
@@ -1827,7 +1821,7 @@ func (game *Game) doHireHero(yield coroutine.YieldFunc, cost int, hero *herolib.
                 name := game.doInput(yield, "Hero Name", hero.GetName(), 70, 50)
                 hero.SetName(name)
 
-                game.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
+                game.Model.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
 
                 if player.SelectedStack == nil {
                     player.SelectedStack = player.FindStack(hero.GetX(), hero.GetY(), hero.GetPlane())
@@ -1999,7 +1993,7 @@ func (game *Game) doHireMercenaries(yield coroutine.YieldFunc, cost int, units [
         if hired {
             for _, unit := range units {
                 player.AddUnit(unit)
-                game.ResolveStackAt(unit.GetX(), unit.GetY(), unit.GetPlane())
+                game.Model.ResolveStackAt(unit.GetX(), unit.GetY(), unit.GetPlane())
             }
             player.Gold -= cost
             game.RefreshUI()
@@ -3448,79 +3442,6 @@ func (game *Game) doMoveCamera(yield coroutine.YieldFunc, x int, y int) {
     game.Camera.Center(game.Model.CurrentMap().WrapX(x), y)
 }
 
-func (game *Game) ResolveStackAt(x int, y int, plane data.Plane) {
-    stack, player := game.Model.FindStack(x, y, plane)
-    if stack == nil {
-        return
-    }
-
-    count := len(stack.Units())
-    if count <= data.MaxUnitsInStack {
-        return
-    }
-
-    // try to move random units to a nearby tile
-    stackUnits := stack.Units()
-    for _, i := range rand.Perm(len(stackUnits)) {
-        unit := stackUnits[i]
-
-        positions := game.Model.FindEscapePosition(player, unit)
-
-        if len(positions) != 0 {
-            // set to a random position
-            position := positions[rand.IntN(len(positions))]
-            unit.SetX(position.X)
-            unit.SetY(position.Y)
-
-            // merge stacks
-            stack.RemoveUnit(unit)
-            player.AddStack(playerlib.MakeUnitStackFromUnits([]units.StackUnit{unit}))
-            allStacks := player.FindAllStacks(position.X, position.Y, stack.Plane())
-            for i := 1; i < len(allStacks); i++ {
-                player.MergeStacks(allStacks[0], allStacks[i])
-            }
-
-            count -= 1
-            if count <= data.MaxUnitsInStack {
-                break
-            }
-        }
-    }
-
-    // kill units until enough room
-    if count > data.MaxUnitsInStack {
-        stackUnits = stack.Units()
-        slices.SortFunc(stackUnits, func(unitA, unitB units.StackUnit) int {
-            // non-heros before heroes
-            if unitA.IsHero() != unitB.IsHero() {
-                if unitA.IsHero() {
-                    return 1
-                }
-                return -1
-            }
-
-            // low-leveled heroes first
-            if unitA.IsHero() && unitB.IsHero() {
-                return unitA.GetExperience() - unitB.GetExperience()
-            }
-
-            // low production or casting cost first
-            minCostA := min(unitA.GetRawUnit().ProductionCost, unitA.GetRawUnit().CastingCost)
-            minCostB := min(unitB.GetRawUnit().ProductionCost, unitB.GetRawUnit().CastingCost)
-            return minCostA - minCostB
-        })
-
-        for _, unit := range stackUnits {
-            log.Printf("Unit %v killed by ResolveStack", unit)
-            player.RemoveUnit(unit)
-            count -= 1
-            if count <= data.MaxUnitsInStack {
-                break
-            }
-        }
-    }
-}
-
 // returns true if the city was razed, and the amount of gold plundered from the city
 func (game *Game) defeatCity(yield coroutine.YieldFunc, attacker *playerlib.Player, attackerStack *playerlib.UnitStack, defender *playerlib.Player, city *citylib.City) (bool, int) {
     raze := false
@@ -4219,7 +4140,7 @@ func (game *Game) doAiUpdate(yield coroutine.YieldFunc, player *playerlib.Player
                         overworldUnit.SetBusy(units.BusyStatusPatrol)
                     }
                     player.CreateUnit(overworldUnit)
-                    game.ResolveStackAt(create.X, create.Y, create.Plane)
+                    game.Model.ResolveStackAt(create.X, create.Y, create.Plane)
                 case *playerlib.AIUpdateCityDecision:
                     update := decision.(*playerlib.AIUpdateCityDecision)
 
@@ -5174,7 +5095,7 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
     // recall units
     relocateUnits := func(player *playerlib.Player, units []units.StackUnit) {
         for _, unit := range units {
-            game.RelocateUnit(player, unit)
+            game.Model.RelocateUnit(player, unit)
         }
     }
 
@@ -5930,66 +5851,15 @@ func (game *Game) DoBuildAction(player *playerlib.Player){
 }
 
 func (game *Game) IsGlobalEnchantmentActive(enchantment data.Enchantment) bool {
-    return slices.ContainsFunc(game.Model.Players, func (player *playerlib.Player) bool {
-        return player.GlobalEnchantments.Contains(enchantment)
-    })
+    return game.Model.IsGlobalEnchantmentActive(enchantment)
 }
 
 func (game *Game) PlaneShift(stack *playerlib.UnitStack, player *playerlib.Player) error {
-    if game.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
-        return errors.New("Cannot plane shift while the Planar Seal is in effect")
-    }
-
-    canMove := false
-
-    cityOppositePlane := player.FindCity(stack.X(), stack.Y(), stack.Plane().Opposite())
-
-    mapPlane := game.GetMap(stack.Plane().Opposite())
-
-    tile := mapPlane.GetTile(stack.X(), stack.Y())
-    canMove = cityOppositePlane != nil || stack.AllFlyers() || tile.Tile.IsLand()
-
-    if cityOppositePlane != nil {
-        for _, unit := range stack.ActiveUnits() {
-            if !cityOppositePlane.CanEnter(unit) {
-                canMove = false
-                break
-            }
-        }
-    }
-
-    // cannot planar travel if there is an encounter node
-    if canMove && mapPlane.GetEncounter(stack.X(), stack.Y()) != nil {
-        canMove = false
-    }
-
-    if canMove && tile.Tile.IsWater() && stack.AllLandWalkers() {
-        canMove = false
-    }
-
-    cityStackInfo := game.Model.ComputeCityStackInfo()
-
-    if cityStackInfo.ContainsEnemy(stack.X(), stack.Y(), stack.Plane().Opposite(), player) {
-        canMove = false
-    }
-
-    // no matter what the reason, just emit a message that planar travel is not possible
-    if !canMove {
-        return errors.New("The selected units cannot planar travel at this location.")
-    }
-
-    if canMove {
-        // if there is a friendly stack at the new location then merge the stacks
-        mergeStack := cityStackInfo.FindFriendlyStack(stack.X(), stack.Y(), stack.Plane().Opposite(), player)
-        stack.SetPlane(stack.Plane().Opposite())
-        if mergeStack != nil {
-            player.MergeStacks(stack, mergeStack)
-        }
-        player.UpdateFogVisibility()
+    err := game.Model.PlaneShift(stack, player)
+    if err == nil {
         game.discoverWizards(nil)
     }
-
-    return nil
+    return err
 }
 
 func (game *Game) doPlanarTraval() {
@@ -7514,7 +7384,7 @@ func (game *Game) StartPlayerTurn(player *playerlib.Player) {
 
                     overworldUnit.AddExperience(newUnit.Experience)
                     player.CreateUnit(overworldUnit)
-                    game.ResolveStackAt(city.X, city.Y, city.Plane)
+                    game.Model.ResolveStackAt(city.X, city.Y, city.Plane)
 
                     if player.AIBehavior != nil {
                         player.AIBehavior.ProducedUnit(city, player)
@@ -8548,22 +8418,4 @@ func (game *Game) CastingDetectableByHuman(caster *playerlib.Player) bool {
         }
     }
     return false
-}
-
-func (game *Game) RelocateUnit(player *playerlib.Player, unit units.StackUnit) {
-    summonCity := player.FindSummoningCity()
-    if summonCity == nil {
-        return
-    }
-
-    player.UpdateUnitLocation(unit, summonCity.X, summonCity.Y, summonCity.Plane)
-
-    allStacks := player.FindAllStacks(summonCity.X, summonCity.Y, summonCity.Plane)
-    for i := 1; i < len(allStacks); i++ {
-        player.MergeStacks(allStacks[0], allStacks[i])
-    }
-
-    game.ResolveStackAt(summonCity.X, summonCity.Y, summonCity.Plane)
-
-    unit.SetBusy(units.BusyStatusNone)
 }

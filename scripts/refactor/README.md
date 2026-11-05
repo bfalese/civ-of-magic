@@ -16,8 +16,8 @@ They don't fix imports; let the compiler tell you, then run `prune-imports.sh`.
 Known limits of the qualifier rewrite (regex, not a Go parser):
 - Leaves strings, `//` comments and `/* */` blocks alone (so commented-out code keeps old names).
 - Skips struct-literal keys (`Name: x`) and struct field names (`Spells Spells`). Map-literal
-  keys look the same (`DirectionNorth: 1`) and are skipped too, as is the last item of a `case`
-  list that continues on a new line; the compiler reports them as undefined.
+  keys look the same (`DirectionNorth: 1`) and are skipped too; the compiler reports them as
+  undefined. (`case` labels, including multi-line `case` lists, are handled.)
 - When exporting a field, check multi-line parameter lists: a line starting with the old name
   can be a parameter, not a field.
 - If the code uses the package name as a variable (`artifact := ...`), import the package with

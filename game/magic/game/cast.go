@@ -27,14 +27,12 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
-    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/game/magic/mirror"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
-    "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
     "github.com/bfalese/civ-of-magic/core/building"
     gamecore "github.com/bfalese/civ-of-magic/core/game"
@@ -42,21 +40,6 @@ import (
     "github.com/hajimehoshi/ebiten/v2"
 )
 
-type LocationType int
-const (
-    LocationTypeAny LocationType = iota
-    LocationTypeLand
-    LocationTypeEmptyWater
-    LocationTypeFriendlyCity
-    LocationTypeEnemyCity
-    LocationTypeFriendlyUnit
-    LocationTypeEnemyUnit
-    LocationTypeChangeTerrain
-    LocationTypeTransmute
-    LocationTypeRaiseVolcano
-    LocationTypeEnemyMeldedNode
-    LocationTypeDisenchant
-)
 
 type UnitEnchantmentCallback func (units.StackUnit) bool
 
@@ -129,7 +112,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastFloatingIsland(yield, player, tileX, tileY)
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEmptyWater, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEmptyWater, SelectedFunc: selected}
         case "Summon Hero":
             game.doSummonHero(player, false)
         case "Summon Champion":
@@ -257,12 +240,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                return true
             }
             after := func (unit units.StackUnit) bool {
-                overworldUnit, ok := unit.(*units.OverworldUnit)
-                if ok {
-                    overworldUnit.Unit = units.WereWolf
-                    overworldUnit.Experience = 0
-                    // unit keeps weapon bonus and enchantments
-                }
+                game.Model.ApplyLycanthropy(unit)
                 return true
             }
             game.doCastOnUnit(player, spell, 4, before, after)
@@ -270,52 +248,44 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         case "Spell Ward":
             game.doCastSpellWard(player, spell)
         case "Flying Fortress":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentFlyingFortress)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentFlyingFortress)
         case "Earth Gate":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentEarthGate)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentEarthGate)
         case "Astral Gate":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentAstralGate)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentAstralGate)
         case "Heavenly Light":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentHeavenlyLight)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentHeavenlyLight)
         case "Cloud of Shadow":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentCloudOfShadow)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentCloudOfShadow)
         case "Prosperity":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentProsperity)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentProsperity)
         case "Consecration":
             after := func (city *citylib.City) bool {
-                // Remove all the city curses from the targeted city on cast (https://masterofmagic.fandom.com/wiki/Consecration)
-                // Wiki specifies only the following ones as city curses
-                city.RemoveEnchantments(
-                    data.CityEnchantmentChaosRift,
-                    data.CityEnchantmentCursedLands,
-                    data.CityEnchantmentEvilPresence,
-                    data.CityEnchantmentFamine,
-                    data.CityEnchantmentPestilence,
-                )
+                game.Model.ApplyConsecration(city)
                 return true
             }
-            game.doCastCityEnchantmentFull(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentConsecration, noCityCallback, after)
+            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentConsecration, noCityCallback, after)
         case "Inspirations":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentInspirations)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentInspirations)
         case "Gaia's Blessing":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentGaiasBlessing)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentGaiasBlessing)
         case "Nature's Eye":
             after := func (city *citylib.City) bool {
                 player.UpdateFogVisibility()
                 game.discoverWizards(nil)
                 return true
             }
-            game.doCastCityEnchantmentFull(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentNaturesEye, noCityCallback, after)
+            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentNaturesEye, noCityCallback, after)
         case "Dark Rituals":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentDarkRituals)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentDarkRituals)
         case "Stream of Life":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentStreamOfLife)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentStreamOfLife)
         case "Altar of Battle":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentAltarOfBattle)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentAltarOfBattle)
         case "Wall of Fire":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentWallOfFire)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentWallOfFire)
         case "Wall of Darkness":
-            game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentWallOfDarkness)
+            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentWallOfDarkness)
 
         /*
             TOWN CURSES
@@ -328,7 +298,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
                 return true
             }
-            game.doCastCityEnchantmentFull(spell, player, LocationTypeEnemyCity, data.CityEnchantmentChaosRift, before, noCityCallback)
+            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentChaosRift, before, noCityCallback)
         case "Cursed Lands":
             before := func (city *citylib.City) bool {
                 if city.CheckDispel(spell) {
@@ -337,7 +307,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
                 return true
             }
-            game.doCastCityEnchantmentFull(spell, player, LocationTypeEnemyCity, data.CityEnchantmentCursedLands, before, noCityCallback)
+            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentCursedLands, before, noCityCallback)
         case "Famine":
             before := func (city *citylib.City) bool {
                 if city.CheckDispel(spell) {
@@ -346,7 +316,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
                 return true
             }
-            game.doCastCityEnchantmentFull(spell, player, LocationTypeEnemyCity, data.CityEnchantmentFamine, before, noCityCallback)
+            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentFamine, before, noCityCallback)
         case "Pestilence":
             before := func (city *citylib.City) bool {
                 if city.CheckDispel(spell) {
@@ -355,7 +325,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
                 return true
             }
-            game.doCastCityEnchantmentFull(spell, player, LocationTypeEnemyCity, data.CityEnchantmentPestilence, before, noCityCallback)
+            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentPestilence, before, noCityCallback)
         case "Evil Presence":
             before := func (city *citylib.City) bool {
                 if city.CheckDispel(spell) {
@@ -364,7 +334,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
                 return true
             }
-            game.doCastCityEnchantmentFull(spell, player, LocationTypeEnemyCity, data.CityEnchantmentEvilPresence, before, noCityCallback)
+            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentEvilPresence, before, noCityCallback)
 
 
         /*
@@ -438,20 +408,11 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 if city != nil {
                     // FIXME: verify animation
                     game.doCastOnMap(yield, tileX, tileY, 44, spell.Sound, func (x int, y int, animationFrame int) {})
-                    player.Banished = false
-
-                    for _, check := range player.Cities {
-                        check.RemoveBuilding(building.BuildingSummoningCircle)
-                        check.RemoveBuilding(building.BuildingFortress)
-                    }
-
-                    city.Buildings.Insert(buildinglib.BuildingFortress)
-                    city.Buildings.Insert(buildinglib.BuildingSummoningCircle)
-                    player.Wizard.Race = city.Race
+                    game.Model.ApplySpellOfReturn(player, city)
                 }
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyCity, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyCity, SelectedFunc: selected}
 
         case "Plane Shift":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
@@ -468,7 +429,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyUnit, SelectedFunc: selected}
 
         case "Subversion":
             uiGroup, quit, err := game.MakeSubversionUI(player, spell)
@@ -480,40 +441,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
         case "Death Wish":
             after := func() {
-                cityStackInfo := game.Model.ComputeCityStackInfo()
-
-                for _, owner := range game.Model.Players {
-                    if owner == player {
-                        continue
-                    }
-
-                    for _, stack := range owner.Stacks {
-
-                        city := cityStackInfo.FindCity(stack.X(), stack.Y(), stack.Plane())
-                        if city != nil && !city.CanTarget(spell) {
-                            continue
-                        }
-
-                        for _, unit := range stack.Units() {
-                            ignore := unit.GetRace() == data.RaceFantastic
-
-                            if unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonWings) ||
-                               unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonSkin) ||
-                               unit.HasEnchantment(data.UnitEnchantmentChaosChannelsFireBreath) {
-                                   ignore = false
-                            }
-
-                            if ignore {
-                                continue
-                            }
-
-                            resistance := combat.GetResistanceFor(unit, data.DeathMagic)
-                            if rand.N(10) + 1 > resistance {
-                                owner.RemoveUnit(unit)
-                            }
-                        }
-                    }
-                }
+                game.Model.ApplyDeathWish(player, spell)
             }
 
             game.Events <- &GameEventCastGlobalEnchantment{Player: player, Enchantment: data.DeathWish, After: after}
@@ -534,16 +462,12 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                     game.doCastOnMap(yield, tileX, tileY, 14, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                    for _, unit := range stack.Units() {
-                        if rand.N(10) + 1 > combat.GetResistanceFor(unit, data.DeathMagic) - 1 {
-                            owner.RemoveUnit(unit)
-                        }
-                    }
+                    game.Model.ApplyBlackWind(stack, owner)
 
                 }
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyUnit, SelectedFunc: selected}
 
 
         case "Stasis":
@@ -565,15 +489,12 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                     game.doCastOnMap(yield, tileX, tileY, 53, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                    // FIXME: maybe apply a Stasis unit enchantment so the user can see the unit is under the stasis effect?
-                    for _, unit := range stack.Units() {
-                        unit.SetBusy(units.BusyStatusStasis)
-                    }
+                    game.Model.ApplyStasis(stack)
 
                 }
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyUnit, SelectedFunc: selected}
         case "Spell Binding":
             uiGroup, quit, err := game.MakeSpellBindingUI(player, spell)
             if err != nil {
@@ -584,35 +505,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
         case "Great Unsummoning":
             after := func(){
-                cityStackInfo := game.Model.ComputeCityStackInfo()
-
-                for _, player := range game.Model.Players {
-                    for _, stack := range player.Stacks {
-
-                        city := cityStackInfo.FindCity(stack.X(), stack.Y(), stack.Plane())
-                        if city != nil && !city.CanTarget(spell) {
-                            continue
-                        }
-
-                        for _, unit := range stack.Units() {
-                            if unit.GetRace() == data.RaceFantastic {
-
-                                if unit.HasEnchantment(data.UnitEnchantmentSpellLock) ||
-                                unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonWings) ||
-                                unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonSkin) ||
-                                unit.HasEnchantment(data.UnitEnchantmentChaosChannelsFireBreath) ||
-                                unit.HasAbility(data.AbilityMagicImmunity) {
-                                    continue
-                                }
-
-                                resistance := combat.GetResistanceFor(unit, data.SorceryMagic)
-                                if rand.N(10) + 1 > resistance - 3 {
-                                    player.RemoveUnit(unit)
-                                }
-                            }
-                        }
-                    }
-                }
+                game.Model.ApplyGreatUnsummoning(spell)
 
                 game.RefreshUI()
             }
@@ -629,7 +522,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyUnit, SelectedFunc: selected}
 
         case "Resurrection":
             heroes := player.GetDeadHeroes()
@@ -663,7 +556,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 yield()
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyCity, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyCity, SelectedFunc: selected}
 
         case "Ice Storm":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
@@ -679,17 +572,12 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                 game.doCastOnMap(yield, tileX, tileY, 10, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 6, units.DamageCold, 0)
-                    if unit.GetHealth() <= 0 {
-                        enemy.RemoveUnit(unit)
-                    }
-                }
+                game.Model.ApplyIceStorm(enemyStack, enemy)
 
                 yield()
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyUnit, SelectedFunc: selected}
         case "Fire Storm":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
                 city, _ := game.Model.FindCity(tileX, tileY, game.Model.Plane)
@@ -702,17 +590,12 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                 game.doCastOnMap(yield, tileX, tileY, 6, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 8, units.DamageImmolation, 0)
-                    if unit.GetHealth() <= 0 {
-                        enemy.RemoveUnit(unit)
-                    }
-                }
+                game.Model.ApplyFireStorm(enemyStack, enemy)
 
                 yield()
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyUnit, SelectedFunc: selected}
 
         case "Disjunction", "Disjunction True":
             uiGroup, quit, err := game.MakeDisjunctionUI(player, spell)
@@ -731,7 +614,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastEarthLore(yield, tileX, tileY, player, spell.Sound)
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeAny, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeAny, SelectedFunc: selected}
         case "Call the Void":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
                 chosenCity, owner := game.Model.FindCity(tileX, tileY, game.Model.Plane)
@@ -746,15 +629,15 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.Model.DoCallTheVoid(chosenCity, owner)
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyCity, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyCity, SelectedFunc: selected}
         case "Change Terrain":
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeChangeTerrain, SelectedFunc: game.doCastChangeTerrain}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeChangeTerrain, SelectedFunc: game.doCastChangeTerrain}
         case "Cruel Unminding":
             game.doCastCruelUnminding(player, spell)
         case "Drain Power":
             game.doCastDrainPower(player, spell)
         case "Transmute":
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeTransmute, SelectedFunc: game.doCastTransmute}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeTransmute, SelectedFunc: game.doCastTransmute}
         case "Raise Volcano":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
                 chosenCity, _ := game.Model.FindCity(tileX, tileY, game.Model.Plane)
@@ -767,11 +650,11 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastRaiseVolcano(yield, tileX, tileY, player)
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeRaiseVolcano, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeRaiseVolcano, SelectedFunc: selected}
         case "Spell Blast":
             game.doCastSpellBlast(player)
         case "Enchant Road":
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeAny, SelectedFunc: game.doCastEnchantRoad}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeAny, SelectedFunc: game.doCastEnchantRoad}
         case "Corruption":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
                 chosenCity, _ := game.Model.FindCity(tileX, tileY, game.Model.Plane)
@@ -784,26 +667,26 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastCorruption(yield, tileX, tileY)
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeLand, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeLand, SelectedFunc: selected}
         case "Warp Node":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
                 game.doCastWarpNode(yield, tileX, tileY, player, spell.Sound)
             }
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyMeldedNode, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyMeldedNode, SelectedFunc: selected}
         case "Disenchant Area":
 
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
                 game.doDisenchantArea(yield, player, spell, false, tileX, tileY)
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeDisenchant, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeDisenchant, SelectedFunc: selected}
         case "Disenchant True":
 
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
                 game.doDisenchantArea(yield, player, spell, true, tileX, tileY)
             }
 
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeDisenchant, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeDisenchant, SelectedFunc: selected}
         case "Wall of Stone":
             after := func (city *citylib.City) bool {
                 if city.ProducingBuilding == building.BuildingCityWalls {
@@ -811,39 +694,19 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
                 return true
             }
-            game.doCastNewCityBuilding(spell, player, LocationTypeFriendlyCity, building.BuildingCityWalls, "This city already has a Wall of Stone", after)
+            game.doCastNewCityBuilding(spell, player, gamecore.LocationTypeFriendlyCity, building.BuildingCityWalls, "This city already has a Wall of Stone", after)
         case "Summoning Circle":
             after := func(chosenCity *citylib.City) bool {
-                for _, city := range player.Cities {
-                    if city != chosenCity && city.Buildings.Contains(building.BuildingSummoningCircle) {
-                        city.Buildings.Remove(building.BuildingSummoningCircle)
-                        break
-                    }
-                }
+                game.Model.ApplySummoningCircleMoved(player, chosenCity)
                 return true
             }
-            game.doCastNewCityBuilding(spell, player, LocationTypeFriendlyCity, building.BuildingSummoningCircle, "Your summoning circle is already in this city", after)
+            game.doCastNewCityBuilding(spell, player, gamecore.LocationTypeFriendlyCity, building.BuildingSummoningCircle, "Your summoning circle is already in this city", after)
         case "Move Fortress":
             after := func(chosenCity *citylib.City) bool {
-                player.Wizard.Race = chosenCity.Race
-
-                for _, city := range player.Cities {
-                    if city != chosenCity && city.Buildings.Contains(building.BuildingFortress) {
-                        city.Buildings.Remove(building.BuildingFortress)
-
-                        if city.Buildings.Contains(building.BuildingSummoningCircle) {
-                            chosenCity.Buildings.Insert(building.BuildingSummoningCircle)
-                            city.Buildings.Remove(building.BuildingSummoningCircle)
-                        }
-                        break
-                    }
-                }
-
-                player.UpdateUnrest()
-
+                game.Model.ApplyFortressMoved(player, chosenCity)
                 return true
             }
-            game.doCastNewCityBuilding(spell, player, LocationTypeFriendlyCity, building.BuildingFortress, "Your fortress is already in this city", after)
+            game.doCastNewCityBuilding(spell, player, gamecore.LocationTypeFriendlyCity, building.BuildingFortress, "Your fortress is already in this city", after)
         case "Word of Recall":
             before := func (unit units.StackUnit) bool {
                 summonCity := player.FindSummoningCity()
@@ -864,7 +727,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                return true
             }
             after := func (unit units.StackUnit) bool {
-                game.RelocateUnit(player, unit)
+                game.Model.RelocateUnit(player, unit)
 
                 return true
             }
@@ -978,9 +841,7 @@ func (game *Game) MakeResurrectionUI(caster *playerlib.Player, heroes []*herolib
             },
             LeftClick: func(element *uilib.UIElement) {
                 cancel()
-                hero.SetStatus(herolib.StatusEmployed)
-                caster.AddHeroToSummoningCircle(hero)
-                game.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
+                game.Model.ResurrectHero(caster, hero)
 
                 summoningCity := caster.FindSummoningCity()
                 if summoningCity != nil {
@@ -1058,11 +919,8 @@ func (game *Game) MakeSpellBindingUI(caster *playerlib.Player, spell spellbook.S
         group.AddElement(createSparksElement(faceRect, fader))
         success := false
 
-        if spellbook.RollDispelChance(spellbook.ComputeDispelChance(dispelStrength, targetSpell.Cost(true), targetSpell.Magic, &owner.Wizard)) {
+        if game.Model.TrySpellBinding(caster, owner, enchantment, targetSpell, dispelStrength) {
             success = true
-            owner.RemoveEnchantment(enchantment)
-            caster.AddEnchantment(enchantment)
-
             game.ApplyGlobalEnchantment(enchantment, caster)
         }
 
@@ -1134,9 +992,8 @@ func (game *Game) MakeDisjunctionUI(caster *playerlib.Player, spell spellbook.Sp
 
         success := false
 
-        if spellbook.RollDispelChance(spellbook.ComputeDispelChance(dispelStrength, targetSpell.Cost(true), targetSpell.Magic, &owner.Wizard)) {
+        if game.Model.TryDisjunction(owner, enchantment, targetSpell, dispelStrength) {
             // show an animation/play a sound?
-            owner.RemoveEnchantment(enchantment)
             success = true
         }
 
@@ -1388,17 +1245,8 @@ func (game *Game) makeGlobalEnchantmentSelectionUI(caster *playerlib.Player, spe
 
 func (game *Game) MakeSubversionUI(caster *playerlib.Player, spell spellbook.Spell) (*uilib.UIElementGroup, context.Context, error) {
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) (bool, string) {
-        if targetPlayer.Defeated || targetPlayer.Banished {
+        if !game.Model.ApplySubversion(caster, targetPlayer) {
             return false, ""
-        }
-
-        for _, player := range game.Model.Players {
-            // ignore the wizard that cast subversion
-            if player == caster {
-                continue
-            }
-
-            player.AdjustDiplomaticRelation(targetPlayer, -25)
         }
 
         return true, fmt.Sprintf("%s has been subverted", targetPlayer.Wizard.Name)
@@ -1444,12 +1292,6 @@ func (game *Game) MakeSubversionUI(caster *playerlib.Player, spell spellbook.Spe
 // also returns the reason why the fizzle occurred (due to tranquility, supress magic, etc
 
 func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spell) {
-    wards := []data.CityEnchantment{
-        data.CityEnchantmentLifeWard, data.CityEnchantmentSorceryWard,
-        data.CityEnchantmentNatureWard, data.CityEnchantmentDeathWard,
-        data.CityEnchantmentChaosWard,
-    }
-
     var selectCity func (coroutine.YieldFunc, int, int)
     selectCity = func (yield coroutine.YieldFunc, tileX int, tileY int) {
         // FIXME: Show this only for enemies if detect magic is active and the city is known to the human player
@@ -1459,17 +1301,11 @@ func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spel
             return
         }
 
-        choices := set.NewSet(wards...)
-
-        for _, enchantment := range choices.Values() {
-            if chosenCity.HasEnchantment(enchantment) {
-                choices.Remove(enchantment)
-            }
-        }
+        choices := game.Model.AvailableSpellWards(chosenCity)
 
         if choices.Size() == 0 {
             game.Events <- &gamecore.GameEventNotice{Message: "No wards are available to cast on this city."}
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyCity, SelectedFunc: selectCity}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyCity, SelectedFunc: selectCity}
             return
         }
 
@@ -1503,68 +1339,13 @@ func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spel
         }
     }
 
-    game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyCity, SelectedFunc: selectCity}
+    game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyCity, SelectedFunc: selectCity}
 }
 
 func (game *Game) doDisenchantArea(yield coroutine.YieldFunc, player *playerlib.Player, spell spellbook.Spell, disenchantTrue bool, tileX int, tileY int) {
     game.doCastOnMap(yield, tileX, tileY, 9, spell.Sound, func (x int, y int, animationFrame int){})
 
-    disenchantStrength := spell.Cost(true)
-    if disenchantTrue {
-        // strength is 3x mana cost
-        disenchantStrength = spell.Cost(true) * 3
-    }
-
-    if player.Wizard.RetortEnabled(data.RetortRunemaster) {
-        disenchantStrength *= 2
-    }
-
-    allSpells := game.AllSpells()
-
-    city, _ := game.Model.FindCity(tileX, tileY, game.Model.Plane)
-    if city != nil {
-        for _, enchantment := range city.Enchantments.Values() {
-            if enchantment.Owner != player.GetBanner() {
-                spell := allSpells.FindByName(enchantment.Enchantment.SpellName())
-                cost := spell.Cost(true)
-                dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, spell.Magic, &game.GetPlayerByBanner(enchantment.Owner).Wizard)
-                if spellbook.RollDispelChance(dispellChance) {
-                    city.RemoveEnchantments(enchantment.Enchantment)
-                }
-            }
-        }
-    }
-
-    stack, owner := game.Model.FindStack(tileX, tileY, game.Model.Plane)
-    if stack != nil && owner != player {
-        for _, unit := range stack.Units() {
-            var toRemove []data.UnitEnchantment
-            for _, enchantment := range unit.GetEnchantments() {
-                spell := allSpells.FindByName(enchantment.SpellName())
-                cost := spell.Cost(true)
-                dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, spell.Magic, &owner.Wizard)
-                if rand.N(100) < dispellChance {
-                    toRemove = append(toRemove, enchantment)
-                }
-            }
-
-            for _, enchantment := range toRemove {
-                unit.RemoveEnchantment(enchantment)
-            }
-        }
-    }
-
-    mapUse := game.GetMap(game.Model.Plane)
-    magicNode := mapUse.GetMagicNode(tileX, tileY)
-    if magicNode != nil && magicNode.Warped && magicNode.WarpedOwner != player {
-        warpNode := allSpells.FindByName("Warp Node")
-        cost := warpNode.Cost(true)
-        dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, warpNode.Magic, &game.GetPlayerByBanner(magicNode.WarpedOwner.GetBanner()).Wizard)
-
-        if rand.N(100) < dispellChance {
-            magicNode.Warped = false
-        }
-    }
+    game.Model.ApplyDisenchantArea(player, spell, disenchantTrue, tileX, tileY)
 }
 
 func (game *Game) doCastOnUnit(player *playerlib.Player, spell spellbook.Spell, animationIndex int, before UnitEnchantmentCallback, after UnitEnchantmentCallback) {
@@ -1596,12 +1377,12 @@ func (game *Game) doCastOnUnit(player *playerlib.Player, spell spellbook.Spell, 
 
         // player didn't select a unit, let them pick a different stack
         if unit == nil {
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyUnit, SelectedFunc: selected}
             return
         }
 
         if !before(unit) {
-            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyUnit, SelectedFunc: selected}
+            game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyUnit, SelectedFunc: selected}
             return
         }
 
@@ -1612,7 +1393,7 @@ func (game *Game) doCastOnUnit(player *playerlib.Player, spell spellbook.Spell, 
         game.RefreshUI()
     }
 
-    game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyUnit, SelectedFunc: selected}
+    game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyUnit, SelectedFunc: selected}
 }
 
 func (game *Game) doCastUnitEnchantmentFull(player *playerlib.Player, spell spellbook.Spell, enchantment data.UnitEnchantment, customBefore UnitEnchantmentCallback, customAfter UnitEnchantmentCallback) {
@@ -1743,17 +1524,7 @@ func (game *Game) doSummonUnit(player *playerlib.Player, unit units.Unit) {
         default:
     }
 
-    summonCity := player.FindSummoningCity()
-    if summonCity != nil {
-        overworldUnit := units.MakeOverworldUnitFromUnit(unit, summonCity.X, summonCity.Y, summonCity.Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
-        player.DidSummonUnit(overworldUnit)
-        newUnit := player.AddUnit(overworldUnit)
-        game.ResolveStackAt(summonCity.X, summonCity.Y, summonCity.Plane)
-
-        if player.SelectedStack == nil {
-            player.SelectedStack = player.FindStack(newUnit.GetX(), newUnit.GetY(), newUnit.GetPlane())
-        }
-
+    if game.Model.SummonUnit(player, unit) {
         game.RefreshUI()
     }
 }
@@ -1834,7 +1605,7 @@ func (game *Game) showCastNewBuilding(yield coroutine.YieldFunc, city *citylib.C
 
 /* return x,y and true/false, where true means cancelled, and false means something was selected */
 // FIXME: this copies a lot of code from the surveyor, try to combine the two with shared functions/code
-func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellbook.Spell, player *playerlib.Player, locationType LocationType) (int, int, bool) {
+func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellbook.Spell, player *playerlib.Player, locationType gamecore.LocationType) (int, int, bool) {
     fonts := fontslib.MakeSurveyorFonts(game.Cache)
     castingFont := fonts.SurveyorFont
     whiteFont := fonts.WhiteFont
@@ -1886,18 +1657,18 @@ func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellb
     var selectMessage string
 
     switch locationType {
-        case LocationTypeAny, LocationTypeLand, LocationTypeEmptyWater, LocationTypeChangeTerrain,
-             LocationTypeTransmute, LocationTypeRaiseVolcano, LocationTypeDisenchant:
+        case gamecore.LocationTypeAny, gamecore.LocationTypeLand, gamecore.LocationTypeEmptyWater, gamecore.LocationTypeChangeTerrain,
+             gamecore.LocationTypeTransmute, gamecore.LocationTypeRaiseVolcano, gamecore.LocationTypeDisenchant:
             selectMessage = fmt.Sprintf("Select a space as the target for an %v spell.", spell.Name)
-        case LocationTypeFriendlyCity:
+        case gamecore.LocationTypeFriendlyCity:
             selectMessage = fmt.Sprintf("Select a friendly city to cast %v on.", spell.Name)
-        case LocationTypeEnemyMeldedNode:
+        case gamecore.LocationTypeEnemyMeldedNode:
             selectMessage = fmt.Sprintf("Select a magic node as the target for a %v spell.", spell.Name)
-        case LocationTypeEnemyCity:
+        case gamecore.LocationTypeEnemyCity:
             selectMessage = fmt.Sprintf("Select an enemy city as the target for a %v spell.", spell.Name)
-        case LocationTypeFriendlyUnit:
+        case gamecore.LocationTypeFriendlyUnit:
             selectMessage = fmt.Sprintf("Select a friendly unit as the target for a %v spell.", spell.Name)
-        case LocationTypeEnemyUnit:
+        case gamecore.LocationTypeEnemyUnit:
             selectMessage = fmt.Sprintf("Select an enemy unit as the target for a %v spell.", spell.Name)
         default:
             selectMessage = fmt.Sprintf("unhandled location type %v", locationType)
@@ -2038,135 +1809,12 @@ func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellb
             }
 
             if inputmanager.LeftClick() {
-                switch locationType {
-                    case LocationTypeAny: return tileX, tileY, false
-                    case LocationTypeLand:
-                        if tileY >= 0 && tileY < overworld.Map.Height() {
-                            tileX = overworld.Map.WrapX(tileX)
-                            if player.IsTileExplored(tileX, tileY, game.Model.Plane) {
-                                if overworld.Map.GetTile(tileX, tileY).Tile.IsLand() {
-                                    return tileX, tileY, false
-                                }
-                            }
-                        }
-                    case LocationTypeEmptyWater:
-                        if tileY >= 0 && tileY < overworld.Map.Height() {
-                            tileX = overworld.Map.WrapX(tileX)
-                            if player.IsTileExplored(tileX, tileY, game.Model.Plane) {
-                                if overworld.Map.GetTile(tileX, tileY).Tile.IsWater() {
-                                    empty := true
-                                    for _, enemy := range game.Model.GetEnemies(player) {
-                                        if enemy.FindStack(tileX, tileY, game.Model.Plane) != nil {
-                                            empty = false
-                                            break
-                                        }
-                                    }
-
-                                    if empty {
-                                        return tileX, tileY, false
-                                    }
-                                }
-                            }
-                        }
-                    case LocationTypeFriendlyCity:
-                        city := player.FindCity(tileX, tileY, game.Model.Plane)
-                        if city != nil {
-                            return tileX, tileY, false
-                        }
-                    case LocationTypeChangeTerrain:
-                        if tileY >= 0 && tileY < overworld.Map.Height() {
-                            tileX = overworld.Map.WrapX(tileX)
-
-                            if player.IsTileExplored(tileX, tileY, game.Model.Plane) {
-                                terrainType := overworld.Map.GetTile(tileX, tileY).Tile.TerrainType()
-                                switch terrainType {
-                                    case terrain.Desert, terrain.Forest, terrain.Hill,
-                                         terrain.Swamp, terrain.Grass, terrain.Volcano,
-                                         terrain.Mountain:
-                                        return tileX, tileY, false
-                                }
-                            }
-                        }
-                    case LocationTypeTransmute:
-                        if tileY >= 0 && tileY < overworld.Map.Height() {
-                            tileX = overworld.Map.WrapX(tileX)
-
-                            if player.IsTileExplored(tileX, tileY, game.Model.Plane) {
-                                bonusType := overworld.Map.GetBonusTile(tileX, tileY)
-                                switch bonusType {
-                                    case data.BonusCoal, data.BonusGem, data.BonusIronOre,
-                                         data.BonusGoldOre, data.BonusSilverOre, data.BonusMithrilOre:
-                                        return tileX, tileY, false
-                                }
-                            }
-                        }
-                    case LocationTypeRaiseVolcano:
-                        if tileY >= 0 && tileY < overworld.Map.Height() {
-                            tileX = overworld.Map.WrapX(tileX)
-
-                            if player.IsTileExplored(tileX, tileY, game.Model.Plane) {
-                                terrainType := overworld.Map.GetTile(tileX, tileY).Tile.TerrainType()
-                                switch terrainType {
-                                    case terrain.Desert, terrain.Forest, terrain.Swamp, terrain.Grass, terrain.Tundra:
-                                        return tileX, tileY, false
-                                }
-                            }
-                        }
-                    case LocationTypeEnemyMeldedNode:
-                        if tileY >= 0 && tileY < overworld.Map.Height() {
-                            tileX = overworld.Map.WrapX(tileX)
-
-                            if player.IsTileExplored(tileX, tileY, game.Model.Plane) {
-                                node := overworld.Map.GetMagicNode(tileX, tileY)
-                                if node != nil && node.MeldingWizard != player {
-                                    return tileX, tileY, false
-                                }
-                            }
-                        }
-
-                    case LocationTypeDisenchant:
-                        // return if the tile has a stack, town, or is a magic node
-
-                        if entityInfo.FindStack(tileX, tileY, game.Model.Plane) != nil ||
-                           entityInfo.FindCity(tileX, tileY, game.Model.Plane) != nil ||
-                           overworld.Map.GetMagicNode(tileX, tileY) != nil {
-
-                            return tileX, tileY, false
-                        }
-
-                    case LocationTypeEnemyCity:
-                        for _, enemy := range game.Model.GetEnemies(player) {
-                            city := enemy.FindCity(tileX, tileY, game.Model.Plane)
-                            if city != nil {
-                                if !city.CanTarget(spell) {
-                                    game.doNotice(yield, ui, fmt.Sprintf("You cannot cast %v on this city", spell.Name))
-                                    break
-                                } else {
-                                    return tileX, tileY, false
-                                }
-                            }
-                        }
-
-                    case LocationTypeFriendlyUnit:
-                        stack := player.FindStack(tileX, tileY, game.Model.Plane)
-                        if stack != nil {
-                            return tileX, tileY, false
-                        }
-
-                    case LocationTypeEnemyUnit:
-                        if player.IsVisible(tileX, tileY, game.Model.Plane) {
-                            stack := entityInfo.FindStack(tileX, tileY, game.Model.Plane)
-                            if stack != nil && entityInfo.ContainsEnemy(tileX, tileY, game.Model.Plane, player) {
-                                city := entityInfo.FindCity(tileX, tileY, game.Model.Plane)
-
-                                if city != nil && !city.CanTarget(spell) {
-                                    game.doNotice(yield, ui, fmt.Sprintf("You cannot cast %v on this unit", spell.Name))
-                                    break
-                                } else {
-                                    return tileX, tileY, false
-                                }
-                            }
-                        }
+                useX, ok, reason := game.Model.CheckSpellTarget(player, spell, locationType, entityInfo, tileX, tileY)
+                if ok {
+                    return useX, tileY, false
+                }
+                if reason != "" {
+                    game.doNotice(yield, ui, reason)
                 }
             }
         }
@@ -2180,8 +1828,7 @@ func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellb
 }
 
 func (game *Game) doAddCityEnchantment(yield coroutine.YieldFunc, chosenCity *citylib.City, player *playerlib.Player, spell spellbook.Spell, enchantment data.CityEnchantment) {
-    chosenCity.AddEnchantment(enchantment, player.GetBanner())
-    chosenCity.UpdateUnrest()
+    game.Model.AddCityEnchantment(chosenCity, player, enchantment)
 
     yield()
 
@@ -2199,7 +1846,7 @@ func (game *Game) doAddCityEnchantment(yield coroutine.YieldFunc, chosenCity *ci
     game.RefreshUI()
 }
 
-func (game *Game) doCastCityEnchantmentFull(spell spellbook.Spell, player *playerlib.Player, locationType LocationType, enchantment data.CityEnchantment, before CityCallback, after CityCallback) {
+func (game *Game) doCastCityEnchantmentFull(spell spellbook.Spell, player *playerlib.Player, locationType gamecore.LocationType, enchantment data.CityEnchantment, before CityCallback, after CityCallback) {
     var selected func (yield coroutine.YieldFunc, tileX int, tileY int)
     selected = func (yield coroutine.YieldFunc, tileX int, tileY int) {
         // FIXME: Show this only for enemies if detect magic is active and the city is known to the human player
@@ -2227,7 +1874,7 @@ func (game *Game) doCastCityEnchantmentFull(spell spellbook.Spell, player *playe
     game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: locationType, SelectedFunc: selected}
 }
 
-func (game *Game) doCastNewCityBuilding(spell spellbook.Spell, player *playerlib.Player, locationType LocationType, newBuilding building.Building, errorMessage string, after CityCallback) {
+func (game *Game) doCastNewCityBuilding(spell spellbook.Spell, player *playerlib.Player, locationType gamecore.LocationType, newBuilding building.Building, errorMessage string, after CityCallback) {
     var selected func (yield coroutine.YieldFunc, tileX int, tileY int)
     selected = func (yield coroutine.YieldFunc, tileX int, tileY int) {
         // FIXME: Show this only for enemies if detect magic is active and the city is known to the human player
@@ -2243,8 +1890,7 @@ func (game *Game) doCastNewCityBuilding(spell spellbook.Spell, player *playerlib
             return
         }
 
-        chosenCity.AddBuilding(newBuilding)
-        chosenCity.UpdateUnrest()
+        game.Model.AddCityBuilding(chosenCity, newBuilding)
 
         yield()
 
@@ -2262,7 +1908,7 @@ func (game *Game) doCastNewCityBuilding(spell spellbook.Spell, player *playerlib
     game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: locationType, SelectedFunc: selected}
 }
 
-func (game *Game) doCastCityEnchantment(spell spellbook.Spell, player *playerlib.Player, locationType LocationType, enchantment data.CityEnchantment) {
+func (game *Game) doCastCityEnchantment(spell spellbook.Spell, player *playerlib.Player, locationType gamecore.LocationType, enchantment data.CityEnchantment) {
     game.doCastCityEnchantmentFull(spell, player, locationType, enchantment, noCityCallback, noCityCallback)
 }
 
@@ -2379,12 +2025,7 @@ func (game *Game) doCastCorruption(yield coroutine.YieldFunc, tileX int, tileY i
 func (game *Game) doCastSpellBlast(player *playerlib.Player) {
     var wizSelectionUiGroup *uilib.UIElementGroup
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) bool {
-        if targetPlayer.Defeated || targetPlayer.Banished || !targetPlayer.CastingSpell.Valid() || targetPlayer.CastingSpellProgress > player.Mana {
-            return false
-        }
-        player.Mana -= targetPlayer.CastingSpellProgress
-        targetPlayer.InterruptCastingSpell()
-        return true
+        return game.Model.ApplySpellBlast(player, targetPlayer)
     }
     playersInGame := len(game.Model.Players)
     quit, cancel := context.WithCancel(context.Background())
@@ -2397,15 +2038,10 @@ func (game *Game) doCastSpellBlast(player *playerlib.Player) {
 
 func (game *Game) doCastCruelUnminding(player *playerlib.Player, spell spellbook.Spell) {
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) (bool, string) {
-        if targetPlayer.Defeated || targetPlayer.Banished {
+        actuallyReduced, ok := game.Model.ApplyCruelUnminding(targetPlayer)
+        if !ok {
             return false, ""
         }
-        targetSkill := targetPlayer.ComputeCastingSkill()
-        minReduction := max(targetSkill / 100, 1)
-        maxReduction := max(targetSkill / 10, 1)
-        reductionRandomSpread := max(maxReduction - minReduction, 1) // It should never be zero, or rand.N will crash
-        reduction := minReduction + rand.N(reductionRandomSpread)
-        actuallyReduced := targetPlayer.ReduceCastingSkill(reduction)
         return true, fmt.Sprintf("%s loses %d points of casting ability", targetPlayer.Wizard.Name, actuallyReduced)
     }
     playersInGame := len(game.Model.Players)
@@ -2419,11 +2055,10 @@ func (game *Game) doCastCruelUnminding(player *playerlib.Player, spell spellbook
 
 func (game *Game) doCastDrainPower(player *playerlib.Player, spell spellbook.Spell) {
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) (bool, string) {
-        if targetPlayer.Defeated || targetPlayer.Banished {
+        drainAmount, ok := game.Model.ApplyDrainPower(targetPlayer)
+        if !ok {
             return false, ""
         }
-        drainAmount := min(targetPlayer.Mana, 50 + rand.N(101)) // random 50-150, but don't drain more than the target has
-        targetPlayer.Mana -= drainAmount
         return true, fmt.Sprintf("%s loses %d points of mana", targetPlayer.Wizard.Name, drainAmount)
     }
     playersInGame := len(game.Model.Players)

@@ -3,10 +3,13 @@ package game
 import (
     "testing"
 
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/data"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 func TestCheckInstantFizzleWithoutEnchantments(test *testing.T) {
@@ -33,5 +36,83 @@ func TestChooseSummonHero(test *testing.T) {
     human.HeroPool[herolib.HeroTorin] = &herolib.Hero{HeroType: herolib.HeroTorin, Status: herolib.StatusAvailable}
     if hero := model.ChooseSummonHero(human, true); hero != nil {
         test.Errorf("only Torin available: expected nil, got %v", hero.HeroType)
+    }
+}
+
+func TestApplyDrainPower(test *testing.T) {
+    human, enemy := makeContactPlayers()
+    model := &GameModel{}
+
+    enemy.Mana = 30
+    drained, ok := model.ApplyDrainPower(enemy)
+    if !ok || drained != 30 || enemy.Mana != 0 {
+        test.Errorf("drain capped at the target's mana: drained=%v ok=%v mana=%v", drained, ok, enemy.Mana)
+    }
+
+    enemy.Mana = 1000
+    drained, _ = model.ApplyDrainPower(enemy)
+    if drained < 50 || drained > 150 || enemy.Mana != 1000 - drained {
+        test.Errorf("drain must be 50-150: drained=%v mana=%v", drained, enemy.Mana)
+    }
+
+    human.Banished = true
+    if _, ok := model.ApplyDrainPower(human); ok {
+        test.Errorf("a banished wizard can't be targeted")
+    }
+}
+
+func TestApplySpellBlastNeedsASpellInProgress(test *testing.T) {
+    human, enemy := makeContactPlayers()
+    model := &GameModel{}
+
+    human.Mana = 500
+    if model.ApplySpellBlast(human, enemy) {
+        test.Errorf("target is not casting anything: spell blast must not apply")
+    }
+    if human.Mana != 500 {
+        test.Errorf("caster mana changed: %v", human.Mana)
+    }
+}
+
+func TestAvailableSpellWards(test *testing.T) {
+    model := &GameModel{}
+    city := &citylib.City{Enchantments: set.MakeSet[citylib.Enchantment]()}
+
+    if got := model.AvailableSpellWards(city).Size(); got != 5 {
+        test.Errorf("no wards yet: expected 5 choices, got %v", got)
+    }
+
+    city.AddEnchantment(data.CityEnchantmentChaosWard, data.BannerRed)
+    choices := model.AvailableSpellWards(city)
+    if choices.Size() != 4 || choices.Contains(data.CityEnchantmentChaosWard) {
+        test.Errorf("chaos ward present: expected the other 4, got %v", choices.Values())
+    }
+}
+
+func TestApplySubversion(test *testing.T) {
+    caster, target := makeContactPlayers()
+    bystander := playerlib.MakePlayer(setup.WizardCustom{Name: "Sharee", Banner: data.BannerBlue}, false, 8, 8, make(map[herolib.HeroType]string), nil)
+    model := &GameModel{Players: []*playerlib.Player{caster, target, bystander}}
+    model.MakeWizardContact(bystander, target)
+    model.MakeWizardContact(caster, target)
+
+    relation, ok := bystander.GetDiplomaticRelation(target)
+    if !ok {
+        test.Fatalf("bystander should know the target")
+    }
+    before := relation.StartingRelation
+
+    if !model.ApplySubversion(caster, target) {
+        test.Fatalf("subversion should apply")
+    }
+
+    relation, _ = bystander.GetDiplomaticRelation(target)
+    if relation.StartingRelation != max(before - 25, -100) {
+        test.Errorf("bystander should like the target less: %v -> %v", before, relation.StartingRelation)
+    }
+
+    target.Banished = true
+    if model.ApplySubversion(caster, target) {
+        test.Errorf("a banished wizard can't be targeted")
     }
 }

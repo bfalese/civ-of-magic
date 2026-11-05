@@ -43,6 +43,19 @@ def exported_idents(pkg_dir):
             names |= set(re.findall(r'^\s+([A-Z]\w*)\b', block, re.M))
     return names
 
+def continues_case(tok, line_start):
+    # true if the line starting at line_start continues a `case a, b,` list from the lines above
+    pos = line_start
+    while pos > 0:
+        prev_start = tok.rfind('\n', 0, pos - 1) + 1
+        prev = tok[prev_start:pos - 1].rstrip()
+        if not prev.endswith(','):
+            return False
+        if re.match(r'\s*case\b', prev):
+            return True
+        pos = prev_start
+    return False
+
 def qualify(text, names, alias):
     out = []
     # split on string/rune literals and comments so we leave them alone
@@ -60,7 +73,7 @@ def qualify(text, names, alias):
             # composite-literal field key (Field: value), but not :=
             line_start = tok.rfind('\n', 0, m.start()) + 1
             before = tok[line_start:m.start()]
-            if re.match(r'\s*:(?!=)', after) and not re.search(r'\bcase\b[^{]*$', before):
+            if re.match(r'\s*:(?!=)', after) and not re.search(r'\bcase\b[^{]*$', before) and not continues_case(tok, line_start):
                 return word
             # struct field declaration: line starts with the name, followed by a type
             if before.strip() == '' and re.match(r'[ \t]+[\w*\[\]]', tok[m.end():m.end() + 2]):
