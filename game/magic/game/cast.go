@@ -27,7 +27,6 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
-    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/game/magic/mirror"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
@@ -480,40 +479,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
         case "Death Wish":
             after := func() {
-                cityStackInfo := game.Model.ComputeCityStackInfo()
-
-                for _, owner := range game.Model.Players {
-                    if owner == player {
-                        continue
-                    }
-
-                    for _, stack := range owner.Stacks {
-
-                        city := cityStackInfo.FindCity(stack.X(), stack.Y(), stack.Plane())
-                        if city != nil && !city.CanTarget(spell) {
-                            continue
-                        }
-
-                        for _, unit := range stack.Units() {
-                            ignore := unit.GetRace() == data.RaceFantastic
-
-                            if unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonWings) ||
-                               unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonSkin) ||
-                               unit.HasEnchantment(data.UnitEnchantmentChaosChannelsFireBreath) {
-                                   ignore = false
-                            }
-
-                            if ignore {
-                                continue
-                            }
-
-                            resistance := combat.GetResistanceFor(unit, data.DeathMagic)
-                            if rand.N(10) + 1 > resistance {
-                                owner.RemoveUnit(unit)
-                            }
-                        }
-                    }
-                }
+                game.Model.ApplyDeathWish(player, spell)
             }
 
             game.Events <- &GameEventCastGlobalEnchantment{Player: player, Enchantment: data.DeathWish, After: after}
@@ -534,11 +500,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                     game.doCastOnMap(yield, tileX, tileY, 14, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                    for _, unit := range stack.Units() {
-                        if rand.N(10) + 1 > combat.GetResistanceFor(unit, data.DeathMagic) - 1 {
-                            owner.RemoveUnit(unit)
-                        }
-                    }
+                    game.Model.ApplyBlackWind(stack, owner)
 
                 }
             }
@@ -565,10 +527,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                     game.doCastOnMap(yield, tileX, tileY, 53, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                    // FIXME: maybe apply a Stasis unit enchantment so the user can see the unit is under the stasis effect?
-                    for _, unit := range stack.Units() {
-                        unit.SetBusy(units.BusyStatusStasis)
-                    }
+                    game.Model.ApplyStasis(stack)
 
                 }
             }
@@ -584,35 +543,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
         case "Great Unsummoning":
             after := func(){
-                cityStackInfo := game.Model.ComputeCityStackInfo()
-
-                for _, player := range game.Model.Players {
-                    for _, stack := range player.Stacks {
-
-                        city := cityStackInfo.FindCity(stack.X(), stack.Y(), stack.Plane())
-                        if city != nil && !city.CanTarget(spell) {
-                            continue
-                        }
-
-                        for _, unit := range stack.Units() {
-                            if unit.GetRace() == data.RaceFantastic {
-
-                                if unit.HasEnchantment(data.UnitEnchantmentSpellLock) ||
-                                unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonWings) ||
-                                unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonSkin) ||
-                                unit.HasEnchantment(data.UnitEnchantmentChaosChannelsFireBreath) ||
-                                unit.HasAbility(data.AbilityMagicImmunity) {
-                                    continue
-                                }
-
-                                resistance := combat.GetResistanceFor(unit, data.SorceryMagic)
-                                if rand.N(10) + 1 > resistance - 3 {
-                                    player.RemoveUnit(unit)
-                                }
-                            }
-                        }
-                    }
-                }
+                game.Model.ApplyGreatUnsummoning(spell)
 
                 game.RefreshUI()
             }
@@ -679,12 +610,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                 game.doCastOnMap(yield, tileX, tileY, 10, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 6, units.DamageCold, 0)
-                    if unit.GetHealth() <= 0 {
-                        enemy.RemoveUnit(unit)
-                    }
-                }
+                game.Model.ApplyIceStorm(enemyStack, enemy)
 
                 yield()
             }
@@ -702,12 +628,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                 game.doCastOnMap(yield, tileX, tileY, 6, spell.Sound, func (x int, y int, animationFrame int) {})
 
-                for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 8, units.DamageImmolation, 0)
-                    if unit.GetHealth() <= 0 {
-                        enemy.RemoveUnit(unit)
-                    }
-                }
+                game.Model.ApplyFireStorm(enemyStack, enemy)
 
                 yield()
             }
