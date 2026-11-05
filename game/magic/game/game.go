@@ -4677,7 +4677,11 @@ func (game *Game) createTreasure(encounterType maplib.EncounterType, budget int,
         // cannot find the last spell in treasure
         allSpells.RemoveSpell(allSpells.FindByName("Spell of Mastery"))
 
-        treasure := makeTreasure(game.Cache, encounterType, budget, point, player.Wizard, player.KnownSpells, allSpells, heroes, makeArtifacts)
+        getPowers := func() (map[artifact.Power]int, map[artifact.Power]set.Set[artifact.ArtifactType], error) {
+            _, costs, compatibilities, err := lbxdata.ReadPowers(game.Cache)
+            return costs, compatibilities, err
+        }
+        treasure := makeTreasure(getPowers, encounterType, budget, point, player.Wizard, player.KnownSpells, allSpells, heroes, makeArtifacts)
         // FIXME: show treasure ui for human, otherwise just apply treasure for AI
         select {
             case game.Events <- &GameEventTreasure{Treasure: treasure, Player: player}:
