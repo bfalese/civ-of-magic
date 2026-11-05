@@ -12,7 +12,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/banish"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/setup"
 
     "github.com/hajimehoshi/ebiten/v2"

@@ -31,7 +31,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/util/common"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 

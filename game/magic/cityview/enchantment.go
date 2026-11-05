@@ -15,7 +15,7 @@ import (
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
 
     "github.com/hajimehoshi/ebiten/v2"

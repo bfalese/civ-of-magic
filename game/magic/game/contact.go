@@ -2,7 +2,7 @@ package game
 
 import (
     "github.com/bfalese/civ-of-magic/lib/coroutine"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
 )
 
 // make two wizards mutually aware. returns a diplomacy event when the human

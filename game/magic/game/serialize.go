@@ -6,7 +6,7 @@ import (
 
     "github.com/bfalese/civ-of-magic/game/magic/ai"
     "github.com/bfalese/civ-of-magic/core/maplib"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/serialize"

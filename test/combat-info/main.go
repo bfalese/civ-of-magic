@@ -15,7 +15,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/spellbook"
     // "github.com/bfalese/civ-of-magic/core/hero"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

@@ -13,7 +13,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/set"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/hero"
 
     "github.com/hajimehoshi/ebiten/v2"
