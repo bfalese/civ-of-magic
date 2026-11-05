@@ -11,7 +11,7 @@ import (
 
 	buildinglib "github.com/bfalese/civ-of-magic/core/building"
 	citylib "github.com/bfalese/civ-of-magic/core/city"
-	"github.com/bfalese/civ-of-magic/game/magic/combat"
+	"github.com/bfalese/civ-of-magic/core/combat"
 	"github.com/bfalese/civ-of-magic/core/data"
 	"github.com/bfalese/civ-of-magic/core/player"
 	"github.com/bfalese/civ-of-magic/core/setup"

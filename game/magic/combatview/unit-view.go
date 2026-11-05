@@ -13,7 +13,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
 
     "github.com/hajimehoshi/ebiten/v2"
-    combatlib "github.com/bfalese/civ-of-magic/game/magic/combat"
+    combatlib "github.com/bfalese/civ-of-magic/core/combat"
 
 )
 

@@ -5,7 +5,7 @@ import (
 
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/units"
-    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/core/combat"
 )
 
 // an implementation of combat/UnitDamage that wraps a StackUnit for the purpose of applying damage to a StackUnit

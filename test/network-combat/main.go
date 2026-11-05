@@ -26,7 +26,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
-    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     netlib "github.com/bfalese/civ-of-magic/lib/net"
     "github.com/bfalese/civ-of-magic/lib/optional"

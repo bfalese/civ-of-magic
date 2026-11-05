@@ -37,7 +37,7 @@ import (
     "github.com/hajimehoshi/ebiten/v2/inpututil"
     "github.com/hajimehoshi/ebiten/v2/vector"
     "github.com/hajimehoshi/ebiten/v2/colorm"
-    combatlib "github.com/bfalese/civ-of-magic/game/magic/combat"
+    combatlib "github.com/bfalese/civ-of-magic/core/combat"
 
 )
 

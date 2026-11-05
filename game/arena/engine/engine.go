@@ -21,7 +21,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
-    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/console"
     "github.com/bfalese/civ-of-magic/game/magic/util"
