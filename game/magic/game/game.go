@@ -529,7 +529,7 @@ func (loader *DummyGameLoader) LoadNew(path string) error {
 }
 
 func createArtifactPool(lbxCache *lbx.LbxCache) *artifact.Catalog {
-    artifacts, err := artifact.ReadArtifacts(lbxCache)
+    artifacts, err := lbxdata.ReadArtifacts(lbxCache)
     if err != nil {
         log.Printf("Error reading artifacts")
         return artifact.MakeCatalog(nil)

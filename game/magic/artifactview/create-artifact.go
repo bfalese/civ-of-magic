@@ -8,7 +8,6 @@ import (
     "cmp"
     "image/color"
     "log"
-    "bytes"
 
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/lib/functional"
@@ -26,6 +25,7 @@ import (
     "github.com/hajimehoshi/ebiten/v2/vector"
     // "github.com/hajimehoshi/ebiten/v2/inpututil"
     artifactlib "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
 )
 
@@ -42,167 +42,6 @@ const CreationScreenCostThreshold = 200  // TODO: validate this again with abili
 type MagicLevel interface {
     // for a given magic type, returns the number of books of that magic
     MagicLevel(kind data.MagicType) int
-}
-
-func ReadPowers(cache *lbx.LbxCache) ([]artifactlib.Power, map[artifactlib.Power]int, map[artifactlib.Power]set.Set[artifactlib.ArtifactType], error) {
-    itemData, err := cache.GetLbxFile("itempow.lbx")
-    if err != nil {
-        return nil, nil, nil, fmt.Errorf("unable to read itempow.lbx: %v", err)
-    }
-
-    reader, err := itemData.GetReader(0)
-    if err != nil {
-        return nil, nil, nil, fmt.Errorf("unable to read entry 0 in itempow.lbx: %v", err)
-    }
-
-    numEntries, err := lbx.ReadUint16(reader)
-    if err != nil {
-        return nil, nil, nil, fmt.Errorf("read error: %v", err)
-    }
-
-    entrySize, err := lbx.ReadUint16(reader)
-    if err != nil {
-        return nil, nil, nil, fmt.Errorf("read error: %v", err)
-    }
-    if entrySize != 30 {
-        return nil, nil, nil, fmt.Errorf("unsupported itempow.lbx")
-    }
-
-    artifactTypeMap := map[uint16]artifactlib.ArtifactType{
-        1 << 0: artifactlib.ArtifactTypeSword,
-        1 << 1: artifactlib.ArtifactTypeMace,
-        1 << 2: artifactlib.ArtifactTypeAxe,
-        1 << 3: artifactlib.ArtifactTypeBow,
-        1 << 4: artifactlib.ArtifactTypeStaff,
-        1 << 5: artifactlib.ArtifactTypeWand,
-        1 << 6: artifactlib.ArtifactTypeMisc,
-        1 << 7: artifactlib.ArtifactTypeShield,
-        1 << 8: artifactlib.ArtifactTypeChain,
-        1 << 9: artifactlib.ArtifactTypePlate,
-    }
-
-    powerTypeMap := map[byte]artifactlib.PowerType{
-        0: artifactlib.PowerTypeAttack,
-        1: artifactlib.PowerTypeToHit,
-        2: artifactlib.PowerTypeDefense,
-        3: artifactlib.PowerTypeSpellSkill,
-        4: artifactlib.PowerTypeSpellSave,
-        5: artifactlib.PowerTypeMovement,
-        6: artifactlib.PowerTypeResistance,
-        7: artifactlib.PowerTypeAbility1,
-        8: artifactlib.PowerTypeAbility2,
-        9: artifactlib.PowerTypeAbility3,
-    }
-
-    magicTypeMap := map[byte]data.MagicType{
-        0: data.NatureMagic,
-        1: data.SorceryMagic,
-        2: data.ChaosMagic,
-        3: data.LifeMagic,
-        4: data.DeathMagic,
-    }
-
-    // Reuse the canonical conversion maps so artifact parsing doesn't drift
-    // from item loading (both read the same itempow.lbx / itemdata.lbx).
-    _, _, abilityMap := artifactlib.GetItemConversionMaps()
-
-    var powers []artifactlib.Power
-    costs := make(map[artifactlib.Power]int)
-    compatibilities := make(map[artifactlib.Power]set.Set[artifactlib.ArtifactType])
-
-    for i := 0; i < int(numEntries); i++ {
-        // Name
-        name := make([]byte, 18)
-        n, err := reader.Read(name)
-        if err != nil || n != int(18) {
-            return nil, nil, nil, fmt.Errorf("unable to read item name %v: %v", i, err)
-        }
-        name = bytes.Trim(name, " \x00")
-
-        // Artifact types
-        artifactTypeValue, err := lbx.ReadUint16(reader)
-        if err != nil {
-            return nil, nil, nil, fmt.Errorf("read error: %v", err)
-        }
-        if artifactTypeValue == 0 {
-            continue  // there seems to be empty entries
-        }
-
-        artifactTypes := set.MakeSet[artifactlib.ArtifactType]()
-        for mask, artifactType := range artifactTypeMap {
-            if artifactTypeValue & mask != 0 {
-                artifactTypes.Insert(artifactType)
-            }
-        }
-
-        // Cost
-        cost, err := lbx.ReadUint16(reader)
-        if err != nil {
-            return nil, nil, nil, fmt.Errorf("read error: %v", err)
-        }
-
-        // Power type
-        powerTypeValue, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, nil, nil, fmt.Errorf("read error: %v", err)
-        }
-        powerType, exists := powerTypeMap[powerTypeValue]
-        if !exists {
-            return nil, nil, nil, fmt.Errorf("Invalid power type %v", powerTypeValue)
-        }
-
-        // Magic type
-        magicTypeValue, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, nil, nil, fmt.Errorf("read error: %v", err)
-        }
-        magicType, exists := magicTypeMap[magicTypeValue]
-        if !exists {
-            return nil, nil, nil, fmt.Errorf("Invalid magic type %v", magicTypeValue)
-        }
-
-        // Amount
-        amount, err := lbx.ReadUint16(reader)
-        if err != nil {
-            return nil, nil, nil, fmt.Errorf("read error: %v", err)
-        }
-        if string(name) == "+6 Defense" {
-            amount = 6
-        }
-
-        // Abilities
-        abilitiesValue, err := lbx.ReadUint32(reader)
-        if err != nil {
-            return nil, nil, nil, fmt.Errorf("read error: %v", err)
-        }
-
-        var ability data.ItemAbility
-        for mask, current := range abilityMap {
-            if abilitiesValue&mask != 0 {
-                ability = current
-            }
-        }
-
-        // Create power
-        if amount == 0 {
-            continue // Spell Charges
-        }
-
-        if powerType != artifactlib.PowerTypeNone {
-            power := artifactlib.Power{
-                Type: powerType,
-                Name: string(name),
-                Amount: int(amount),
-                Ability: ability,
-                Magic: magicType,
-                Index: i,
-            }
-            powers = append(powers, power)
-            costs[power] = int(cost)
-            compatibilities[power] = *artifactTypes
-        }
-    }
-    return powers, costs, compatibilities, nil
 }
 
 func groupPowers(powers []artifactlib.Power, costs map[artifactlib.Power]int, compatibilities map[artifactlib.Power]set.Set[artifactlib.ArtifactType], artifactType artifactlib.ArtifactType, creationType CreationScreen) [][]artifactlib.Power {
@@ -1086,7 +925,7 @@ func ShowCreateArtifactScreen(yield coroutine.YieldFunc, cache *lbx.LbxCache, cr
         }
     }
 
-    powerEntries, costs, compatibilities, err := ReadPowers(cache)
+    powerEntries, costs, compatibilities, err := lbxdata.ReadPowers(cache)
     if err != nil {
         return nil, true
     }
@@ -1289,7 +1128,7 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
 
     ui.SetElementsFromArray(nil)
 
-    powerEntries, costs, compatibilities, err := ReadPowers(cache)
+    powerEntries, costs, compatibilities, err := lbxdata.ReadPowers(cache)
     if err != nil {
         log.Printf("Unable to read item powers: %v", err)
         return

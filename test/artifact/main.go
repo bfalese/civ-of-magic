@@ -98,7 +98,7 @@ func (engine *Engine) EditorRoutine() func (coroutine.YieldFunc) error {
         log.Printf("Unable to read spells: %v", err)
     }
 
-    items, err := artifact.ReadArtifacts(engine.Cache)
+    items, err := lbxdata.ReadArtifacts(engine.Cache)
     if err != nil {
         log.Printf("Unable to read artifacts: %v", err)
         return func(yield coroutine.YieldFunc) error {

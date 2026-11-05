@@ -5,7 +5,8 @@ import (
     "slices"
     "math/rand/v2"
 
-    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
 
     "github.com/bfalese/civ-of-magic/game/magic/artifact"
     "github.com/bfalese/civ-of-magic/core/spellbook"
@@ -308,7 +309,7 @@ func makeTreasure(cache *lbx.LbxCache, encounterType maplib.EncounterType, budge
                     }
                 } else {
                     randomArtifact := artifact.Artifact{}
-                    _, costs, compatibilities, err := artifactview.ReadPowers(cache)
+                    _, costs, compatibilities, err := lbxdata.ReadPowers(cache)
                     if err == nil {
                         randomArtifact = artifact.MakeRandomArtifact(costs, compatibilities)
                     }

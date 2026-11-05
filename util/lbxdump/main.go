@@ -13,14 +13,12 @@ import (
     "archive/zip"
     "flag"
 
-    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
 
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/set"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/game"
     "github.com/bfalese/civ-of-magic/game/magic/hero"
@@ -116,7 +114,7 @@ func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, 
         files := make(map[string]*lbx.LbxFile)
         files["itemdata.lbx"] = &file
         cache := lbx.MakeCacheFromLbxFiles(files)
-        artifacts, err := artifact.ReadArtifacts(cache)
+        artifacts, err := lbxdata.ReadArtifacts(cache)
 
         if err != nil {
             return err
@@ -130,7 +128,7 @@ func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, 
         files := make(map[string]*lbx.LbxFile)
         files["itempow.lbx"] = &file
         cache := lbx.MakeCacheFromLbxFiles(files)
-        artifacts, costs, compatibilities, err := artifactview.ReadPowers(cache)
+        artifacts, costs, compatibilities, err := lbxdata.ReadPowers(cache)
 
         if err != nil {
             return err
