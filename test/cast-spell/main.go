@@ -3,15 +3,13 @@ package main
 import (
     "log"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
-    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
-
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

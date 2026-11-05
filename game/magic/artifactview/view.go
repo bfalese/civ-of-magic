@@ -1,4 +1,4 @@
-package artifact
+package artifactview
 
 import (
     "image"
@@ -11,6 +11,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
+    artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
 
     "github.com/hajimehoshi/ebiten/v2"
 )
@@ -28,7 +29,7 @@ func add1PxBorder(src *image.Paletted) image.Image {
     return out
 }
 
-func RenderArtifactImage(screen *ebiten.Image, imageCache *util.ImageCache, artifact Artifact, counter uint64, options ebiten.DrawImageOptions) *ebiten.Image {
+func RenderArtifactImage(screen *ebiten.Image, imageCache *util.ImageCache, artifact artifactlib.Artifact, counter uint64, options ebiten.DrawImageOptions) *ebiten.Image {
     itemImage, _ := imageCache.GetImageTransform("items.lbx", artifact.Image, 0, "1px-border", add1PxBorder)
     options.GeoM.Translate(-1, -1)
     scale.DrawScaled(screen, itemImage, &options)
@@ -111,7 +112,7 @@ func renderItemRows(screen *ebiten.Image, maxRowLength int, savedGeom ebiten.Geo
     }
 }
 
-func RenderArtifactBox(screen *ebiten.Image, imageCache *util.ImageCache, artifact Artifact, counter uint64, titleFont *font.Font, attributeFont *font.Font, options ebiten.DrawImageOptions) {
+func RenderArtifactBox(screen *ebiten.Image, imageCache *util.ImageCache, artifact artifactlib.Artifact, counter uint64, titleFont *font.Font, attributeFont *font.Font, options ebiten.DrawImageOptions) {
     itemBackground, _ := imageCache.GetImage("itemisc.lbx", 25, 0)
     scale.DrawScaled(screen, itemBackground, &options)
 

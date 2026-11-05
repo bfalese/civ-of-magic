@@ -9,8 +9,6 @@ import (
     "slices"
     "cmp"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
@@ -22,6 +20,7 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"

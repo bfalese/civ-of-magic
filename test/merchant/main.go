@@ -7,11 +7,12 @@ import (
     "os"
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -78,7 +79,7 @@ func NewEngine(scenario int) (*Engine, error) {
     // ability (like Elemental Armor), to check issue #182's "Elemental Armor, as elemental
     // armor spell" rendering against real data instead of a hand-built artifact.
     if scenario == 2 {
-        realArtifacts, err := artifact.ReadArtifacts(cache)
+        realArtifacts, err := lbxdata.ReadArtifacts(cache)
         if err != nil {
             log.Printf("Error reading itemdata.lbx: %v", err)
         } else {

@@ -9,7 +9,7 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     "github.com/bfalese/civ-of-magic/game/magic/magicview"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
@@ -21,6 +21,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -39,7 +40,7 @@ func (game *Game) showItemPopup(item *artifact.Artifact, cache *lbx.LbxCache, im
         var options ebiten.DrawImageOptions
         options.ColorScale.ScaleAlpha(getAlpha())
         options.GeoM.Translate(float64(48), float64(48))
-        artifact.RenderArtifactBox(screen, imageCache, *item, counter / 8, vaultFonts.ItemName, vaultFonts.PowerFont, options)
+        artifactview.RenderArtifactBox(screen, imageCache, *item, counter / 8, vaultFonts.ItemName, vaultFonts.PowerFont, options)
     }
 
     logic := func (yield coroutine.YieldFunc) {
@@ -126,7 +127,7 @@ func (game *Game) showVaultScreen(createdArtifact *artifact.Artifact, player *pl
     updateMouse := func(){
         if selectedItem.Item != nil {
             mouse.Mouse.SetImageFunc(func (screen *ebiten.Image, options *ebiten.DrawImageOptions){
-                artifact.RenderArtifactImage(screen, &imageCache, *selectedItem.Item, ui.Counter / 8, *options)
+                artifactview.RenderArtifactImage(screen, &imageCache, *selectedItem.Item, ui.Counter / 8, *options)
             })
         } else {
             mouse.Mouse.SetImage(game.MouseData.Normal)
@@ -177,7 +178,7 @@ func (game *Game) showVaultScreen(createdArtifact *artifact.Artifact, player *pl
                     equipmentImage, _ := imageCache.GetImage("items.lbx", player.VaultEquipment[index].Image, 0)
                     screen.DrawImage(equipmentImage, &options)
                     */
-                    artifact.RenderArtifactImage(screen, &imageCache, *player.VaultEquipment[index], ui.Counter / 8, options)
+                    artifactview.RenderArtifactImage(screen, &imageCache, *player.VaultEquipment[index], ui.Counter / 8, options)
                 }
             },
         }
@@ -352,7 +353,7 @@ func (game *Game) showVaultScreen(createdArtifact *artifact.Artifact, player *pl
                         artifactPic, _ := imageCache.GetImage("items.lbx", hero.Equipment[slotIndex].Image, 0)
                         screen.DrawImage(artifactPic, &slotOptions)
                         */
-                        artifact.RenderArtifactImage(screen, &imageCache, *hero.Equipment[slotIndex], ui.Counter / 8, slotOptions)
+                        artifactview.RenderArtifactImage(screen, &imageCache, *hero.Equipment[slotIndex], ui.Counter / 8, slotOptions)
                     } else {
                         scale.DrawScaled(screen, pic, &slotOptions)
                     }

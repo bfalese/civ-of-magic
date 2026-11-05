@@ -18,10 +18,6 @@ import (
     "bufio"
     "compress/gzip"
 
-    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
-
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/keybinds"
@@ -29,7 +25,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/core/spellbook"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/mirror"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
     "github.com/bfalese/civ-of-magic/game/magic/banish"
@@ -67,6 +63,9 @@ import (
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/lib/system"
     "github.com/bfalese/civ-of-magic/lib/optional"
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/colorm"
@@ -527,7 +526,7 @@ func (loader *DummyGameLoader) LoadNew(path string) error {
 }
 
 func createArtifactPool(lbxCache *lbx.LbxCache) *artifact.Catalog {
-    artifacts, err := artifact.ReadArtifacts(lbxCache)
+    artifacts, err := lbxdata.ReadArtifacts(lbxCache)
     if err != nil {
         log.Printf("Error reading artifacts")
         return artifact.MakeCatalog(nil)
@@ -5724,7 +5723,7 @@ func (game *Game) doDefaultItemEditor(yield coroutine.YieldFunc) {
     })
     defer game.PopDrawer()
 
-    artifact.ShowDefaultItemEditor(yield, game.Cache, game.Model.ArtifactPool, game.AllSpells().CombatSpells(false), &drawFunc)
+    artifactview.ShowDefaultItemEditor(yield, game.Cache, game.Model.ArtifactPool, game.AllSpells().CombatSpells(false), &drawFunc)
 }
 
 func (game *Game) ShowSpellBookCastUI(yield coroutine.YieldFunc, player *playerlib.Player){
@@ -5750,13 +5749,13 @@ func (game *Game) ShowSpellBookCastUI(yield coroutine.YieldFunc, player *playerl
                 })
                 defer game.PopDrawer()
 
-                creation := artifact.CreationCreateArtifact
+                creation := artifactview.CreationCreateArtifact
                 switch spell.Name {
-                    case "Create Artifact": creation = artifact.CreationCreateArtifact
-                    case "Enchant Item": creation = artifact.CreationEnchantItem
+                    case "Create Artifact": creation = artifactview.CreationCreateArtifact
+                    case "Enchant Item": creation = artifactview.CreationEnchantItem
                 }
 
-                created, cancel := artifact.ShowCreateArtifactScreen(yield, game.Cache, creation, &player.Wizard, player.KnownSpells.CombatSpells(false), &drawFunc)
+                created, cancel := artifactview.ShowCreateArtifactScreen(yield, game.Cache, creation, &player.Wizard, player.KnownSpells.CombatSpells(false), &drawFunc)
                 if cancel {
                     return
                 }

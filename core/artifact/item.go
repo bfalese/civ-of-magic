@@ -1,19 +1,15 @@
 package artifact
 
 import (
-    "bytes"
     "fmt"
     "slices"
     "cmp"
-    "log"
     "math/rand/v2"
     _ "log"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
-    "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 type ArtifactType int
@@ -388,7 +384,8 @@ func (artifact *Artifact) MovementBonus() int {
 }
 
 // generate an artifact with random properties
-func MakeRandomArtifact(cache *lbx.LbxCache) Artifact {
+// costs and compatibilities come from the power table (see lbxdata.ReadPowers)
+func MakeRandomArtifact(costs map[Power]int, compatibilities map[Power]set.Set[ArtifactType]) Artifact {
 
     // random number between min and max inclusive
     randRange := func(min, max int) int {
@@ -419,11 +416,6 @@ func MakeRandomArtifact(cache *lbx.LbxCache) Artifact {
         Type: types[rand.N(len(types))],
     }
 
-    _, costs, compatibilities, err := ReadPowers(cache)
-    if err != nil {
-        return Artifact{}
-    }
-
     var powers []Power
 
     for power, types := range compatibilities {
@@ -447,8 +439,8 @@ func MakeRandomArtifact(cache *lbx.LbxCache) Artifact {
 
     artifact.Image = chooseImage(artifact.Type)
 
-    artifact.Cost = calculateCost(&artifact, costs)
-    artifact.Name = getName(&artifact, "")
+    artifact.Cost = CalculateCost(&artifact, costs)
+    artifact.Name = GetName(&artifact, "")
 
     return artifact
 }
@@ -513,234 +505,84 @@ func GetItemConversionMaps() (map[byte]ArtifactSlot, map[byte]ArtifactType, map[
     return slotMap, typeMap, abilityMap
 }
 
-func ReadArtifacts(cache *lbx.LbxCache) ([]Artifact, error) {
-    itemData, err := cache.GetLbxFile("itemdata.lbx")
-    if err != nil {
-        return nil, fmt.Errorf("unable to read itemdata.lbx: %v", err)
+func GetName(artifact *Artifact, customName string) string {
+    if customName != "" {
+        return customName
     }
 
-    spells, err := lbxdata.ReadSpellsFromCache(cache)
-    if err != nil {
-        // return nil, fmt.Errorf("unable to read spells: %v", err)
-        log.Printf("Warning: could not load spells: %v", err)
+    base := artifact.Type.Name()
+    if artifact.Type == ArtifactTypeMisc {
+        switch {
+            case artifact.Image >= 101: base = "Orb"
+            case artifact.Image >= 94: base = "Helm"
+            case artifact.Image >= 90: base = "Gauntlet"
+            case artifact.Image >= 84: base = "Cloak"
+            case artifact.Image >= 78: base = "Ring"
+            default: base = "Amulet"
+        }
     }
 
-    reader, err := itemData.GetReader(0)
-    if err != nil {
-        return nil, fmt.Errorf("unable to read entry 0 in itemdata.lbx: %v", err)
+    // attack is added as "+X" prefix
+    prefix := ""
+    attack := artifact.MeleeBonus()
+    if attack == 0 {
+        attack = artifact.RangedAttackBonus()
+    }
+    if attack == 0 {
+        attack = artifact.MagicAttackBonus()
+    }
+    if attack != 0 {
+        prefix = fmt.Sprintf("+%v ", attack)
     }
 
-    numEntries, err := lbx.ReadUint16(reader)
-    if err != nil {
-        return nil, fmt.Errorf("read error: %v", err)
+    // other powers are added as "of X" postfix (only one)
+    postfix := ""
+    switch {
+        case artifact.HasAbilities(): postfix = fmt.Sprintf(" of %v", artifact.LastAbility().Name())
+        case artifact.HasSpellCharges():
+            spell, charges := artifact.GetSpellCharge()
+            postfix = fmt.Sprintf(" of %v x%v", spell.Name, charges)
+        case artifact.HasSpellSavePower(): postfix = " of Power"
+        case artifact.HasSpellSkillPower(): postfix = " of Wizardry"
+        case artifact.HasResistancePower(): postfix = " of Protection"
+        case artifact.HasMovementPower(): postfix = " of Speed"
+        case artifact.HasToHitPower(): postfix = " of Accuracy"
+        case artifact.HasDefensePower(): postfix = " of Defense"
     }
 
-    entrySize, err := lbx.ReadUint16(reader)
-    if err != nil {
-        return nil, fmt.Errorf("read error: %v", err)
-    }
-    if entrySize != 56 {
-        return nil, fmt.Errorf("unsupported itemdata.lbx")
-    }
+    return prefix + base + postfix
+}
 
-    var out []Artifact
-
-    slotMap, typeMap, abilityMap := GetItemConversionMaps()
-
-    for i := range numEntries {
-        // Name
-        name := make([]byte, 30)
-        n, err := reader.Read(name)
-        if err != nil || n != int(30) {
-            return nil, fmt.Errorf("unable to read item name %v: %v", i, err)
-        }
-        name = bytes.Trim(name, "\x00")
-
-        // Image index to items.lbx
-        image, err := lbx.ReadUint16(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-
-        // Slot
-        slotValue, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-
-        slot, exists := slotMap[slotValue]
-        if !exists {
-            return nil, fmt.Errorf("Invalid slot type %v", slotValue)
-        }
-        _ = slot
-
-        // Type
-        typeValue, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-
-        artifactType, exists := typeMap[typeValue]
-        if !exists {
-            return nil, fmt.Errorf("Invalid artifact type %v", typeValue)
-        }
-
-        // Cost
-        cost, err := lbx.ReadUint16(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-
-        // Modifiers
-        var powers []Power
-        attack, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if attack != 0 {
-            powers = append(powers, Power{Type: PowerTypeAttack, Amount: int(attack), Name: fmt.Sprintf("+%v Attack", attack)})
-        }
-
-        toHit, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if toHit != 0 {
-            powers = append(powers, Power{Type: PowerTypeToHit, Amount: int(toHit), Name: fmt.Sprintf("+%v To Hit", toHit)})
-        }
-
-        defense, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if defense != 0 {
-            powers = append(powers, Power{Type: PowerTypeDefense, Amount: int(defense), Name: fmt.Sprintf("+%v Defense", defense)})
-        }
-
-        movement, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if movement != 0 {
-            powers = append(powers, Power{Type: PowerTypeMovement, Amount: int(movement), Name: fmt.Sprintf("+%v Movement", movement)})
-        }
-
-        resistance, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if resistance != 0 {
-            powers = append(powers, Power{Type: PowerTypeResistance, Amount: int(resistance), Name: fmt.Sprintf("+%v Resistance", resistance)})
-        }
-
-        spellSkill, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if spellSkill != 0 {
-            powers = append(powers, Power{Type: PowerTypeSpellSkill, Amount: int(spellSkill), Name: fmt.Sprintf("+%v Spell Skill", spellSkill)})
-        }
-
-        spellSave, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if spellSave != 0 {
-            powers = append(powers, Power{Type: PowerTypeSpellSave, Amount: int(spellSave), Name: fmt.Sprintf("-%v Spell Save", spellSave)})
-        }
-
-        // Spells
-        spell, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        charges, err := lbx.ReadUint16(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if spell != 0 && charges != 0 {
-            useSpell := spells.FindById(int(spell))
-            powers = append(powers, Power{
-                Type: PowerTypeSpellCharges,
-                Amount: int(charges),
-                Spell: useSpell,
-                SpellCharges: int(charges),
-                Name: fmt.Sprintf("%v Charges of %v", charges, useSpell.Name),
-            })
-        }
-
-        // Abilities
-        abilitiesValue, err := lbx.ReadUint32(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-
-        for mask, ability := range abilityMap {
-            if abilitiesValue&mask != 0 {
-                name := ability.Name()
-                // note: the "Spell as spell X" is rendered in the view code, not here
-                powers = append(powers, Power{Type: PowerTypeAbility1, Amount: 0, Name: name, Ability: ability})
-            }
-        }
-
-        // Requirements
-        var requirements []Requirement
-        natureRanksNeeded, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if natureRanksNeeded != 0 {
-            requirements = append(requirements, Requirement{MagicType: data.NatureMagic, Amount: int(natureRanksNeeded)})
-        }
-
-        sorceryRanksNeeded, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if sorceryRanksNeeded != 0 {
-            requirements = append(requirements, Requirement{MagicType: data.SorceryMagic, Amount: int(sorceryRanksNeeded)})
-        }
-
-        chaosRanksNeeded, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if chaosRanksNeeded != 0 {
-            requirements = append(requirements, Requirement{MagicType: data.ChaosMagic, Amount: int(chaosRanksNeeded)})
-        }
-
-        lifeRanksNeeded, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if lifeRanksNeeded != 0 {
-            requirements = append(requirements, Requirement{MagicType: data.LifeMagic, Amount: int(lifeRanksNeeded)})
-        }
-
-        deathRanksNeeded, err := lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-        if deathRanksNeeded != 0 {
-            requirements = append(requirements, Requirement{MagicType: data.DeathMagic, Amount: int(deathRanksNeeded)})
-        }
-
-        // The last byte seems to be some sort of flag
-        _, err = lbx.ReadByte(reader)
-        if err != nil {
-            return nil, fmt.Errorf("read error: %v", err)
-        }
-
-        artifact := Artifact{
-            Name: string(name),
-            Image: int(image),
-            Cost: int(cost),
-            Type: artifactType,
-            Powers: powers,
-            Requirements: requirements,
-        }
-        out = append(out, artifact)
+func CalculateCost(artifact *Artifact, costs map[Power]int) int {
+    base := 0
+    switch artifact.Type {
+        case ArtifactTypeSword: base = 100
+        case ArtifactTypeMace: base = 100
+        case ArtifactTypeAxe: base = 100
+        case ArtifactTypeBow: base = 100
+        case ArtifactTypeStaff: base = 300
+        case ArtifactTypeWand: base = 200
+        case ArtifactTypeMisc: base = 50
+        case ArtifactTypeShield: base = 100
+        case ArtifactTypeChain: base = 100
+        case ArtifactTypePlate: base = 300
     }
 
-    return out, nil
+    powerCost := 0
+    spellCost := 0
+    for _, power := range artifact.Powers {
+        if power.Type == PowerTypeSpellCharges {
+            spellCost += power.Amount * power.Spell.Cost(false) * 20
+        } else {
+            powerCost += costs[power]
+        }
+    }
+
+    // jewelry costs are 2x
+    if artifact.Type == ArtifactTypeMisc {
+        powerCost *= 2
+    }
+
+    cost := base + powerCost + spellCost
+    return cost
 }

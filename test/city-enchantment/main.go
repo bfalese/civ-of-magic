@@ -4,8 +4,6 @@ import (
     "log"
     "context"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/lib/fraction"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
@@ -22,6 +20,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

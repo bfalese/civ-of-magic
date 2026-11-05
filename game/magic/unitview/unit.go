@@ -12,13 +12,14 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/fonts"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
 
     "github.com/hajimehoshi/ebiten/v2"
     // "github.com/hajimehoshi/ebiten/v2/vector"
@@ -424,7 +425,7 @@ func makeItemPopup(uiGroup *uilib.UIElementGroup, cache *lbx.LbxCache, imageCach
             var options ebiten.DrawImageOptions
             options.ColorScale.ScaleAlpha(getAlpha())
             options.GeoM.Translate(48, 48)
-            artifact.RenderArtifactBox(screen, imageCache, *item, uiGroup.Counter / 8, vaultFonts.ItemName, vaultFonts.PowerFont, options)
+            artifactview.RenderArtifactBox(screen, imageCache, *item, uiGroup.Counter / 8, vaultFonts.ItemName, vaultFonts.PowerFont, options)
         },
     }
 
@@ -501,7 +502,7 @@ func createUnitAbilitiesElements(cache *lbx.LbxCache, imageCache *util.ImageCach
                     screen.DrawImage(background, scale.ScaleOptions(options))
 
                     if showArtifact != nil {
-                        artifactPic := artifact.RenderArtifactImage(screen, imageCache, *showArtifact, *counter / 8, options)
+                        artifactPic := artifactview.RenderArtifactImage(screen, imageCache, *showArtifact, *counter / 8, options)
 
                         x, y := options.GeoM.Apply(0, 0)
                         printX := x + float64(artifactPic.Bounds().Dx() + 2)

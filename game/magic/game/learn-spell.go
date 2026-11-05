@@ -1,7 +1,6 @@
 package game
 
 import (
-    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
@@ -11,6 +10,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/music"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

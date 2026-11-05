@@ -11,8 +11,6 @@ import (
     "slices"
     "cmp"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/optional"
@@ -30,6 +28,7 @@ import (
 
     "github.com/bfalese/civ-of-magic/game/arena/player"
     "github.com/bfalese/civ-of-magic/game/arena/ui"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

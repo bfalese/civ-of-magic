@@ -13,8 +13,6 @@ import (
     "math/rand/v2"
     _ "embed"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/game/magic/combat"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/spellbook"
@@ -23,6 +21,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     magiclog "github.com/bfalese/civ-of-magic/lib/log"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 )
 
 //go:embed spelldat.lbx

@@ -4,15 +4,15 @@ import (
     "log"
     "fmt"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -80,7 +80,7 @@ func (engine *Engine) ArtifactRoutine() func (coroutine.YieldFunc) error {
     }
 
     return func(yield coroutine.YieldFunc) error {
-        create, cancel := artifact.ShowCreateArtifactScreen(yield, engine.Cache, artifact.CreationCreateArtifact, &engine.Books, spells.CombatSpells(false), &engine.Drawer)
+        create, cancel := artifactview.ShowCreateArtifactScreen(yield, engine.Cache, artifactview.CreationCreateArtifact, &engine.Books, spells.CombatSpells(false), &engine.Drawer)
         if !cancel {
             log.Printf("Create artifact: %+v", create)
         } else {
@@ -96,7 +96,7 @@ func (engine *Engine) EditorRoutine() func (coroutine.YieldFunc) error {
         log.Printf("Unable to read spells: %v", err)
     }
 
-    items, err := artifact.ReadArtifacts(engine.Cache)
+    items, err := lbxdata.ReadArtifacts(engine.Cache)
     if err != nil {
         log.Printf("Unable to read artifacts: %v", err)
         return func(yield coroutine.YieldFunc) error {
@@ -107,7 +107,7 @@ func (engine *Engine) EditorRoutine() func (coroutine.YieldFunc) error {
     catalog := artifact.MakeCatalog(items)
 
     return func(yield coroutine.YieldFunc) error {
-        artifact.ShowDefaultItemEditor(yield, engine.Cache, catalog, spells.CombatSpells(false), &engine.Drawer)
+        artifactview.ShowDefaultItemEditor(yield, engine.Cache, catalog, spells.CombatSpells(false), &engine.Drawer)
         log.Printf("Default item editor closed, %v slots", catalog.Len())
         if catalog.Len() > 0 {
             log.Printf("Slot 0: %+v", catalog.Slots[0])

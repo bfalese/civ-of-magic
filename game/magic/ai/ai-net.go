@@ -24,7 +24,7 @@ import (
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/lib/deep"
     deep_train "github.com/bfalese/civ-of-magic/lib/deep/training"
 )

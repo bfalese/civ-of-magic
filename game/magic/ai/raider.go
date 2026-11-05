@@ -9,7 +9,7 @@ import (
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/units"

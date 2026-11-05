@@ -13,8 +13,6 @@ import (
     "strconv"
     "context"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
@@ -31,6 +29,7 @@ import (
     netlib "github.com/bfalese/civ-of-magic/lib/net"
     "github.com/bfalese/civ-of-magic/lib/optional"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

@@ -9,9 +9,10 @@ import (
     "slices"
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/util/common"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -55,7 +56,7 @@ type Engine struct {
 }
 
 func MakeEngine(cache *lbx.LbxCache) (*Engine, error) {
-    artifacts, err := artifact.ReadArtifacts(cache)
+    artifacts, err := lbxdata.ReadArtifacts(cache)
 
     if err != nil {
         return nil, err

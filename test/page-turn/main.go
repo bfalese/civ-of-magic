@@ -5,11 +5,10 @@ import (
     "image"
     "image/color"
 
-    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
-
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"

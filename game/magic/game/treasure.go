@@ -5,13 +5,14 @@ import (
     "slices"
     "math/rand/v2"
 
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 )
 
 type TreasureItem interface {
@@ -305,7 +306,11 @@ func makeTreasure(cache *lbx.LbxCache, encounterType maplib.EncounterType, budge
                         }
                     }
                 } else {
-                    randomArtifact := artifact.MakeRandomArtifact(cache)
+                    randomArtifact := artifact.Artifact{}
+                    _, costs, compatibilities, err := lbxdata.ReadPowers(cache)
+                    if err == nil {
+                        randomArtifact = artifact.MakeRandomArtifact(costs, compatibilities)
+                    }
                     if budget >= randomArtifact.Cost && canUseArtifact(&randomArtifact, wizard) {
                         magicItemRemaining -= 1
                         budget -= randomArtifact.Cost
