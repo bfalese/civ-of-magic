@@ -13,7 +13,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/music"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"

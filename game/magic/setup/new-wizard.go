@@ -19,7 +19,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     _ "github.com/hajimehoshi/ebiten/v2/vector"

@@ -31,7 +31,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     "github.com/bfalese/civ-of-magic/util/common"

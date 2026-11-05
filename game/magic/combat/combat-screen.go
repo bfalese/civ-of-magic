@@ -31,7 +31,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/hajimehoshi/ebiten/v2"

@@ -3,7 +3,7 @@ package player
 import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/units"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
 )

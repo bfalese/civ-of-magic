@@ -19,7 +19,7 @@ import (
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
     "github.com/bfalese/civ-of-magic/game/magic/ai"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/artifact"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
