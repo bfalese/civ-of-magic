@@ -50,7 +50,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/mainview"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/ebitenutil"

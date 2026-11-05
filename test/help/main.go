@@ -4,7 +4,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/bfalese/civ-of-magic/game/magic/building"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
@@ -102,7 +103,7 @@ func main() {
     }
 
     // Buildings
-    buildings, err := building.ReadBuildingInfo(cache)
+    buildings, err := lbxdata.ReadBuildingInfo(cache)
     if err != nil {
         log.Printf("Unable to read buildings: %v", err)
         return

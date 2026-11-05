@@ -32,11 +32,12 @@ make wasm                           # GOOS=js GOARCH=wasm build
 
 ## Layout
 
-- `core/` — rendering-free, LBX-free game logic (CI-enforced). So far: `data`, `pathfinding`, `neural`.
+- `core/` — rendering-free, LBX-free game logic (CI-enforced). So far: `data`, `pathfinding`, `neural`,
+  `terrain`, `building`. Their LBX parsers live in `game/magic/lbxdata`.
 - `game/magic/` — the main game. `main.go` + one package per subsystem.
-  - No *direct* Ebitengine imports, but not yet core-ready: `terrain`, `building`, `city`, `hero`
-    import `lib/lbx` (which pulls in Ebitengine); `ai`, `player` depend on those plus
-    `units`, `maplib`, `artifact`, `spellbook`, etc. Check with `go list -deps`, not grep.
+  - No *direct* Ebitengine imports, but not yet core-ready: `city`, `hero` (import `lib/lbx`
+    and depend on `units`, `maplib`, `spellbook`, `artifact`, which use Ebitengine); `ai`,
+    `player` depend on those. Check with `go list -deps`, not grep.
   - `game/model.go` is rendering-free; `game/game.go` (~8.6k lines) is the main UI/state tangle.
   - `combat/` is the template for the split: `model.go` (logic) vs `combat-screen.go` (UI),
     plus rendering-free networking in `remote.go` / `observer.go`.

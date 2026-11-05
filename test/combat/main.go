@@ -27,7 +27,7 @@ import (
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
 
     "github.com/hajimehoshi/ebiten/v2"

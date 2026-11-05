@@ -20,10 +20,10 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
     "github.com/bfalese/civ-of-magic/core/data"
-    // "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    // "github.com/bfalese/civ-of-magic/core/terrain"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

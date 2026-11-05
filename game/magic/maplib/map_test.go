@@ -4,7 +4,7 @@ import (
     "testing"
     "image"
 
-    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/core/data"
 )
 

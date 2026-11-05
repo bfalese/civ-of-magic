@@ -18,7 +18,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/set"

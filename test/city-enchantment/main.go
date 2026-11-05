@@ -4,9 +4,11 @@ import (
     "log"
     "context"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/fraction"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
@@ -15,7 +17,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/core/terrain"
     // "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     "github.com/bfalese/civ-of-magic/lib/lbx"
@@ -77,14 +79,14 @@ func NewEngine() (*Engine, error) {
 }
 
 func (engine *Engine) MakeUI() (*uilib.UI, context.Context, error) {
-    buildingInfo, _ := buildinglib.ReadBuildingInfo(engine.Cache)
+    buildingInfo, _ := lbxdata.ReadBuildingInfo(engine.Cache)
 
     terrainLbx, err := engine.Cache.GetLbxFile("terrain.lbx")
     if err != nil {
         return nil, context.Background(), err
     }
 
-    terrainData, err := terrain.ReadTerrainData(terrainLbx)
+    terrainData, err := lbxdata.ReadTerrainData(terrainLbx)
     if err != nil {
         return nil, context.Background(), err
     }

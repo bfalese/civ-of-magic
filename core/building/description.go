@@ -1,29 +1,7 @@
 package building
 
-import (
-    "log"
-    "bytes"
-
-    "github.com/bfalese/civ-of-magic/lib/lbx"
-)
-
 type BuildingDescriptions struct {
     Descriptions []string
-}
-
-func MakeBuildDescriptions(cache *lbx.LbxCache) *BuildingDescriptions {
-    buildDescriptionLbx, err := cache.GetLbxFile("buildesc.lbx")
-    if err == nil {
-    } else {
-        log.Printf("Unable to read building descriptions")
-        return nil
-    }
-
-    descriptions := readBuildDescriptions(buildDescriptionLbx)
-
-    return &BuildingDescriptions{
-        Descriptions: descriptions,
-    }
 }
 
 func (descriptions *BuildingDescriptions) Get(building Building) string {
@@ -66,51 +44,4 @@ func (descriptions *BuildingDescriptions) Get(building Building) string {
     }
 
     return ""
-}
-
-func readBuildDescriptions(buildDescriptionLbx *lbx.LbxFile) []string {
-    entries, err := buildDescriptionLbx.RawData(0)
-    if err != nil {
-        return nil
-    }
-
-    reader := bytes.NewReader(entries)
-
-    count, err := lbx.ReadUint16(reader)
-    if err != nil {
-        return nil
-    }
-
-    if count > 10000 {
-        return nil
-    }
-
-    size, err := lbx.ReadUint16(reader)
-    if err != nil {
-        return nil
-    }
-
-    if size > 10000 {
-        return nil
-    }
-
-    var descriptions []string
-
-    for i := 0; i < int(count); i++ {
-        data := make([]byte, size)
-        _, err := reader.Read(data)
-
-        if err != nil {
-            break
-        }
-
-        nullByte := bytes.IndexByte(data, 0)
-        if nullByte != -1 {
-            descriptions = append(descriptions, string(data[0:nullByte]))
-        } else {
-            descriptions = append(descriptions, string(data))
-        }
-    }
-
-    return descriptions
 }

@@ -8,13 +8,15 @@ import (
     "log"
     // "strings"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     // "github.com/bfalese/civ-of-magic/game/magic/combat"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
@@ -137,7 +139,7 @@ func makeBuildUI(cache *lbx.LbxCache, imageCache *util.ImageCache, city *citylib
         return nil
     }
 
-    buildDescriptions := buildinglib.MakeBuildDescriptions(cache)
+    buildDescriptions := lbxdata.MakeBuildDescriptions(cache)
 
     fonts := MakeBuildScreenFonts(cache)
 
