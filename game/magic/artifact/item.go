@@ -14,6 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 type ArtifactType int
@@ -388,7 +389,8 @@ func (artifact *Artifact) MovementBonus() int {
 }
 
 // generate an artifact with random properties
-func MakeRandomArtifact(cache *lbx.LbxCache) Artifact {
+// costs and compatibilities come from the power table (see lbxdata.ReadPowers)
+func MakeRandomArtifact(costs map[Power]int, compatibilities map[Power]set.Set[ArtifactType]) Artifact {
 
     // random number between min and max inclusive
     randRange := func(min, max int) int {
@@ -417,11 +419,6 @@ func MakeRandomArtifact(cache *lbx.LbxCache) Artifact {
 
     artifact := Artifact{
         Type: types[rand.N(len(types))],
-    }
-
-    _, costs, compatibilities, err := ReadPowers(cache)
-    if err != nil {
-        return Artifact{}
     }
 
     var powers []Power
