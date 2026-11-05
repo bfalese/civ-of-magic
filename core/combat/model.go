@@ -22,7 +22,6 @@ import (
     "github.com/bfalese/civ-of-magic/core/setup"
     // playerlib "github.com/bfalese/civ-of-magic/core/player"
     citylib "github.com/bfalese/civ-of-magic/core/city"
-
 )
 
 const MAX_TURNS = 50

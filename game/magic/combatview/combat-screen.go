@@ -33,12 +33,11 @@ import (
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+    combatlib "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"
     "github.com/hajimehoshi/ebiten/v2/vector"
     "github.com/hajimehoshi/ebiten/v2/colorm"
-    combatlib "github.com/bfalese/civ-of-magic/core/combat"
-
 )
 
 type MouseState int

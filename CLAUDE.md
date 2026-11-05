@@ -33,15 +33,16 @@ make wasm                           # GOOS=js GOARCH=wasm build
 ## Layout
 
 - `core/` — rendering-free, LBX-free game logic (CI-enforced): `ai`, `artifact`, `building`, `city`,
-  `data`, `hero`, `maplib`, `neural`, `pathfinding`, `player`, `setup`, `spellbook`, `terrain`, `units`.
+  `combat`, `data`, `hero`, `maplib`, `neural`, `pathfinding`, `player`, `setup`, `spellbook`, `terrain`,
+  `units`.
   - LBX parsers live in `game/magic/lbxdata`; drawing/screens in `game/magic/*view`
-    (`mapview`, `spellbookview`, `artifactview`, `unitview`, `setupview`, ...).
+    (`mapview`, `combatview`, `spellbookview`, `artifactview`, `unitview`, `setupview`, ...).
   - Frontend-owned state: `maplib.Map.RenderCache` (opaque to core, filled by `mapview`).
     `mapview.Renderer` wraps a `*maplib.Map` with draw methods for code that wants a map that draws itself.
 - `game/magic/` — the main game. `main.go` + one package per subsystem.
   - `game/model.go` is rendering-free; `game/game.go` (~8.6k lines) is the main UI/state tangle.
-  - `combat/` is the template for the split: `model.go` (logic) vs `combat-screen.go` (UI),
-    plus rendering-free networking in `remote.go` / `observer.go`.
+  - `core/combat` (model, AI, networking, headless runner) vs `combatview` (screens) is the template
+    for further splits.
   - Pure UI packages: `*view`, `ui`, `draw`, `mouse`, `inputmanager`, `shaders`, `camera`, etc.
 - `game/arena`, `game/network-combat` — side programs.
 - `lib/` — loaders (lbx, fonts, midi…), vendored libs.

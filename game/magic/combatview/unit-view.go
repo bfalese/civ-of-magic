@@ -11,10 +11,9 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
-
-    "github.com/hajimehoshi/ebiten/v2"
     combatlib "github.com/bfalese/civ-of-magic/core/combat"
 
+    "github.com/hajimehoshi/ebiten/v2"
 )
 
 type UnitViewFonts struct {
