@@ -7,7 +7,7 @@ import (
 
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/lib/fraction"

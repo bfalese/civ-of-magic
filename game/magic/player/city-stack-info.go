@@ -4,7 +4,7 @@ import (
     "image"
 
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
 )
 
 // stores information about every stack and city for fast lookups

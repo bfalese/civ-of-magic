@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bfalese/civ-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/core/data"
 	"github.com/bfalese/civ-of-magic/game/network-combat/engine/crypto"
 	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 	"github.com/bfalese/civ-of-magic/lib/lbx"

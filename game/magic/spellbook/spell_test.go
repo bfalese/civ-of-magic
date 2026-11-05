@@ -5,7 +5,7 @@ import (
     "math"
     "slices"
 
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
 )
 
 type testWizard struct {

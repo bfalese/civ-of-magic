@@ -5,7 +5,7 @@ import (
     "log"
 
     "github.com/bfalese/civ-of-magic/game/magic/building"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/lib/lbx"

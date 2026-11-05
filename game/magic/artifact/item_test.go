@@ -3,7 +3,7 @@ package artifact
 import (
     "testing"
 
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
 )
 
 func TestArtifactTypeName(test *testing.T) {

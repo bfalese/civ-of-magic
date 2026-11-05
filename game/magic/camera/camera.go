@@ -2,7 +2,7 @@ package camera
 
 import (
     "math"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
 )
 
 const ZoomMin = 2

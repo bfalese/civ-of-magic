@@ -14,7 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/fraction"
     mouselib "github.com/bfalese/civ-of-magic/lib/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/pathfinding"
+    "github.com/bfalese/civ-of-magic/core/pathfinding"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
@@ -33,7 +33,7 @@ import (
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     // "github.com/bfalese/civ-of-magic/game/magic/terrain"
 
     "github.com/hajimehoshi/ebiten/v2"

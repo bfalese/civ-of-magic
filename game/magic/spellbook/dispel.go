@@ -3,7 +3,7 @@ package spellbook
 import (
     "math/rand/v2"
 
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
 )
 
 type RetortOwner interface {

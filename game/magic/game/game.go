@@ -41,7 +41,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/citylistview"
     "github.com/bfalese/civ-of-magic/game/magic/magicview"
     "github.com/bfalese/civ-of-magic/game/magic/diplomacy"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/summon"
     "github.com/bfalese/civ-of-magic/game/magic/cartographer"
     "github.com/bfalese/civ-of-magic/game/magic/util"

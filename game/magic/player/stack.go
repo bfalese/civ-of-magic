@@ -4,8 +4,8 @@ import (
     "slices"
 
     "github.com/bfalese/civ-of-magic/game/magic/units"
-    "github.com/bfalese/civ-of-magic/game/magic/pathfinding"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/pathfinding"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/set"
 )

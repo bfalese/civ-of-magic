@@ -5,7 +5,7 @@ import (
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/game/magic/mainview"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
