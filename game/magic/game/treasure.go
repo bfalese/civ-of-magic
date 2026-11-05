@@ -5,13 +5,13 @@ import (
     "slices"
     "math/rand/v2"
 
-    "github.com/kazzmir/master-of-magic/game/magic/artifact"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/maplib"
-    herolib "github.com/kazzmir/master-of-magic/game/magic/hero"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 type TreasureItem interface {

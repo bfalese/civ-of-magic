@@ -1,8 +1,8 @@
 package settings
 
 import (
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/game/magic/keybinds"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/keybinds"
 )
 
 // Settings is the single top-level holder for every user preference that

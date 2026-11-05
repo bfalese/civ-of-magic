@@ -7,7 +7,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/lib/deep"
+	"github.com/bfalese/civ-of-magic/lib/deep"
 	"github.com/stretchr/testify/assert"
 )
 

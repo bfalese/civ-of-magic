@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"os"
 
-	. "github.com/kazzmir/master-of-magic/lib/midi"
-	"github.com/kazzmir/master-of-magic/lib/midi/gm"
+	. "github.com/bfalese/civ-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi/gm"
 
 	// testdrv has one in port and one out port which is connected to the in port
-	_ "github.com/kazzmir/master-of-magic/lib/midi/drivers/testdrv"
-	//_ "github.com/kazzmir/master-of-magic/lib/midi/drivers/rtmididrv"
+	_ "github.com/bfalese/civ-of-magic/lib/midi/drivers/testdrv"
+	//_ "github.com/bfalese/civ-of-magic/lib/midi/drivers/rtmididrv"
 	// when using rtmidi ("for real"), replace with the line above
 )
 

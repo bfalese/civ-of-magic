@@ -3,7 +3,7 @@ package training
 import (
 	"time"
 
-	"github.com/kazzmir/master-of-magic/lib/deep"
+	"github.com/bfalese/civ-of-magic/lib/deep"
 )
 
 // Trainer is a neural network trainer

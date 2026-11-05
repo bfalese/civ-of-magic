@@ -5,7 +5,7 @@ import (
     "testing"
 
     "github.com/hajimehoshi/ebiten/v2"
-    "github.com/kazzmir/master-of-magic/game/magic/keybinds"
+    "github.com/bfalese/civ-of-magic/game/magic/keybinds"
 )
 
 func TestSerializeSettingsRoundTrip(test *testing.T) {

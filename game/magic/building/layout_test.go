@@ -7,7 +7,7 @@ import (
     "slices"
     "math/rand/v2"
 
-    "github.com/kazzmir/master-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 const MAX_ITERATIONS = 500

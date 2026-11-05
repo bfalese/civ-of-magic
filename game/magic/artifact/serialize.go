@@ -1,8 +1,8 @@
 package artifact
 
 import (
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
 )
 
 type SerializedArtifact struct {

@@ -9,12 +9,12 @@ import (
 	uiimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/kazzmir/master-of-magic/game/magic/data"
-	"github.com/kazzmir/master-of-magic/game/magic/setup"
-	"github.com/kazzmir/master-of-magic/game/magic/spellbook"
-	"github.com/kazzmir/master-of-magic/game/magic/util"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
-	"github.com/kazzmir/master-of-magic/lib/lbx"
+	"github.com/bfalese/civ-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/game/magic/setup"
+	"github.com/bfalese/civ-of-magic/game/magic/spellbook"
+	"github.com/bfalese/civ-of-magic/game/magic/util"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 type gameSetupUI struct {

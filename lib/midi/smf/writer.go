@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/runningstatus"
-	vlq "github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/runningstatus"
+	vlq "github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 type wrWrapper struct {

@@ -12,8 +12,8 @@ import (
 
 	"time"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
-	"github.com/kazzmir/master-of-magic/lib/midi/drivers"
+	"github.com/bfalese/civ-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi/drivers"
 )
 
 func init() {

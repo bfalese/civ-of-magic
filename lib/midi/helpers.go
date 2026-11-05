@@ -3,7 +3,7 @@ package midi
 import (
 	"io"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 // channelMessage1 returns the bytes for a single byte channel message

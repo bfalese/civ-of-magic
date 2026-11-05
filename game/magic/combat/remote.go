@@ -8,11 +8,11 @@ import (
     "context"
     "encoding/json/v2"
 
-    "github.com/kazzmir/master-of-magic/game/magic/pathfinding"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/lib/fraction"
-    netlib "github.com/kazzmir/master-of-magic/lib/net"
+    "github.com/bfalese/civ-of-magic/game/magic/pathfinding"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
+    netlib "github.com/bfalese/civ-of-magic/lib/net"
 )
 
 type RemoteType string

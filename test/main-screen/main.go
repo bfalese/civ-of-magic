@@ -3,12 +3,12 @@ package main
 import (
     "log"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/game/magic/mainview"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/scale"
-    settingslib "github.com/kazzmir/master-of-magic/game/magic/settings"
-    musiclib "github.com/kazzmir/master-of-magic/game/magic/music"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/mainview"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/scale"
+    settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
+    musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

@@ -1,7 +1,7 @@
 package settings
 
 import (
-    "github.com/kazzmir/master-of-magic/game/magic/keybinds"
+    "github.com/bfalese/civ-of-magic/game/magic/keybinds"
 )
 
 // SerializedSettings is the remake-only preferences blob stored next to the

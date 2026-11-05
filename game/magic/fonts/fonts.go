@@ -9,10 +9,10 @@ import (
     "cmp"
     "maps"
 
-    "github.com/kazzmir/master-of-magic/lib/font"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/lib/font"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
 )
 
 type FontLoader func(fonts []*font.LbxFont) *font.Font

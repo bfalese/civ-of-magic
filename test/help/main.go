@@ -4,11 +4,11 @@ import (
     "fmt"
     "log"
 
-    "github.com/kazzmir/master-of-magic/game/magic/building"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    helplib "github.com/kazzmir/master-of-magic/game/magic/help"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/building"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    helplib "github.com/bfalese/civ-of-magic/game/magic/help"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 func main() {

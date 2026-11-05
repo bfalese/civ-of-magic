@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 func invitationCommand(manager *Manager, user *User, id uint64, command protocol.Message) {

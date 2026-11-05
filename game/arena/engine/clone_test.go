@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/game/arena/player"
-	"github.com/kazzmir/master-of-magic/game/magic/data"
-	"github.com/kazzmir/master-of-magic/game/magic/units"
+	"github.com/bfalese/civ-of-magic/game/arena/player"
+	"github.com/bfalese/civ-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/game/magic/units"
 )
 
 func TestCloneCost(t *testing.T) {

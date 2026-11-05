@@ -5,7 +5,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 // stuff from help.lbx

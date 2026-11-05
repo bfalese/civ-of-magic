@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/game/arena/player"
-	"github.com/kazzmir/master-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/game/arena/player"
+	"github.com/bfalese/civ-of-magic/game/magic/data"
 )
 
 func TestAIUnitPurchasesStayWithinBudget(t *testing.T) {

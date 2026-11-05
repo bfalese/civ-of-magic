@@ -16,8 +16,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
-	netlib "github.com/kazzmir/master-of-magic/lib/net"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
+	netlib "github.com/bfalese/civ-of-magic/lib/net"
 	"golang.org/x/crypto/bcrypt"
 )
 

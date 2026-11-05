@@ -1,8 +1,8 @@
 package mouse
 
 import (
-    "github.com/kazzmir/master-of-magic/game/magic/inputmanager"
-    "github.com/kazzmir/master-of-magic/game/magic/scale"
+    "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
+    "github.com/bfalese/civ-of-magic/game/magic/scale"
 
     "github.com/hajimehoshi/ebiten/v2"
 )

@@ -15,14 +15,14 @@ import (
     "io/fs"
     "fmt"
 
-    "github.com/kazzmir/master-of-magic/game/magic/audio"
+    "github.com/bfalese/civ-of-magic/game/magic/audio"
 
-    "github.com/kazzmir/master-of-magic/data"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/xmi"
+    "github.com/bfalese/civ-of-magic/data"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/xmi"
 
-    "github.com/kazzmir/master-of-magic/lib/meltysynth"
-    "github.com/kazzmir/master-of-magic/lib/midi/smf"
+    "github.com/bfalese/civ-of-magic/lib/meltysynth"
+    "github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 type Song int

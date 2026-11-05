@@ -3,7 +3,7 @@ package multiplayer
 import (
 	"fmt"
 
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 // Invitations and their participants are protected by manager.lock.

@@ -5,16 +5,16 @@ import (
     "image"
     "strings"
 
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
-    citylib "github.com/kazzmir/master-of-magic/game/magic/city"
-    buildinglib "github.com/kazzmir/master-of-magic/game/magic/building"
-    herolib "github.com/kazzmir/master-of-magic/game/magic/hero"
-    "github.com/kazzmir/master-of-magic/game/magic/maplib"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/lib/fraction"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 func TestCityName(test *testing.T){

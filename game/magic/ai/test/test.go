@@ -4,9 +4,9 @@ import (
     "fmt"
     // "math"
     "math/rand/v2"
-    "github.com/kazzmir/master-of-magic/lib/deep"
-    "github.com/kazzmir/master-of-magic/game/magic/ai"
-	deep_train "github.com/kazzmir/master-of-magic/lib/deep/training"
+    "github.com/bfalese/civ-of-magic/lib/deep"
+    "github.com/bfalese/civ-of-magic/game/magic/ai"
+	deep_train "github.com/bfalese/civ-of-magic/lib/deep/training"
 )
 
 func getOutput(x float64) int {

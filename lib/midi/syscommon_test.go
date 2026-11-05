@@ -3,7 +3,7 @@ package midi_test
 import (
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi"
 )
 
 func TestSysCommon(t *testing.T) {

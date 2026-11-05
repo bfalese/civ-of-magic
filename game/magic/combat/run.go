@@ -3,12 +3,12 @@ package combat
 import (
     "context"
 
-    "github.com/kazzmir/master-of-magic/game/magic/pathfinding"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/unitview"
-    "github.com/kazzmir/master-of-magic/lib/fraction"
-    "github.com/kazzmir/master-of-magic/lib/log"
-    "github.com/kazzmir/master-of-magic/lib/optional"
+    "github.com/bfalese/civ-of-magic/game/magic/pathfinding"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/unitview"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
+    "github.com/bfalese/civ-of-magic/lib/log"
+    "github.com/bfalese/civ-of-magic/lib/optional"
 )
 
 type ProxySpellSystem struct {

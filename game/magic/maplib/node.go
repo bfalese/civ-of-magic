@@ -5,9 +5,9 @@ import (
     // "log"
     "math/rand/v2"
 
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 /* choose X points surrounding the node. 0,0 is the node itself. for arcanus, choose 5-10 points from a 4x4 square.

@@ -1,8 +1,8 @@
 package engine
 
 import (
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
 )
 
 func getUnitCost(unit *units.Unit) uint64 {

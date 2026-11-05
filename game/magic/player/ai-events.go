@@ -1,11 +1,11 @@
 package player
 
 import (
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    citylib "github.com/kazzmir/master-of-magic/game/magic/city"
-    herolib "github.com/kazzmir/master-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
 )
 
 type DefaultAIEvents struct {}

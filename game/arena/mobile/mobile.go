@@ -9,10 +9,10 @@ import (
     _ "embed"
     "fmt"
 
-    "github.com/kazzmir/master-of-magic/game/arena/engine"
-    "github.com/kazzmir/master-of-magic/game/magic/audio"
-    "github.com/kazzmir/master-of-magic/game/magic/mouse"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/arena/engine"
+    "github.com/bfalese/civ-of-magic/game/magic/audio"
+    "github.com/bfalese/civ-of-magic/game/magic/mouse"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 
     "github.com/hajimehoshi/ebiten/v2"
     ebitenmobile "github.com/hajimehoshi/ebiten/v2/mobile"

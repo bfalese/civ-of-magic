@@ -1,4 +1,4 @@
-module github.com/kazzmir/master-of-magic
+module github.com/bfalese/civ-of-magic
 
 go 1.27.0
 

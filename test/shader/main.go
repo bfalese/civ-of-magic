@@ -9,12 +9,12 @@ import (
     "os"
     "strconv"
 
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/scale"
-    "github.com/kazzmir/master-of-magic/game/magic/shaders"
-    "github.com/kazzmir/master-of-magic/game/magic/terrain"
-    "github.com/kazzmir/master-of-magic/game/magic/util"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/scale"
+    "github.com/bfalese/civ-of-magic/game/magic/shaders"
+    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

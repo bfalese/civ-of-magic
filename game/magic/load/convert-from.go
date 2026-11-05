@@ -5,12 +5,12 @@ import (
     "maps"
     "slices"
 
-    gamelib "github.com/kazzmir/master-of-magic/game/magic/game"
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/lib/set"
-    "github.com/kazzmir/master-of-magic/lib/fraction"
+    gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
 )
 
 func CreateSaveGame(game *gamelib.Game) (*SaveGame, error) {

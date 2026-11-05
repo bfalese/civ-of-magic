@@ -9,7 +9,7 @@ import (
     _ "log"
     "cmp"
 
-    "github.com/kazzmir/master-of-magic/lib/priority"
+    "github.com/bfalese/civ-of-magic/lib/priority"
 )
 
 type Path []image.Point

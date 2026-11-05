@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
-	"github.com/kazzmir/master-of-magic/lib/midi/gm"
-	smf "github.com/kazzmir/master-of-magic/lib/midi/smf"
+	"github.com/bfalese/civ-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi/gm"
+	smf "github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 func Example() {

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 func TestGameChatUI(t *testing.T) {

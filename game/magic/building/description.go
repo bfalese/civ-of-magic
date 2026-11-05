@@ -4,7 +4,7 @@ import (
     "log"
     "bytes"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 type BuildingDescriptions struct {

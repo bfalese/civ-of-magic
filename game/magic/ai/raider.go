@@ -5,17 +5,17 @@ import (
     "math/rand/v2"
     "image"
 
-    playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
-    citylib "github.com/kazzmir/master-of-magic/game/magic/city"
-    herolib "github.com/kazzmir/master-of-magic/game/magic/hero"
-    "github.com/kazzmir/master-of-magic/game/magic/maplib"
-    "github.com/kazzmir/master-of-magic/game/magic/artifact"
-    "github.com/kazzmir/master-of-magic/game/magic/pathfinding"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/terrain"
-    "github.com/kazzmir/master-of-magic/lib/set"
-    "github.com/kazzmir/master-of-magic/lib/functional"
+    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/game/magic/pathfinding"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/lib/functional"
 )
 
 type RaiderAI struct {

@@ -5,8 +5,8 @@ import (
     "image"
     "image/color"
 
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/hajimehoshi/ebiten/v2"
 )
 

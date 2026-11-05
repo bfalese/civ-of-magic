@@ -13,7 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 const combatBytesPerSecond = 5 * 1024

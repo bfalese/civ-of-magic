@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
-	"github.com/kazzmir/master-of-magic/lib/midi/smf"
+	"github.com/bfalese/civ-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 func FromSMF(sm smf.SMF) *Song {

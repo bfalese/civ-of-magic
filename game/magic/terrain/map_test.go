@@ -3,7 +3,7 @@ package terrain
 import (
     "testing"
     "image"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
 )
 
 func createTerrainData() *TerrainData {

@@ -13,14 +13,14 @@ import (
     "math/rand/v2"
     _ "embed"
 
-    "github.com/kazzmir/master-of-magic/game/magic/combat"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/player"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    magiclog "github.com/kazzmir/master-of-magic/lib/log"
+    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    magiclog "github.com/bfalese/civ-of-magic/lib/log"
 )
 
 //go:embed spelldat.lbx

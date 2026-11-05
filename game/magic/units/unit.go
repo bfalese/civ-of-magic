@@ -3,8 +3,8 @@ package units
 import (
     "math/rand/v2"
 
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/building"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/building"
 )
 
 type Damage int

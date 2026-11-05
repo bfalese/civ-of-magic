@@ -3,8 +3,8 @@ package ai
 import (
     // "fmt"
     // "math"
-	"github.com/kazzmir/master-of-magic/lib/deep"
-	deep_train "github.com/kazzmir/master-of-magic/lib/deep/training"
+	"github.com/bfalese/civ-of-magic/lib/deep"
+	deep_train "github.com/bfalese/civ-of-magic/lib/deep/training"
 )
 
 type RewardTrainer struct {

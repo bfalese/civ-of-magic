@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kazzmir/master-of-magic/lib/midi"
-	"github.com/kazzmir/master-of-magic/lib/midi/drivers"
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/runningstatus"
-	"github.com/kazzmir/master-of-magic/lib/midi/sysex"
+	"github.com/bfalese/civ-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi/drivers"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/runningstatus"
+	"github.com/bfalese/civ-of-magic/lib/midi/sysex"
 )
 
 func mkWithRunningStatus() (messages [][]byte) {

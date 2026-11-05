@@ -5,14 +5,14 @@ import (
 	"image"
     "context"
 
-	playerlib "github.com/kazzmir/master-of-magic/game/magic/player"
-	uilib "github.com/kazzmir/master-of-magic/game/magic/ui"
+	playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+	uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
 
-    "github.com/kazzmir/master-of-magic/game/magic/audio"
-	"github.com/kazzmir/master-of-magic/game/magic/scale"
-	"github.com/kazzmir/master-of-magic/game/magic/mirror"
-	"github.com/kazzmir/master-of-magic/game/magic/util"
-	"github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/audio"
+	"github.com/bfalese/civ-of-magic/game/magic/scale"
+	"github.com/bfalese/civ-of-magic/game/magic/mirror"
+	"github.com/bfalese/civ-of-magic/game/magic/util"
+	"github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/hajimehoshi/ebiten/v2"
 )
 

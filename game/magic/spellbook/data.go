@@ -8,8 +8,8 @@ import (
     "bytes"
     // "sort"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
 )
 
 type Spell struct {

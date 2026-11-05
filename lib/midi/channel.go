@@ -3,7 +3,7 @@ package midi
 import (
 	"encoding/binary"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 const (

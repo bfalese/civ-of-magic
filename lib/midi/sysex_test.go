@@ -3,7 +3,7 @@ package midi
 import (
 	"bytes"
 	"testing"
-	//"github.com/kazzmir/master-of-magic/lib/midi/sysex"
+	//"github.com/bfalese/civ-of-magic/lib/midi/sysex"
 )
 
 func TestMessageString(t *testing.T) {

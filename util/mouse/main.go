@@ -7,9 +7,9 @@ import (
 
     "image/color"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/mouse"
-    "github.com/kazzmir/master-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/mouse"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

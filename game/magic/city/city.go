@@ -8,15 +8,15 @@ import (
     "math/rand/v2"
     "image"
 
-    "github.com/kazzmir/master-of-magic/lib/set"
-    "github.com/kazzmir/master-of-magic/lib/fraction"
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/maplib"
-    "github.com/kazzmir/master-of-magic/game/magic/terrain"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    buildinglib "github.com/kazzmir/master-of-magic/game/magic/building"
+    "github.com/bfalese/civ-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
 )
 
 type CityEvent interface {

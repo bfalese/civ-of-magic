@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kazzmir/master-of-magic/lib/deep"
+	"github.com/bfalese/civ-of-magic/lib/deep"
 )
 
 // BatchTrainer implements parallelized batch training

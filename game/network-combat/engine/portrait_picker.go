@@ -7,7 +7,7 @@ import (
 	uiimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 func (editor *gameSetupUI) portraitImageFor(id int) *ebiten.Image {

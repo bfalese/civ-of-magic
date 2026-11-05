@@ -6,15 +6,15 @@ import (
     "math"
     "slices"
 
-    "github.com/kazzmir/master-of-magic/game/magic/building"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/terrain"
-    "github.com/kazzmir/master-of-magic/game/magic/maplib"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    buildinglib "github.com/kazzmir/master-of-magic/game/magic/building"
-    "github.com/kazzmir/master-of-magic/lib/fraction"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/game/magic/building"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 func makeSimpleMap() map[image.Point]maplib.FullTile {

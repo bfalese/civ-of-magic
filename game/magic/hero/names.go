@@ -8,7 +8,7 @@ import (
     "fmt"
     "io"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
 func ReadNamesPerWizard(cache *lbx.LbxCache) map[int]map[HeroType]string {

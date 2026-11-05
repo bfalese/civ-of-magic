@@ -4,7 +4,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/smf"
+	"github.com/bfalese/civ-of-magic/lib/midi/smf"
 )
 
 type Bars []*Bar

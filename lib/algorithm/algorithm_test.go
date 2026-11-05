@@ -1,7 +1,7 @@
 package algorithm_test
 
 import (
-    "github.com/kazzmir/master-of-magic/lib/algorithm"
+    "github.com/bfalese/civ-of-magic/lib/algorithm"
     "testing"
 )
 

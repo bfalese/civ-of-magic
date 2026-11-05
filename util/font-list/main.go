@@ -6,11 +6,11 @@ import (
     "slices"
     "cmp"
 
-    "github.com/kazzmir/master-of-magic/lib/lbx"
-    "github.com/kazzmir/master-of-magic/lib/functional"
-    fontlib "github.com/kazzmir/master-of-magic/lib/font"
-    "github.com/kazzmir/master-of-magic/util/common"
-    "github.com/kazzmir/master-of-magic/game/magic/fonts"
+    "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/lib/functional"
+    fontlib "github.com/bfalese/civ-of-magic/lib/font"
+    "github.com/bfalese/civ-of-magic/util/common"
+    "github.com/bfalese/civ-of-magic/game/magic/fonts"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"

@@ -2,7 +2,7 @@ package terrain
 
 import (
     "testing"
-    "github.com/kazzmir/master-of-magic/lib/set"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 

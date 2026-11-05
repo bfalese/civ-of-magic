@@ -3,10 +3,10 @@ package game
 import (
     "testing"
 
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/combat"
-    "github.com/kazzmir/master-of-magic/game/magic/hero"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/game/magic/hero"
 )
 
 type NoExperienceInfo struct {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/kazzmir/master-of-magic/lib/midi/internal/utils"
+	"github.com/bfalese/civ-of-magic/lib/midi/internal/utils"
 )
 
 // Message is a complete midi message (not including meta messages)

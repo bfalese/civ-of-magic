@@ -4,12 +4,12 @@ import (
     "slices"
     "image"
 
-    "github.com/kazzmir/master-of-magic/game/magic/units"
-    "github.com/kazzmir/master-of-magic/game/magic/spellbook"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/setup"
-    citylib "github.com/kazzmir/master-of-magic/game/magic/city"
-    "github.com/kazzmir/master-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    "github.com/bfalese/civ-of-magic/game/magic/maplib"
 )
 
 type Player struct {

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	netlib "github.com/kazzmir/master-of-magic/lib/net"
+	netlib "github.com/bfalese/civ-of-magic/lib/net"
 )
 
 func deriveCipher(secret []byte, from []byte, to []byte) (cipher.AEAD, error) {

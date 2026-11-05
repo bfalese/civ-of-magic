@@ -1,7 +1,7 @@
 package gm
 
 import (
-	"github.com/kazzmir/master-of-magic/lib/midi"
+	"github.com/bfalese/civ-of-magic/lib/midi"
 )
 
 // GMProgram is a shortcut to write GM bank select control change message followed

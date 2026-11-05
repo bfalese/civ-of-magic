@@ -8,17 +8,17 @@ import (
     "path/filepath"
     "log"
 
-    "github.com/kazzmir/master-of-magic/lib/xmi"
+    "github.com/bfalese/civ-of-magic/lib/xmi"
 
     // "gitlab.com/gomidi/midi/v2/smf"
     // midiDrivers "gitlab.com/gomidi/midi/v2/drivers"
     // sudo apt install libportmidi-dev
     // _ "gitlab.com/gomidi/midi/v2/drivers/portmididrv"
 
-    "github.com/kazzmir/master-of-magic/lib/midi/smf"
-    "github.com/kazzmir/master-of-magic/lib/midi"
-    midiDrivers "github.com/kazzmir/master-of-magic/lib/midi/drivers"
-    // _ "github.com/kazzmir/master-of-magic/lib/midi/drivers/rtmididrv"
+    "github.com/bfalese/civ-of-magic/lib/midi/smf"
+    "github.com/bfalese/civ-of-magic/lib/midi"
+    midiDrivers "github.com/bfalese/civ-of-magic/lib/midi/drivers"
+    // _ "github.com/bfalese/civ-of-magic/lib/midi/drivers/rtmididrv"
     // "gitlab.com/gomidi/midi/v2"
 )
 

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 )
 
 func testGameManager() (*Manager, map[uint64]*User) {

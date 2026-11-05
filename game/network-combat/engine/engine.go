@@ -13,8 +13,8 @@ import (
     "syscall"
 
     "github.com/hajimehoshi/ebiten/v2"
-    "github.com/kazzmir/master-of-magic/game/network-combat/engine/crypto"
-    netlib "github.com/kazzmir/master-of-magic/lib/net"
+    "github.com/bfalese/civ-of-magic/game/network-combat/engine/crypto"
+    netlib "github.com/bfalese/civ-of-magic/lib/net"
 )
 
 const MAX_PACKET_SIZE = 1024 * 1024 // 1 MB

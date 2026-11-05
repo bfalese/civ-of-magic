@@ -3,9 +3,9 @@ package draw
 import (
     "math/rand/v2"
 
-    "github.com/kazzmir/master-of-magic/game/magic/util"
-    "github.com/kazzmir/master-of-magic/game/magic/data"
-    "github.com/kazzmir/master-of-magic/game/magic/scale"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
+    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/hajimehoshi/ebiten/v2"
 )
 

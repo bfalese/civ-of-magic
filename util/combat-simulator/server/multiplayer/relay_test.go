@@ -13,9 +13,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	peercrypto "github.com/kazzmir/master-of-magic/game/network-combat/engine/crypto"
-	"github.com/kazzmir/master-of-magic/game/network-combat/protocol"
-	netlib "github.com/kazzmir/master-of-magic/lib/net"
+	peercrypto "github.com/bfalese/civ-of-magic/game/network-combat/engine/crypto"
+	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
+	netlib "github.com/bfalese/civ-of-magic/lib/net"
 )
 
 func TestCombatRelay(t *testing.T) {
