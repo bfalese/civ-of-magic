@@ -7,7 +7,7 @@ import (
     "os"
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"

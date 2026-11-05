@@ -37,7 +37,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"

@@ -12,7 +12,7 @@ import (
 	buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
 	citylib "github.com/bfalese/civ-of-magic/game/magic/city"
 	"github.com/bfalese/civ-of-magic/game/magic/combat"
-	"github.com/bfalese/civ-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/core/data"
 	"github.com/bfalese/civ-of-magic/game/magic/inputmanager"
 	"github.com/bfalese/civ-of-magic/game/magic/maplib"
 	"github.com/bfalese/civ-of-magic/game/magic/mouse"

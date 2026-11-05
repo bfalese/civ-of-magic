@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/bfalese/civ-of-magic/game/arena/player"
-	"github.com/bfalese/civ-of-magic/game/magic/data"
+	"github.com/bfalese/civ-of-magic/core/data"
 )
 
 func TestAIUnitPurchasesStayWithinBudget(t *testing.T) {

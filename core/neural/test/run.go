@@ -8,7 +8,7 @@ import (
     "slices"
     // "context"
 
-    "github.com/bfalese/civ-of-magic/game/magic/neural"
+    "github.com/bfalese/civ-of-magic/core/neural"
 )
 
 func MSE(output, expected float64) float64 {

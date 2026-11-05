@@ -5,7 +5,7 @@ import (
     "math"
 
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
 
     "github.com/hajimehoshi/ebiten/v2"

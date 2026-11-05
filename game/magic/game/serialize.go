@@ -8,7 +8,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/serialize"
     settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
     "github.com/bfalese/civ-of-magic/game/magic/setup"

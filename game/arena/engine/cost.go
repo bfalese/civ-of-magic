@@ -2,7 +2,7 @@ package engine
 
 import (
     "github.com/bfalese/civ-of-magic/game/magic/units"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
 )
 
 func getUnitCost(unit *units.Unit) uint64 {

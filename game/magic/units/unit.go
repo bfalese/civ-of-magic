@@ -3,7 +3,7 @@ package units
 import (
     "math/rand/v2"
 
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/building"
 )
 

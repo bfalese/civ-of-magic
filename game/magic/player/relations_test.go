@@ -4,7 +4,7 @@ import (
     "testing"
 
     "github.com/bfalese/civ-of-magic/game/magic/setup"
-    "github.com/bfalese/civ-of-magic/game/magic/data"
+    "github.com/bfalese/civ-of-magic/core/data"
 )
 
 func TestStartingRelation(test *testing.T) {
