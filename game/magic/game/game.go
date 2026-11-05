@@ -623,13 +623,7 @@ func (game *Game) UpdateImages() {
 }
 
 func (game *Game) GetPlayerByBanner(banner data.BannerType) *playerlib.Player {
-    for _, player := range game.Model.Players {
-        if player.GetBanner() == banner {
-            return player
-        }
-    }
-
-    return nil
+    return game.Model.GetPlayerByBanner(banner)
 }
 
 type CityValidArea map[image.Point]bool

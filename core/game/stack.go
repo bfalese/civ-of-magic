@@ -103,3 +103,13 @@ func (model *GameModel) RelocateUnit(player *playerlib.Player, unit units.StackU
 
     unit.SetBusy(units.BusyStatusNone)
 }
+
+func (model *GameModel) GetPlayerByBanner(banner data.BannerType) *playerlib.Player {
+    for _, player := range model.Players {
+        if player.GetBanner() == banner {
+            return player
+        }
+    }
+
+    return nil
+}

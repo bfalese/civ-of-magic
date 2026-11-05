@@ -1444,12 +1444,6 @@ func (game *Game) MakeSubversionUI(caster *playerlib.Player, spell spellbook.Spe
 // also returns the reason why the fizzle occurred (due to tranquility, supress magic, etc
 
 func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spell) {
-    wards := []data.CityEnchantment{
-        data.CityEnchantmentLifeWard, data.CityEnchantmentSorceryWard,
-        data.CityEnchantmentNatureWard, data.CityEnchantmentDeathWard,
-        data.CityEnchantmentChaosWard,
-    }
-
     var selectCity func (coroutine.YieldFunc, int, int)
     selectCity = func (yield coroutine.YieldFunc, tileX int, tileY int) {
         // FIXME: Show this only for enemies if detect magic is active and the city is known to the human player
@@ -1459,13 +1453,7 @@ func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spel
             return
         }
 
-        choices := set.NewSet(wards...)
-
-        for _, enchantment := range choices.Values() {
-            if chosenCity.HasEnchantment(enchantment) {
-                choices.Remove(enchantment)
-            }
-        }
+        choices := game.Model.AvailableSpellWards(chosenCity)
 
         if choices.Size() == 0 {
             game.Events <- &gamecore.GameEventNotice{Message: "No wards are available to cast on this city."}
@@ -1509,62 +1497,7 @@ func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spel
 func (game *Game) doDisenchantArea(yield coroutine.YieldFunc, player *playerlib.Player, spell spellbook.Spell, disenchantTrue bool, tileX int, tileY int) {
     game.doCastOnMap(yield, tileX, tileY, 9, spell.Sound, func (x int, y int, animationFrame int){})
 
-    disenchantStrength := spell.Cost(true)
-    if disenchantTrue {
-        // strength is 3x mana cost
-        disenchantStrength = spell.Cost(true) * 3
-    }
-
-    if player.Wizard.RetortEnabled(data.RetortRunemaster) {
-        disenchantStrength *= 2
-    }
-
-    allSpells := game.AllSpells()
-
-    city, _ := game.Model.FindCity(tileX, tileY, game.Model.Plane)
-    if city != nil {
-        for _, enchantment := range city.Enchantments.Values() {
-            if enchantment.Owner != player.GetBanner() {
-                spell := allSpells.FindByName(enchantment.Enchantment.SpellName())
-                cost := spell.Cost(true)
-                dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, spell.Magic, &game.GetPlayerByBanner(enchantment.Owner).Wizard)
-                if spellbook.RollDispelChance(dispellChance) {
-                    city.RemoveEnchantments(enchantment.Enchantment)
-                }
-            }
-        }
-    }
-
-    stack, owner := game.Model.FindStack(tileX, tileY, game.Model.Plane)
-    if stack != nil && owner != player {
-        for _, unit := range stack.Units() {
-            var toRemove []data.UnitEnchantment
-            for _, enchantment := range unit.GetEnchantments() {
-                spell := allSpells.FindByName(enchantment.SpellName())
-                cost := spell.Cost(true)
-                dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, spell.Magic, &owner.Wizard)
-                if rand.N(100) < dispellChance {
-                    toRemove = append(toRemove, enchantment)
-                }
-            }
-
-            for _, enchantment := range toRemove {
-                unit.RemoveEnchantment(enchantment)
-            }
-        }
-    }
-
-    mapUse := game.GetMap(game.Model.Plane)
-    magicNode := mapUse.GetMagicNode(tileX, tileY)
-    if magicNode != nil && magicNode.Warped && magicNode.WarpedOwner != player {
-        warpNode := allSpells.FindByName("Warp Node")
-        cost := warpNode.Cost(true)
-        dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, warpNode.Magic, &game.GetPlayerByBanner(magicNode.WarpedOwner.GetBanner()).Wizard)
-
-        if rand.N(100) < dispellChance {
-            magicNode.Warped = false
-        }
-    }
+    game.Model.ApplyDisenchantArea(player, spell, disenchantTrue, tileX, tileY)
 }
 
 func (game *Game) doCastOnUnit(player *playerlib.Player, spell spellbook.Spell, animationIndex int, before UnitEnchantmentCallback, after UnitEnchantmentCallback) {

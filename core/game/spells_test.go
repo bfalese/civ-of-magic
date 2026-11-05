@@ -3,10 +3,12 @@ package game
 import (
     "testing"
 
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/data"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 func TestCheckInstantFizzleWithoutEnchantments(test *testing.T) {
@@ -68,5 +70,20 @@ func TestApplySpellBlastNeedsASpellInProgress(test *testing.T) {
     }
     if human.Mana != 500 {
         test.Errorf("caster mana changed: %v", human.Mana)
+    }
+}
+
+func TestAvailableSpellWards(test *testing.T) {
+    model := &GameModel{}
+    city := &citylib.City{Enchantments: set.MakeSet[citylib.Enchantment]()}
+
+    if got := model.AvailableSpellWards(city).Size(); got != 5 {
+        test.Errorf("no wards yet: expected 5 choices, got %v", got)
+    }
+
+    city.AddEnchantment(data.CityEnchantmentChaosWard, data.BannerRed)
+    choices := model.AvailableSpellWards(city)
+    if choices.Size() != 4 || choices.Contains(data.CityEnchantmentChaosWard) {
+        test.Errorf("chaos ward present: expected the other 4, got %v", choices.Values())
     }
 }

@@ -4,10 +4,12 @@ import (
     "math/rand/v2"
 
     "github.com/bfalese/civ-of-magic/core/data"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/units"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 // why a spell fizzled when it was cast
@@ -154,4 +156,83 @@ func (model *GameModel) SummonUnit(player *playerlib.Player, unit units.Unit) bo
     }
 
     return true
+}
+
+// Disenchant Area / Disenchant True on a tile (after the animation): tries to dispel enemy city
+// enchantments, enemy unit enchantments and an enemy Warp Node there.
+func (model *GameModel) ApplyDisenchantArea(player *playerlib.Player, spell spellbook.Spell, disenchantTrue bool, tileX int, tileY int) {
+    disenchantStrength := spell.Cost(true)
+    if disenchantTrue {
+        // strength is 3x mana cost
+        disenchantStrength = spell.Cost(true) * 3
+    }
+
+    if player.Wizard.RetortEnabled(data.RetortRunemaster) {
+        disenchantStrength *= 2
+    }
+
+    allSpells := model.AllSpells
+
+    city, _ := model.FindCity(tileX, tileY, model.Plane)
+    if city != nil {
+        for _, enchantment := range city.Enchantments.Values() {
+            if enchantment.Owner != player.GetBanner() {
+                spell := allSpells.FindByName(enchantment.Enchantment.SpellName())
+                cost := spell.Cost(true)
+                dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, spell.Magic, &model.GetPlayerByBanner(enchantment.Owner).Wizard)
+                if spellbook.RollDispelChance(dispellChance) {
+                    city.RemoveEnchantments(enchantment.Enchantment)
+                }
+            }
+        }
+    }
+
+    stack, owner := model.FindStack(tileX, tileY, model.Plane)
+    if stack != nil && owner != player {
+        for _, unit := range stack.Units() {
+            var toRemove []data.UnitEnchantment
+            for _, enchantment := range unit.GetEnchantments() {
+                spell := allSpells.FindByName(enchantment.SpellName())
+                cost := spell.Cost(true)
+                dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, spell.Magic, &owner.Wizard)
+                if rand.N(100) < dispellChance {
+                    toRemove = append(toRemove, enchantment)
+                }
+            }
+
+            for _, enchantment := range toRemove {
+                unit.RemoveEnchantment(enchantment)
+            }
+        }
+    }
+
+    mapUse := model.GetMap(model.Plane)
+    magicNode := mapUse.GetMagicNode(tileX, tileY)
+    if magicNode != nil && magicNode.Warped && magicNode.WarpedOwner != player {
+        warpNode := allSpells.FindByName("Warp Node")
+        cost := warpNode.Cost(true)
+        dispellChance := spellbook.ComputeDispelChance(disenchantStrength, cost, warpNode.Magic, &model.GetPlayerByBanner(magicNode.WarpedOwner.GetBanner()).Wizard)
+
+        if rand.N(100) < dispellChance {
+            magicNode.Warped = false
+        }
+    }}
+
+// the Spell Wards a city doesn't have yet
+func (model *GameModel) AvailableSpellWards(city *citylib.City) *set.Set[data.CityEnchantment] {
+    wards := []data.CityEnchantment{
+        data.CityEnchantmentLifeWard, data.CityEnchantmentSorceryWard,
+        data.CityEnchantmentNatureWard, data.CityEnchantmentDeathWard,
+        data.CityEnchantmentChaosWard,
+    }
+
+    choices := set.NewSet(wards...)
+
+    for _, enchantment := range choices.Values() {
+        if city.HasEnchantment(enchantment) {
+            choices.Remove(enchantment)
+        }
+    }
+
+    return choices
 }
