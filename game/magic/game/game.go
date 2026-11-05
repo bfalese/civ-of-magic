@@ -146,24 +146,6 @@ type GameEventTreasure struct {
     Player *playerlib.Player
 }
 
-type GameEventHireHero struct {
-    Hero *herolib.Hero
-    Player *playerlib.Player
-    Cost int
-}
-
-type GameEventHireMercenaries struct {
-    Units []*units.OverworldUnit
-    Player *playerlib.Player
-    Cost int
-}
-
-type GameEventMerchant struct {
-    Artifact *artifact.Artifact
-    Player *playerlib.Player
-    Cost int
-}
-
 // invoke an arbitrary routine
 type GameEventInvokeRoutine struct {
     Routine func (yield coroutine.YieldFunc)
@@ -245,10 +227,6 @@ type GameEventCityName struct {
     // position on screen where to show the input box
     X int
     Y int
-}
-
-type GameEventHeroLevelUp struct {
-    Hero *herolib.Hero
 }
 
 type GameEventMoveCamera struct {
@@ -1556,54 +1534,6 @@ func (game *Game) doVault(yield coroutine.YieldFunc, newArtifact *artifact.Artif
 
 /* random chance to create a hire hero event
  */
-func (game *Game) maybeHireHero(player *playerlib.Player) {
-    if len(player.AliveHeroes()) >= 6 {
-        return
-    }
-    // chance as an integer between 0-100
-
-    // every 25 fame increases chance by 1
-    // every hero reduces chance by a fraction (1 hero = halve chance. 2 heroes = 1/3 chance)
-    chance := (3 + player.GetFame() / 25) / ((len(player.AliveHeroes()) + 3) / 2)
-    if player.Wizard.RetortEnabled(data.RetortFamous) {
-        chance *= 2
-    }
-
-    if chance > 10 {
-        chance = 10
-    }
-
-    if rand.N(100) < chance {
-        var heroCandidates []*herolib.Hero
-        for _, hero := range player.HeroPool {
-            // torin can never be hired
-            if hero.HeroType == herolib.HeroTorin {
-                continue
-            }
-
-            if hero.Status == herolib.StatusAvailable {
-                if hero.GetRequiredFame() <= player.GetFame() {
-                    heroCandidates = append(heroCandidates, hero)
-                }
-            }
-        }
-
-        if len(heroCandidates) > 0 {
-            hero := heroCandidates[rand.N(len(heroCandidates))]
-
-            fee := hero.GetHireFee()
-            if fee > player.Gold {
-                // hero gains a level if the player can't afford to hire them
-                hero.GainLevel(units.ExperienceChampionHero)
-            } else {
-                select {
-                    case game.Events <- &GameEventHireHero{Cost: fee, Hero: hero, Player: player}:
-                    default:
-                }
-            }
-        }
-    }
-}
 
 /* show the hire hero popup, and if the user clicks 'hire' then add the hero to the player's list of heroes
  */
@@ -1663,127 +1593,6 @@ func (game *Game) doHireHero(yield coroutine.YieldFunc, cost int, hero *herolib.
 
 /* random chance to create a hire mercenaries event
  */
-func (game *Game) maybeHireMercenaries(player *playerlib.Player) {
-    if game.Model.TurnNumber <= 30 {
-        return
-    }
-
-    fortressCity := player.FindFortressCity()
-    if fortressCity == nil {
-        return  // player is being banished
-    }
-
-    // chance to create an event
-    chance := 1 + player.GetFame() / 20
-    if player.Wizard.RetortEnabled(data.RetortFamous) {
-        chance *= 2
-    }
-    if chance > 10 {
-        chance = 10
-    }
-
-    if rand.N(100) >= chance {
-        return
-    }
-
-    // unit type
-    presentOnArcanus := false
-    presentOnMyrror := false
-    for _, city := range player.Cities {
-        if city.Plane == data.PlaneArcanus {
-            presentOnArcanus = true
-        }
-        if city.Plane == data.PlaneMyrror {
-            presentOnMyrror = true
-        }
-    }
-
-    var unitCandidates []*units.Unit
-    for _, unit := range units.AllUnits {
-        if unit.Race == data.RaceFantastic || unit.Race == data.RaceHero {
-            continue
-        }
-
-        if unit.IsSettlers() {
-            continue
-        }
-
-        if unit.Name == "Trireme" || unit.Name == "Galley" || unit.Name == "Warship" {
-            continue
-        }
-
-        isFromPresentPlane := false
-        if presentOnArcanus {
-            for _, race := range data.ArcanianRaces() {
-                if unit.Race == race {
-                    isFromPresentPlane = true
-                    break
-                }
-            }
-        }
-        if !isFromPresentPlane && presentOnMyrror {
-            for _, race := range data.MyrranRaces() {
-                if unit.Race == race {
-                    isFromPresentPlane = true
-                    break
-                }
-            }
-        }
-        if !isFromPresentPlane {
-            continue
-        }
-
-        unitCandidates = append(unitCandidates, &unit)
-    }
-    if len(unitCandidates) == 0 {
-        return
-    }
-
-    unit := unitCandidates[rand.IntN(len(unitCandidates))]
-
-    // number of units
-    count := 1
-    countRoll := rand.N(100) + player.GetFame()
-    switch {
-        case countRoll > 90: count = 3
-        case countRoll > 60: count = 2
-    }
-
-    // experience
-    level := 1
-    experience := 20
-    experienceRoll := rand.N(100) + player.GetFame()
-    switch {
-        case experienceRoll > 90:
-            level = 3
-            experience = 120
-        case experienceRoll > 60:
-            level = 2
-            experience = 60
-    }
-
-    // cost
-    cost := count * unit.ProductionCost * (level + 3) / 2
-    if player.Wizard.RetortEnabled(data.RetortCharismatic) {
-        cost /= 2
-    }
-    if player.Gold < cost {
-        return
-    }
-
-    // create units
-    var overworldUnits []*units.OverworldUnit
-    for range count {
-        overworldUnit := units.MakeOverworldUnitFromUnit(*unit, fortressCity.X, fortressCity.Y, fortressCity.Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
-        overworldUnit.Experience = experience
-        overworldUnits = append(overworldUnits, overworldUnit)
-    }
-
-    select {
-        case game.Events <- &GameEventHireMercenaries{Cost: cost, Units: overworldUnits, Player: player}:
-        default:
-    }
-}
 
 /* show the hire mercenaries popup, and if the user clicks 'hire' then add the units to the player's list of units
  */
@@ -1821,55 +1630,6 @@ func (game *Game) doHireMercenaries(yield coroutine.YieldFunc, cost int, units [
 
 /* random chance to create a merchant event
  */
-func (game *Game) maybeBuyFromMerchant(player *playerlib.Player) {
-    // chance to create an event
-    chance := 2 + player.GetFame() / 25
-    if player.Wizard.RetortEnabled(data.RetortFamous) {
-        chance *= 2
-    }
-    if chance > 10 {
-        chance = 10
-    }
-
-    if rand.N(100) >= chance {
-        return
-    }
-
-    var artifactCandidates []*artifact.Artifact
-    for _, candidate := range game.Model.ArtifactPool.AvailableArtifacts() {
-        requirementsMet := true
-        for _, requirement := range candidate.Requirements {
-            if requirement.Amount > 12 {
-                requirementsMet = false
-                break
-            }
-        }
-        if !requirementsMet {
-            continue
-        }
-
-        artifactCandidates = append(artifactCandidates, candidate)
-    }
-    if len(artifactCandidates) == 0 {
-        return
-    }
-
-    artifact := artifactCandidates[rand.IntN(len(artifactCandidates))]
-
-    // cost
-    cost := artifact.Cost
-    if player.Wizard.RetortEnabled(data.RetortCharismatic) {
-        cost /= 2
-    }
-    if player.Gold < cost {
-        return
-    }
-
-    select {
-        case game.Events <- &GameEventMerchant{Cost: cost, Artifact: artifact, Player: player}:
-        default:
-    }
-}
 
 /* show the merchant popup, and if the user clicks 'buy' then add the artifact to the player's vault and remove it from the pool
  */
@@ -1898,14 +1658,8 @@ func (game *Game) maybeBuyFromMerchant(player *playerlib.Player) {
     }
 }
 
-// FIXME: add a "reason" of fizzling, like "Spell X was fizzled because of Y"
 func (game *Game) ShowFizzleSpell(spell spellbook.Spell, caster *playerlib.Player) {
-    if caster.IsHuman() {
-        game.Events <- &gamecore.GameEventNotice{
-            // FIXME: align this message with how dos mom does it
-            Message: fmt.Sprintf("The spell %v has fizzled.", spell.Name),
-        }
-    }
+    game.Model.ShowFizzleSpell(spell, caster)
 }
 
 /* show the given message in an error popup on the screen
@@ -1989,22 +1743,7 @@ func (game *Game) doNextTurn(yield coroutine.YieldFunc) {
 }
 
 func (game *Game) AddExperience(player *playerlib.Player, unit units.StackUnit, amount int) {
-    if player.IsHuman() && unit.IsHero() {
-        level_before := unit.GetHeroExperienceLevel()
-
-        unit.AddExperience(amount)
-
-        level_after := unit.GetHeroExperienceLevel()
-
-        if level_before != level_after {
-            hero := unit.(*herolib.Hero)
-            game.Events <- &GameEventHeroLevelUp{
-                Hero: hero,
-            }
-        }
-    } else {
-        unit.AddExperience(amount)
-    }
+    game.Model.AddExperience(player, unit, amount)
 }
 
 type RandomEventFonts struct {
@@ -2354,8 +2093,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                                     game.WatchUI = game.MakeWatchUI()
                                 }
                         }
-                    case *GameEventHireHero:
-                        hire := event.(*GameEventHireHero)
+                    case *gamecore.GameEventHireHero:
+                        hire := event.(*gamecore.GameEventHireHero)
                         player := hire.Player
                         if player.IsHuman() {
                             game.doHireHero(yield, hire.Cost, hire.Hero, player, true, data.PlanePoint{})
@@ -2364,8 +2103,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                                 player.AIBehavior.HandleHireHero(player, hire.Hero, 0, true, data.PlanePoint{})
                             }
                         }
-                    case *GameEventHireMercenaries:
-                        hire := event.(*GameEventHireMercenaries)
+                    case *gamecore.GameEventHireMercenaries:
+                        hire := event.(*gamecore.GameEventHireMercenaries)
                         player := hire.Player
                         if player.IsHuman() {
                             game.doHireMercenaries(yield, hire.Cost, hire.Units, player)
@@ -2380,8 +2119,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                             game.DoPause(yield)
                         }
 
-                    case *GameEventMerchant:
-                        merchant := event.(*GameEventMerchant)
+                    case *gamecore.GameEventMerchant:
+                        merchant := event.(*gamecore.GameEventMerchant)
                         if merchant.Player.IsHuman() {
                             game.doMerchant(yield, merchant.Cost, merchant.Artifact, merchant.Player)
                         } else {
@@ -2561,8 +2300,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         }
                     case *GameEventGameMenu:
                         game.doGameMenu(yield)
-                    case *GameEventHeroLevelUp:
-                        levelEvent := event.(*GameEventHeroLevelUp)
+                    case *gamecore.GameEventHeroLevelUp:
+                        levelEvent := event.(*gamecore.GameEventHeroLevelUp)
                         game.Music.PushSong(musiclib.SongHeroGainedALevel)
                         game.showHeroLevelUpPopup(yield, levelEvent.Hero)
                         game.Music.PopSong()
@@ -5086,25 +4825,8 @@ func (game *Game) ResearchNewSpell(yield coroutine.YieldFunc, player *playerlib.
     }
 }
 
-// show all scroll events for this turn, or a message that no events occurred
-func (game *Game) DoChancellor(){
-    if len(game.Model.ScrollEvents) == 0 {
-        event := &gamecore.GameEventScroll{
-            Title: "NO EVENTS THIS MONTH",
-        }
-        select {
-            case game.Events <- event:
-            default:
-        }
-    } else {
-        for _, event := range game.Model.ScrollEvents {
-            event.Old = true
-            select {
-                case game.Events <- event:
-                default:
-            }
-        }
-    }
+func (game *Game) DoChancellor() {
+    game.Model.DoChancellor()
 }
 
 func (game *Game) ShowMirror() {
@@ -6728,9 +6450,9 @@ func (game *Game) StartPlayerTurn(player *playerlib.Player) {
         player.RemoveCity(city)
     }
 
-    game.maybeHireHero(player)
-    game.maybeHireMercenaries(player)
-    game.maybeBuyFromMerchant(player)
+    game.Model.MaybeHireHero(player)
+    game.Model.MaybeHireMercenaries(player)
+    game.Model.MaybeBuyFromMerchant(player)
 
     player.UpdateFogVisibility()
 

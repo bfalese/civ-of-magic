@@ -2,7 +2,9 @@ package game
 
 import (
     "github.com/bfalese/civ-of-magic/core/artifact"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/units"
 )
 
 type GameEvent interface {
@@ -36,4 +38,26 @@ type GameEventVault struct {
 type GameEventDiplomacy struct {
     Player *playerlib.Player
     Enemy *playerlib.Player
+}
+
+type GameEventHireMercenaries struct {
+    Units []*units.OverworldUnit
+    Player *playerlib.Player
+    Cost int
+}
+
+type GameEventMerchant struct {
+    Artifact *artifact.Artifact
+    Player *playerlib.Player
+    Cost int
+}
+
+type GameEventHireHero struct {
+    Hero *herolib.Hero
+    Player *playerlib.Player
+    Cost int
+}
+
+type GameEventHeroLevelUp struct {
+    Hero *herolib.Hero
 }

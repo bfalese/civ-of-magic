@@ -11,6 +11,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/combat"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
@@ -1095,4 +1096,276 @@ func (area CityValidArea) FindLocation() (int, int, bool) {
 
     point := choices[rand.N(len(choices))]
     return point.X, point.Y, true
+}
+
+func (model *GameModel) MaybeHireMercenaries(player *playerlib.Player) {
+    if model.TurnNumber <= 30 {
+        return
+    }
+
+    fortressCity := player.FindFortressCity()
+    if fortressCity == nil {
+        return  // player is being banished
+    }
+
+    // chance to create an event
+    chance := 1 + player.GetFame() / 20
+    if player.Wizard.RetortEnabled(data.RetortFamous) {
+        chance *= 2
+    }
+    if chance > 10 {
+        chance = 10
+    }
+
+    if rand.N(100) >= chance {
+        return
+    }
+
+    // unit type
+    presentOnArcanus := false
+    presentOnMyrror := false
+    for _, city := range player.Cities {
+        if city.Plane == data.PlaneArcanus {
+            presentOnArcanus = true
+        }
+        if city.Plane == data.PlaneMyrror {
+            presentOnMyrror = true
+        }
+    }
+
+    var unitCandidates []*units.Unit
+    for _, unit := range units.AllUnits {
+        if unit.Race == data.RaceFantastic || unit.Race == data.RaceHero {
+            continue
+        }
+
+        if unit.IsSettlers() {
+            continue
+        }
+
+        if unit.Name == "Trireme" || unit.Name == "Galley" || unit.Name == "Warship" {
+            continue
+        }
+
+        isFromPresentPlane := false
+        if presentOnArcanus {
+            for _, race := range data.ArcanianRaces() {
+                if unit.Race == race {
+                    isFromPresentPlane = true
+                    break
+                }
+            }
+        }
+        if !isFromPresentPlane && presentOnMyrror {
+            for _, race := range data.MyrranRaces() {
+                if unit.Race == race {
+                    isFromPresentPlane = true
+                    break
+                }
+            }
+        }
+        if !isFromPresentPlane {
+            continue
+        }
+
+        unitCandidates = append(unitCandidates, &unit)
+    }
+    if len(unitCandidates) == 0 {
+        return
+    }
+
+    unit := unitCandidates[rand.IntN(len(unitCandidates))]
+
+    // number of units
+    count := 1
+    countRoll := rand.N(100) + player.GetFame()
+    switch {
+        case countRoll > 90: count = 3
+        case countRoll > 60: count = 2
+    }
+
+    // experience
+    level := 1
+    experience := 20
+    experienceRoll := rand.N(100) + player.GetFame()
+    switch {
+        case experienceRoll > 90:
+            level = 3
+            experience = 120
+        case experienceRoll > 60:
+            level = 2
+            experience = 60
+    }
+
+    // cost
+    cost := count * unit.ProductionCost * (level + 3) / 2
+    if player.Wizard.RetortEnabled(data.RetortCharismatic) {
+        cost /= 2
+    }
+    if player.Gold < cost {
+        return
+    }
+
+    // create units
+    var overworldUnits []*units.OverworldUnit
+    for range count {
+        overworldUnit := units.MakeOverworldUnitFromUnit(*unit, fortressCity.X, fortressCity.Y, fortressCity.Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
+        overworldUnit.Experience = experience
+        overworldUnits = append(overworldUnits, overworldUnit)
+    }
+
+    select {
+        case model.Events <- &GameEventHireMercenaries{Cost: cost, Units: overworldUnits, Player: player}:
+        default:
+    }
+}
+
+func (model *GameModel) MaybeBuyFromMerchant(player *playerlib.Player) {
+    // chance to create an event
+    chance := 2 + player.GetFame() / 25
+    if player.Wizard.RetortEnabled(data.RetortFamous) {
+        chance *= 2
+    }
+    if chance > 10 {
+        chance = 10
+    }
+
+    if rand.N(100) >= chance {
+        return
+    }
+
+    var artifactCandidates []*artifact.Artifact
+    for _, candidate := range model.ArtifactPool.AvailableArtifacts() {
+        requirementsMet := true
+        for _, requirement := range candidate.Requirements {
+            if requirement.Amount > 12 {
+                requirementsMet = false
+                break
+            }
+        }
+        if !requirementsMet {
+            continue
+        }
+
+        artifactCandidates = append(artifactCandidates, candidate)
+    }
+    if len(artifactCandidates) == 0 {
+        return
+    }
+
+    artifact := artifactCandidates[rand.IntN(len(artifactCandidates))]
+
+    // cost
+    cost := artifact.Cost
+    if player.Wizard.RetortEnabled(data.RetortCharismatic) {
+        cost /= 2
+    }
+    if player.Gold < cost {
+        return
+    }
+
+    select {
+        case model.Events <- &GameEventMerchant{Cost: cost, Artifact: artifact, Player: player}:
+        default:
+    }
+}
+
+func (model *GameModel) MaybeHireHero(player *playerlib.Player) {
+    if len(player.AliveHeroes()) >= 6 {
+        return
+    }
+    // chance as an integer between 0-100
+
+    // every 25 fame increases chance by 1
+    // every hero reduces chance by a fraction (1 hero = halve chance. 2 heroes = 1/3 chance)
+    chance := (3 + player.GetFame() / 25) / ((len(player.AliveHeroes()) + 3) / 2)
+    if player.Wizard.RetortEnabled(data.RetortFamous) {
+        chance *= 2
+    }
+
+    if chance > 10 {
+        chance = 10
+    }
+
+    if rand.N(100) < chance {
+        var heroCandidates []*herolib.Hero
+        for _, hero := range player.HeroPool {
+            // torin can never be hired
+            if hero.HeroType == herolib.HeroTorin {
+                continue
+            }
+
+            if hero.Status == herolib.StatusAvailable {
+                if hero.GetRequiredFame() <= player.GetFame() {
+                    heroCandidates = append(heroCandidates, hero)
+                }
+            }
+        }
+
+        if len(heroCandidates) > 0 {
+            hero := heroCandidates[rand.N(len(heroCandidates))]
+
+            fee := hero.GetHireFee()
+            if fee > player.Gold {
+                // hero gains a level if the player can't afford to hire them
+                hero.GainLevel(units.ExperienceChampionHero)
+            } else {
+                select {
+                    case model.Events <- &GameEventHireHero{Cost: fee, Hero: hero, Player: player}:
+                    default:
+                }
+            }
+        }
+    }
+}
+
+// show all scroll events for this turn, or a message that no events occurred
+func (model *GameModel) DoChancellor() {
+    if len(model.ScrollEvents) == 0 {
+        event := &GameEventScroll{
+            Title: "NO EVENTS THIS MONTH",
+        }
+        select {
+            case model.Events <- event:
+            default:
+        }
+    } else {
+        for _, event := range model.ScrollEvents {
+            event.Old = true
+            select {
+                case model.Events <- event:
+                default:
+            }
+        }
+    }
+}
+
+func (model *GameModel) AddExperience(player *playerlib.Player, unit units.StackUnit, amount int) {
+    if player.IsHuman() && unit.IsHero() {
+        level_before := unit.GetHeroExperienceLevel()
+
+        unit.AddExperience(amount)
+
+        level_after := unit.GetHeroExperienceLevel()
+
+        if level_before != level_after {
+            hero := unit.(*herolib.Hero)
+            model.Events <- &GameEventHeroLevelUp{
+                Hero: hero,
+            }
+        }
+    } else {
+        unit.AddExperience(amount)
+    }
+}
+
+
+// FIXME: add a "reason" of fizzling, like "Spell X was fizzled because of Y"
+func (model *GameModel) ShowFizzleSpell(spell spellbook.Spell, caster *playerlib.Player) {
+    if caster.IsHuman() {
+        model.Events <- &GameEventNotice{
+            // FIXME: align this message with how dos mom does it
+            Message: fmt.Sprintf("The spell %v has fizzled.", spell.Name),
+        }
+    }
 }

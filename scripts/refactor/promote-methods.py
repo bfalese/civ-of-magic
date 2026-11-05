@@ -11,7 +11,9 @@ usage: promote-methods.py SRC_FILE DST_FILE UI_PKG_DIR MODEL_ALIAS NAME [NAME...
 
 For each moved method `func (game *Game) foo(...)`:
   - it becomes `func (model *GameModel) Foo(...)` (exported, so the UI can call it)
-  - inside moved code: `game.Model.` -> `model.`, `game.<moved or model method>(` -> `model.<...>(`
+  - inside moved code: `game.Model.` -> `model.`, `game.<moved or model method>(` -> `model.<...>(`,
+    `game.Events` -> `model.Events` (Game creates the model with its own Events channel; the event
+    types sent must live in the model package)
   - exported originals keep a one-line delegating wrapper on Game (callers and interfaces keep
     working); unexported ones have their UI callers rewritten to `game.Model.Foo(`
 Free functions move as-is (exported if needed) and UI callers become `MODEL_ALIAS.Foo(`.
@@ -86,6 +88,8 @@ def main():
             text = text.replace(m.group(0), 'func (%s *%s) %s(%s) %s{\n' % (MODEL_RECV, MODEL_TYPE, new_name, params, (results + ' ') if results else ''), 1)
             text = text.replace('%s.Model.' % UI_RECV, '%s.' % MODEL_RECV)
             text = re.sub(r'\b%s\.Model\b' % UI_RECV, MODEL_RECV, text)
+            # Game.Events is the channel the model was created with, so model.Events is the same
+            text = re.sub(r'\b%s\.Events\b' % UI_RECV, '%s.Events' % MODEL_RECV, text)
             def call(mm):
                 target = mm.group(1)
                 if target in moved_methods:
@@ -103,6 +107,8 @@ def main():
         for other in names:
             if not found[other][1] and other != export(other):
                 text = re.sub(r'(?<![\w.])%s\(' % other, export(other) + '(', text)
+        # code that referred to the model package from the UI side is now inside it
+        text = re.sub(r'\b%s\.' % re.escape(alias), '', text)
         leftover = re.findall(r'\b%s\.\w+' % UI_RECV, text)
         if leftover:
             sys.exit('%s still uses %s' % (name, sorted(set(leftover))))
