@@ -19,7 +19,6 @@ import (
     "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/units"
-    "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/setup"
     // playerlib "github.com/bfalese/civ-of-magic/core/player"
     citylib "github.com/bfalese/civ-of-magic/core/city"
@@ -2292,9 +2291,16 @@ func (army *Army) RemoveUnit(remove *ArmyUnit){
     })
 }
 
+// a visual animation the model advances in step with game time. Next returns false once the
+// last frame has been shown. Implemented by the frontend (e.g. *util.Animation); note that some
+// game timing (projectile effects fire when the explosion finishes) depends on it.
+type Animation interface {
+    Next() bool
+}
+
 // a special kind of unit
 type MagicVortex struct {
-    Animation *util.Animation
+    Animation Animation
     Moved bool
     Moving bool
     Team Team
@@ -2311,8 +2317,8 @@ type ProjectileEffect func(*ArmyUnit)
 
 type Projectile struct {
     Target *ArmyUnit
-    Animation *util.Animation
-    Explode *util.Animation
+    Animation Animation
+    Explode Animation
     Effect ProjectileEffect
     X float64
     Y float64

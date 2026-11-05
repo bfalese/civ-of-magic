@@ -4412,7 +4412,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
 
     for _, vortex := range combat.Model.MagicVortexes {
         var unitOptions ebiten.DrawImageOptions
-        frame := vortex.Animation.Frame()
+        frame := animationFrame(vortex.Animation)
         unitOptions.GeoM.Translate(float64(-frame.Bounds().Dx()/2), float64(-frame.Bounds().Dy()))
         // unitOptions.GeoM.Translate(float64(tile0.Bounds().Dx()/2), float64(tile0.Bounds().Dy()/2))
         unitOptions.GeoM.Translate(0, float64(tile0.Bounds().Dy()/2))
@@ -4496,9 +4496,9 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     for _, projectile := range combat.Model.Projectiles {
         var frame *ebiten.Image
         if projectile.Exploding {
-            frame = projectile.Explode.Frame()
+            frame = animationFrame(projectile.Explode)
         } else {
-            frame = projectile.Animation.Frame()
+            frame = animationFrame(projectile.Animation)
         }
         if frame != nil {
             var options ebiten.DrawImageOptions
@@ -4531,4 +4531,12 @@ func drawTileTopSpecial(special TileTopSpecial, screen *ebiten.Image, imageCache
             scale.DrawScaled(screen, top, options)
             options.GeoM = saved
     }
+}
+
+// the current frame of a model animation created by this screen
+func animationFrame(animation Animation) *ebiten.Image {
+    if frames, ok := animation.(*util.Animation); ok {
+        return frames.Frame()
+    }
+    return nil
 }
