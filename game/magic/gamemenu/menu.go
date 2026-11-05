@@ -16,7 +16,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/system"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/serialize"
+    "github.com/bfalese/civ-of-magic/core/serialize"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
 

@@ -54,7 +54,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/gamemenu"
-    "github.com/bfalese/civ-of-magic/game/magic/serialize"
+    "github.com/bfalese/civ-of-magic/core/serialize"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     mouselib "github.com/bfalese/civ-of-magic/lib/mouse"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
