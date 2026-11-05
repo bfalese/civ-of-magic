@@ -18,7 +18,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
@@ -1209,7 +1209,7 @@ func (cityScreen *CityScreen) MakeUI(newBuilding buildinglib.Building) *uilib.UI
 
         for _, unit := range garrison {
             func (){
-                garrisonBackground, err := units.GetUnitBackgroundImage(unit.GetBanner(), &cityScreen.ImageCache)
+                garrisonBackground, err := unitview.GetUnitBackgroundImage(unit.GetBanner(), &cityScreen.ImageCache)
                 if err != nil {
                     return
                 }

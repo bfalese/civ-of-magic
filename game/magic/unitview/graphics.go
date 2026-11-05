@@ -1,4 +1,4 @@
-package units
+package unitview
 
 import (
     "log"

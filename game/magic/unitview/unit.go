@@ -9,7 +9,8 @@ import (
     "image"
     "image/color"
 
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/artifact"
@@ -35,7 +36,7 @@ type CombatView interface {
 }
 
 func RenderUnitViewImage(screen *ebiten.Image, imageCache *util.ImageCache, unit CombatView, options ebiten.DrawImageOptions, grey bool, counter uint64) {
-    images, err := imageCache.GetImagesTransform(unit.GetCombatLbxFile(), unit.GetCombatIndex(units.FacingRight), unit.GetBanner().String(), units.MakeUpdateUnitColorsFunc(unit.GetBanner()))
+    images, err := imageCache.GetImagesTransform(unit.GetCombatLbxFile(), unit.GetCombatIndex(units.FacingRight), unit.GetBanner().String(), MakeUpdateUnitColorsFunc(unit.GetBanner()))
     if err == nil && len(images) > 2 {
         use := images[2]
         // log.Printf("unitview.RenderCombatImage: %v", use.Bounds())

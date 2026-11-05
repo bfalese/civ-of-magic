@@ -22,7 +22,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"

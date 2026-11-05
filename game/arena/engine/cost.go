@@ -1,7 +1,7 @@
 package engine
 
 import (
-    "github.com/bfalese/civ-of-magic/game/magic/units"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/core/data"
 )
 

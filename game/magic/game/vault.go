@@ -15,7 +15,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/fonts"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
