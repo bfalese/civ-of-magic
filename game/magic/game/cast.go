@@ -89,7 +89,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
     }
 
     if spell.IsOfRealm(data.ChaosMagic) || spell.IsOfRealm(data.DeathMagic) {
-        game.maybeDoNaturesWrath(player)
+        game.Model.MaybeDoNaturesWrath(player)
     }
 
     switch spell.Name {
