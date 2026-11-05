@@ -759,3 +759,61 @@ func ReadSpellDescriptions(file *lbx.LbxFile) ([]string, error) {
 
     return descriptions, nil
 }
+
+type SpellCaster interface {
+    // given research points and a spell, return the actual number of research points per turn
+    // made towards that spell
+    ComputeEffectiveResearchPerTurn(float64, Spell) int
+    // the actual cost to cast the spell
+    ComputeEffectiveSpellCost(spell Spell, overland bool) int
+    ComputeTurnsToCast(cost int) int
+}
+
+type Wizard interface {
+    RetortEnabled(retort data.Retort) bool
+    MagicLevel(magic data.MagicType) int
+}
+
+// the casting cost of a spell can be reduced based on retorts/spell books
+func ComputeSpellCost(wizard Wizard, spell Spell, overland bool, hasEvilOmens bool) int {
+    base := float64(spell.Cost(overland))
+    modifier := float64(0)
+
+    if wizard.RetortEnabled(data.RetortRunemaster) && spell.Magic == data.ArcaneMagic {
+        modifier += 0.25
+    }
+
+    if wizard.RetortEnabled(data.RetortChaosMastery) && spell.Magic == data.ChaosMagic {
+        modifier += 0.15
+    }
+
+    if wizard.RetortEnabled(data.RetortNatureMastery) && spell.Magic == data.NatureMagic {
+        modifier += 0.15
+    }
+
+    if wizard.RetortEnabled(data.RetortSorceryMastery) && spell.Magic == data.SorceryMagic {
+        modifier += 0.15
+    }
+
+    if wizard.RetortEnabled(data.RetortConjurer) && spell.IsSummoning() {
+        modifier += 0.25
+    }
+
+    if wizard.RetortEnabled(data.RetortArtificer) && (spell.Name == "Enchant Item" || spell.Name == "Create Artifact") {
+        modifier += 0.5
+    }
+
+    // for each book above 7, reduce cost by 10%
+    realmBooks := max(0, wizard.MagicLevel(spell.Magic) - 7)
+    modifier += float64(realmBooks) * 0.1
+
+    evilOmens := float64(1.0)
+
+    if hasEvilOmens {
+        if spell.Magic == data.LifeMagic || spell.Magic == data.NatureMagic {
+            evilOmens = 1.5
+        }
+    }
+
+    return int(max(0, base * (1 - modifier) * evilOmens))
+}
