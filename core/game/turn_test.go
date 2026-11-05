@@ -45,3 +45,33 @@ func TestStartPlayerTurnHeadless(test *testing.T) {
         test.Errorf("casting spell should be cleared after it completes")
     }
 }
+
+// two players, a few full rounds: the turn counter advances once per round, players alternate
+func TestDoNextTurnHeadless(test *testing.T) {
+    human, enemy := makeContactPlayers()
+    model := makeSpellTestModel(10, 10)
+    model.MyrrorMap = model.ArcanusMap
+    model.Players = []*playerlib.Player{human, enemy}
+    model.Events = make(chan GameEvent, 1000)
+    human.GlobalEnchantmentsProvider = model
+    enemy.GlobalEnchantmentsProvider = model
+    model.CurrentPlayer = 0
+
+    var started []*playerlib.Player
+    startTurn := func(player *playerlib.Player) {
+        started = append(started, player)
+        model.StartPlayerTurn(player, func(*playerlib.Player, spellbook.Spell) {})
+    }
+
+    startNumber := model.TurnNumber
+    for i := 0; i < 6; i++ {
+        model.DoNextTurn(false, false, startTurn)
+    }
+
+    if model.TurnNumber != startNumber + 3 {
+        test.Errorf("6 player turns with 2 players = 3 rounds: turn %v -> %v", startNumber, model.TurnNumber)
+    }
+    if len(started) != 6 || started[0] != enemy || started[1] != human {
+        test.Errorf("players should alternate starting with the next player")
+    }
+}

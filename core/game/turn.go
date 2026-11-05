@@ -272,3 +272,101 @@ func (model *GameModel) StartPlayerTurn(player *playerlib.Player, castSpell func
 
     return true
 }
+
+// what happens once all players have taken their turn. randomEvents: whether new random events may
+// start (a player preference); logSummary: log a per-wizard summary (watch mode).
+func (model *GameModel) EndOfTurn(randomEvents bool, logSummary bool) {
+    // put stuff here that should happen when all players have taken their turn
+
+    for _, player := range model.Players {
+        if !player.Defeated {
+            player.AddPowerHistory(model.ComputeWizardPower(player))
+        }
+    }
+
+    model.RevertVolcanos()
+
+    // FIXME: the wiki says armageddon will not do anything while time stop is in effect.
+    // figure out what other global spells don't have any effect (great wasting, chaos rift, meteor storm)
+    if !model.HasEnchantment(data.EnchantmentTimeStop) {
+        model.DoArmageddon()
+    }
+
+    model.DoGreatWasting()
+
+    model.DoChaosRift()
+
+    model.DoMeteorStorm()
+
+    model.TurnNumber += 1
+
+     // gate random-event rolls behind the user toggle; in-flight events continue
+     // their normal decay path inside DoRandomEvents and this just skips new rolls.
+    if randomEvents {
+        model.DoRandomEvents()
+    }
+
+    for _, player := range model.Players {
+        if player.Defeated || player.Banished {
+            continue
+        }
+
+        player.UpdateDiplomaticRelations()
+    }
+
+    if logSummary {
+        log.Printf("---- End of Year %v Summary ----", model.TurnNumber - 1)
+        for _, player := range model.Players {
+            if !player.IsHuman() {
+                power := model.ComputePower(player)
+                log.Printf("Wizard %v (%v) - Gold: %v (%v), Food: %v, Mana: %v (%v), Cities: %v, Units: %v, Tax: %v, Research: %v (%v)",
+                    player.Wizard.Name, player.GetBanner(), player.Gold, player.GoldPerTurn(), player.FoodPerTurn(), player.Mana, player.ManaPerTurn(power, model),
+                    len(player.Cities), player.UnitCount(), player.TaxRate,
+                    player.ResearchingSpell.Name, player.ResearchProgress)
+            }
+        }
+    }
+
+}
+
+// advances to the next player (ending the global turn when everyone has played) and starts their
+// turn. startPlayerTurn is the frontend's turn start (it calls StartPlayerTurn and does its own
+// follow-up); see EndOfTurn for the flags.
+func (model *GameModel) DoNextTurn(randomEvents bool, logSummary bool, startPlayerTurn func(*playerlib.Player)) {
+    // if time stop is enabled then don't move to the other players, just keep doing the current player
+    if model.CurrentPlayer >= 0 && model.Players[model.CurrentPlayer].HasEnchantment(data.EnchantmentTimeStop) {
+        model.EndOfTurn(randomEvents, logSummary)
+    } else {
+        model.CurrentPlayer += 1
+        if model.CurrentPlayer >= len(model.Players) {
+            // all players did their turn, so the next global turn starts
+            model.EndOfTurn(randomEvents, logSummary)
+            model.CurrentPlayer = 0
+        }
+    }
+
+    if len(model.Players) > 0 {
+        player := model.Players[model.CurrentPlayer]
+
+        aiPlayer := model.Players[model.CurrentPlayer]
+
+        if aiPlayer.AIBehavior != nil {
+            aiPlayer.AIBehavior.PreTurn(aiPlayer)
+        }
+
+        if player.Wizard.Banner != data.BannerBrown {
+            startPlayerTurn(player)
+        } else {
+            // neutral enemies should reset their moves each turn
+            for _, stack := range player.Stacks {
+                HandleStasis(stack)
+                stack.ResetMoves()
+                stack.EnableMovers()
+            }
+        }
+
+        if aiPlayer.AIBehavior != nil {
+            aiPlayer.AIBehavior.NewTurn(aiPlayer)
+        }
+    }
+}

@@ -6248,57 +6248,7 @@ func (game *Game) ComputeWizardPower(player *playerlib.Player) playerlib.WizardP
 }
 
 func (game *Game) EndOfTurn() {
-    // put stuff here that should happen when all players have taken their turn
-
-    for _, player := range game.Model.Players {
-        if !player.Defeated {
-            player.AddPowerHistory(game.ComputeWizardPower(player))
-        }
-    }
-
-    game.Model.RevertVolcanos()
-
-    // FIXME: the wiki says armageddon will not do anything while time stop is in effect.
-    // figure out what other global spells don't have any effect (great wasting, chaos rift, meteor storm)
-    if !game.Model.HasEnchantment(data.EnchantmentTimeStop) {
-        game.Model.DoArmageddon()
-    }
-
-    game.Model.DoGreatWasting()
-
-    game.Model.DoChaosRift()
-
-    game.Model.DoMeteorStorm()
-
-    game.Model.TurnNumber += 1
-
-     // gate random-event rolls behind the user toggle; in-flight events continue
-     // their normal decay path inside DoRandomEvents and this just skips new rolls.
-    if game.Settings.RandomEvents {
-        game.Model.DoRandomEvents()
-    }
-
-    for _, player := range game.Model.Players {
-        if player.Defeated || player.Banished {
-            continue
-        }
-
-        player.UpdateDiplomaticRelations()
-    }
-
-    if game.WatchMode {
-        log.Printf("---- End of Year %v Summary ----", game.Model.TurnNumber - 1)
-        for _, player := range game.Model.Players {
-            if !player.IsHuman() {
-                power := game.Model.ComputePower(player)
-                log.Printf("Wizard %v (%v) - Gold: %v (%v), Food: %v, Mana: %v (%v), Cities: %v, Units: %v, Tax: %v, Research: %v (%v)",
-                    player.Wizard.Name, player.GetBanner(), player.Gold, player.GoldPerTurn(), player.FoodPerTurn(), player.Mana, player.ManaPerTurn(power, game.Model),
-                    len(player.Cities), player.UnitCount(), player.TaxRate,
-                    player.ResearchingSpell.Name, player.ResearchProgress)
-            }
-        }
-    }
-
+    game.Model.EndOfTurn(game.Settings.RandomEvents, game.WatchMode)
 }
 
 func (game *Game) DoNextTurn(){
@@ -6306,42 +6256,7 @@ func (game *Game) DoNextTurn(){
         game.TurnHook()
     }
 
-    // if time stop is enabled then don't move to the other players, just keep doing the current player
-    if game.Model.CurrentPlayer >= 0 && game.Model.Players[game.Model.CurrentPlayer].HasEnchantment(data.EnchantmentTimeStop) {
-        game.EndOfTurn()
-    } else {
-        game.Model.CurrentPlayer += 1
-        if game.Model.CurrentPlayer >= len(game.Model.Players) {
-            // all players did their turn, so the next global turn starts
-            game.EndOfTurn()
-            game.Model.CurrentPlayer = 0
-        }
-    }
-
-    if len(game.Model.Players) > 0 {
-        player := game.Model.Players[game.Model.CurrentPlayer]
-
-        aiPlayer := game.Model.Players[game.Model.CurrentPlayer]
-
-        if aiPlayer.AIBehavior != nil {
-            aiPlayer.AIBehavior.PreTurn(aiPlayer)
-        }
-
-        if player.Wizard.Banner != data.BannerBrown {
-            game.StartPlayerTurn(player)
-        } else {
-            // neutral enemies should reset their moves each turn
-            for _, stack := range player.Stacks {
-                gamecore.HandleStasis(stack)
-                stack.ResetMoves()
-                stack.EnableMovers()
-            }
-        }
-
-        if aiPlayer.AIBehavior != nil {
-            aiPlayer.AIBehavior.NewTurn(aiPlayer)
-        }
-    }
+    game.Model.DoNextTurn(game.Settings.RandomEvents, game.WatchMode, game.StartPlayerTurn)
 }
 
 func (overworld *Overworld) DrawFog(screen *ebiten.Image, geom ebiten.GeoM){
