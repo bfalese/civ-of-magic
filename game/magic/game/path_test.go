@@ -6,7 +6,7 @@ import (
     "time"
 
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
     "github.com/bfalese/civ-of-magic/core/data"

@@ -18,7 +18,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
-    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
 
     "github.com/hajimehoshi/ebiten/v2"

@@ -15,7 +15,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     "github.com/bfalese/civ-of-magic/game/magic/music"
     "github.com/bfalese/civ-of-magic/core/units"

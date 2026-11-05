@@ -5,7 +5,7 @@ import (
     "io"
     "log"
 
-    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 

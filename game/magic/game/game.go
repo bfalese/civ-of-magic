@@ -34,7 +34,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
-    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     "github.com/bfalese/civ-of-magic/game/magic/armyview"

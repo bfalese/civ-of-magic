@@ -17,7 +17,7 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     mouselib "github.com/bfalese/civ-of-magic/lib/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
-    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"
