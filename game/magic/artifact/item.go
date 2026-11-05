@@ -744,3 +744,85 @@ func ReadArtifacts(cache *lbx.LbxCache) ([]Artifact, error) {
 
     return out, nil
 }
+
+func getName(artifact *Artifact, customName string) string {
+    if customName != "" {
+        return customName
+    }
+
+    base := artifact.Type.Name()
+    if artifact.Type == ArtifactTypeMisc {
+        switch {
+            case artifact.Image >= 101: base = "Orb"
+            case artifact.Image >= 94: base = "Helm"
+            case artifact.Image >= 90: base = "Gauntlet"
+            case artifact.Image >= 84: base = "Cloak"
+            case artifact.Image >= 78: base = "Ring"
+            default: base = "Amulet"
+        }
+    }
+
+    // attack is added as "+X" prefix
+    prefix := ""
+    attack := artifact.MeleeBonus()
+    if attack == 0 {
+        attack = artifact.RangedAttackBonus()
+    }
+    if attack == 0 {
+        attack = artifact.MagicAttackBonus()
+    }
+    if attack != 0 {
+        prefix = fmt.Sprintf("+%v ", attack)
+    }
+
+    // other powers are added as "of X" postfix (only one)
+    postfix := ""
+    switch {
+        case artifact.HasAbilities(): postfix = fmt.Sprintf(" of %v", artifact.LastAbility().Name())
+        case artifact.HasSpellCharges():
+            spell, charges := artifact.GetSpellCharge()
+            postfix = fmt.Sprintf(" of %v x%v", spell.Name, charges)
+        case artifact.HasSpellSavePower(): postfix = " of Power"
+        case artifact.HasSpellSkillPower(): postfix = " of Wizardry"
+        case artifact.HasResistancePower(): postfix = " of Protection"
+        case artifact.HasMovementPower(): postfix = " of Speed"
+        case artifact.HasToHitPower(): postfix = " of Accuracy"
+        case artifact.HasDefensePower(): postfix = " of Defense"
+    }
+
+    return prefix + base + postfix
+}
+
+func calculateCost(artifact *Artifact, costs map[Power]int) int {
+    base := 0
+    switch artifact.Type {
+        case ArtifactTypeSword: base = 100
+        case ArtifactTypeMace: base = 100
+        case ArtifactTypeAxe: base = 100
+        case ArtifactTypeBow: base = 100
+        case ArtifactTypeStaff: base = 300
+        case ArtifactTypeWand: base = 200
+        case ArtifactTypeMisc: base = 50
+        case ArtifactTypeShield: base = 100
+        case ArtifactTypeChain: base = 100
+        case ArtifactTypePlate: base = 300
+    }
+
+    powerCost := 0
+    spellCost := 0
+    for _, power := range artifact.Powers {
+        if power.Type == PowerTypeSpellCharges {
+            spellCost += power.Amount * power.Spell.Cost(false) * 20
+        } else {
+            powerCost += costs[power]
+        }
+    }
+
+    // jewelry costs are 2x
+    if artifact.Type == ArtifactTypeMisc {
+        powerCost *= 2
+    }
+
+    cost := base + powerCost + spellCost
+    return cost
+}
