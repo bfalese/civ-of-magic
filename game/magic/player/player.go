@@ -14,7 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/spellbook"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"

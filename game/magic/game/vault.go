@@ -11,7 +11,7 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     "github.com/bfalese/civ-of-magic/game/magic/magicview"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"

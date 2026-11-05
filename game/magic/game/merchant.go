@@ -9,7 +9,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"

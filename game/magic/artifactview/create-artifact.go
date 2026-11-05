@@ -24,7 +24,7 @@ import (
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"
     // "github.com/hajimehoshi/ebiten/v2/inpututil"
-    artifactlib "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
 )

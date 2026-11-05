@@ -8,7 +8,7 @@ import (
 
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/core/data"

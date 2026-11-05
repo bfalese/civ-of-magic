@@ -13,7 +13,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/scale"
 
     "github.com/hajimehoshi/ebiten/v2"
-    artifactlib "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
 
 )
 

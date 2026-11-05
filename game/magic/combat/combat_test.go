@@ -13,7 +13,7 @@ import (
 
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
-    "github.com/bfalese/civ-of-magic/game/magic/artifact"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/units"
