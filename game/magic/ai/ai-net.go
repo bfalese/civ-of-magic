@@ -22,7 +22,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/algorithm"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/lib/deep"

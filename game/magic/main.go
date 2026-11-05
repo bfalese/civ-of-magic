@@ -48,7 +48,7 @@ import (
     mouselib "github.com/bfalese/civ-of-magic/lib/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/mainview"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 

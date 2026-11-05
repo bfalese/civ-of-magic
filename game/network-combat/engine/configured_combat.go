@@ -8,7 +8,7 @@ import (
 	"github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
 	buildinglib "github.com/bfalese/civ-of-magic/core/building"
-	citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+	citylib "github.com/bfalese/civ-of-magic/core/city"
 	"github.com/bfalese/civ-of-magic/game/magic/combat"
 	"github.com/bfalese/civ-of-magic/core/data"
 	"github.com/bfalese/civ-of-magic/game/magic/player"

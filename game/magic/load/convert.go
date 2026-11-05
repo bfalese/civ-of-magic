@@ -23,7 +23,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/artifact"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
 
