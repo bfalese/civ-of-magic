@@ -1,0 +1,20 @@
+# Refactor helpers
+
+Small scripts used to move code into `core/` (see `docs/handoff/003-*.md` for the recipe).
+Run from the repo root. They edit files in place, so start from a clean tree and review the diff.
+They don't fix imports; let the compiler tell you, then run `prune-imports.sh`.
+
+| Script | What it does |
+|---|---|
+| `movefuncs.py SRC DST ALIAS NAME...` | Moves top-level funcs/types/consts/vars (methods as `Type.Method`) from `SRC` to `DST`. With an `ALIAS`, identifiers exported by `SRC`'s package get qualified (`Spells` → `spellbook.Spells`); use `-` for a same-package move. |
+| `requalify.py OLD_DIR OLD_IMPORT ALIAS FILE...` | After `git mv`-ing whole files to a new package: fixes the package clause, qualifies the old package's exported identifiers and adds its import. |
+| `fixcallers.py OLD_ALIAS_REGEX NEW_ALIAS NEW_IMPORT FUNC[,FUNC...] FILE...` | Rewrites `old.Func` to `new.Func` in callers and adds the import. Unqualified calls inside the old package are not touched. |
+| `prune-imports.sh` | Deletes imports `go build` reports as unused, repeating until clean. |
+| `check-move.sh REV NEW_FILE QUALIFIERS OLD_FILE...` | Confirms moved code is identical apart from qualifiers. |
+
+Known limits of the qualifier rewrite (regex, not a Go parser):
+- Leaves strings and `//` comments alone, but not `/* */` blocks.
+- Skips struct-literal keys (`Name: x`) and struct field names (`Spells Spells`), which can
+  misfire on unusual formatting. The compiler catches what's left.
+- If the code uses the package name as a variable (`artifact := ...`), import the package with
+  an alias such as `artifactlib`.

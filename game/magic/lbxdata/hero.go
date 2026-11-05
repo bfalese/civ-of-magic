@@ -9,6 +9,8 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
+// read the names of the heroes per wizard from names.lbx
+// there are 5 sets of names, one for each player. each player gives a unique name to their hero
 func ReadNamesPerWizard(cache *lbx.LbxCache) map[int]map[herolib.HeroType]string {
     names, err := ReadNames(cache)
 
