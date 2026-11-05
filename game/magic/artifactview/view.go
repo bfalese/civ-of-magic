@@ -11,10 +11,9 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-
-    "github.com/hajimehoshi/ebiten/v2"
     artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
 
+    "github.com/hajimehoshi/ebiten/v2"
 )
 
 // enlarge the image by 1 pixel on all sides

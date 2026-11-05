@@ -9,8 +9,6 @@ import (
     "image"
     "image/color"
 
-    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
-
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
@@ -21,6 +19,7 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
 
     "github.com/hajimehoshi/ebiten/v2"
     // "github.com/hajimehoshi/ebiten/v2/vector"

@@ -4,8 +4,6 @@ import (
     "fmt"
     "log"
 
-    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
-
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/game/magic/util"
@@ -13,6 +11,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
 
     "github.com/hajimehoshi/ebiten/v2"
 )

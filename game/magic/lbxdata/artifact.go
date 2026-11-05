@@ -6,9 +6,9 @@ import (
     "log"
 
     "github.com/bfalese/civ-of-magic/core/data"
-    artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/set"
+    artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
 )
 
 func ReadArtifacts(cache *lbx.LbxCache) ([]artifactlib.Artifact, error) {

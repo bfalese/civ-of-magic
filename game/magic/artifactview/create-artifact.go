@@ -20,13 +20,12 @@ import (
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
+    artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"
     // "github.com/hajimehoshi/ebiten/v2/inpututil"
-    artifactlib "github.com/bfalese/civ-of-magic/core/artifact"
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
 )
 
 // the screen can be invoked as either the 'Enchant Item' spell or 'Create Artifact'

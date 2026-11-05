@@ -5,9 +5,6 @@ import (
     "slices"
     "math/rand/v2"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
-
     "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
@@ -15,6 +12,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 )
 
 type TreasureItem interface {

@@ -4,11 +4,10 @@ import (
     "fmt"
     "log"
 
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/core/data"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/lib/lbx"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 )
 
 func main() {

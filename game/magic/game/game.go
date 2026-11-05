@@ -18,12 +18,6 @@ import (
     "bufio"
     "compress/gzip"
 
-    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
-
-    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
-
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/keybinds"
@@ -69,6 +63,9 @@ import (
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/lib/system"
     "github.com/bfalese/civ-of-magic/lib/optional"
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/colorm"

@@ -13,9 +13,6 @@ import (
     "archive/zip"
     "flag"
 
-
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -23,6 +20,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/game"
     "github.com/bfalese/civ-of-magic/game/magic/hero"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 )
 
 func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, voc bool) error {
