@@ -14,7 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/spellbook"
-    "github.com/bfalese/civ-of-magic/game/magic/ai"
+    "github.com/bfalese/civ-of-magic/core/ai"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/combat"

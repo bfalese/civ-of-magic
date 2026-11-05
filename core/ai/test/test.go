@@ -5,7 +5,7 @@ import (
     // "math"
     "math/rand/v2"
     "github.com/bfalese/civ-of-magic/lib/deep"
-    "github.com/bfalese/civ-of-magic/game/magic/ai"
+    "github.com/bfalese/civ-of-magic/core/ai"
 	deep_train "github.com/bfalese/civ-of-magic/lib/deep/training"
 )
 

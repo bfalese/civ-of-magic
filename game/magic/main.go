@@ -43,7 +43,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/ai"
+    "github.com/bfalese/civ-of-magic/core/ai"
     "github.com/bfalese/civ-of-magic/game/magic/load"
     "github.com/bfalese/civ-of-magic/game/magic/serialize"
     playerlib "github.com/bfalese/civ-of-magic/core/player"

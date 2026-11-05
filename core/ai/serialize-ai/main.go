@@ -5,7 +5,7 @@ import (
     "math/rand/v2"
     "os"
 
-    ailib "github.com/bfalese/civ-of-magic/game/magic/ai"
+    ailib "github.com/bfalese/civ-of-magic/core/ai"
 )
 
 func makeStrategies() []ailib.Probability {

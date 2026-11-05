@@ -24,7 +24,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/settings"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/console"
-    "github.com/bfalese/civ-of-magic/game/magic/ai"
+    "github.com/bfalese/civ-of-magic/core/ai"
     "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/terrain"
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
