@@ -10,7 +10,7 @@ import (
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/setup"

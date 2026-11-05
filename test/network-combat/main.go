@@ -13,7 +13,7 @@ import (
     "strconv"
     "context"
 
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"

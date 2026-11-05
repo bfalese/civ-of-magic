@@ -13,7 +13,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/cartographer"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/units"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"

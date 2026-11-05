@@ -6,7 +6,7 @@ import (
     "image"
     "image/color"
 
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/lib/functional"
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/game/magic/util"

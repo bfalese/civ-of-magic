@@ -2,7 +2,7 @@ package mapview
 
 import (
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     cameralib "github.com/bfalese/civ-of-magic/game/magic/camera"
     "github.com/bfalese/civ-of-magic/game/magic/util"
 

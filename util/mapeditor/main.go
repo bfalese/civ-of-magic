@@ -14,7 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/util/common"
     "github.com/bfalese/civ-of-magic/core/terrain"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/load"
     "github.com/bfalese/civ-of-magic/game/magic/util"

@@ -16,7 +16,7 @@ import (
 	"github.com/bfalese/civ-of-magic/game/magic/combat"
 	"github.com/bfalese/civ-of-magic/core/data"
 	"github.com/bfalese/civ-of-magic/game/magic/inputmanager"
-	"github.com/bfalese/civ-of-magic/game/magic/maplib"
+	"github.com/bfalese/civ-of-magic/core/maplib"
 	"github.com/bfalese/civ-of-magic/game/magic/mouse"
 	"github.com/bfalese/civ-of-magic/game/magic/player"
 	"github.com/bfalese/civ-of-magic/game/magic/scale"

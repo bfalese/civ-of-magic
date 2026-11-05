@@ -15,7 +15,7 @@ import (
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     "github.com/bfalese/civ-of-magic/core/artifact"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
 )
 

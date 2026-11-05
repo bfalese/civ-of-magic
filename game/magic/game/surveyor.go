@@ -16,7 +16,7 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
 
     "github.com/hajimehoshi/ebiten/v2"
 )

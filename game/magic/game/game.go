@@ -48,7 +48,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/cartographer"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/gamemenu"
