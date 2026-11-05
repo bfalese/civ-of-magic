@@ -686,7 +686,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastOnMap(yield, tileX, tileY, 10, spell.Sound, func (x int, y int, animationFrame int) {})
 
                 for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&UnitDamageWrapper{StackUnit: unit}, 6, units.DamageCold, 0)
+                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 6, units.DamageCold, 0)
                     if unit.GetHealth() <= 0 {
                         enemy.RemoveUnit(unit)
                     }
@@ -709,7 +709,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastOnMap(yield, tileX, tileY, 6, spell.Sound, func (x int, y int, animationFrame int) {})
 
                 for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&UnitDamageWrapper{StackUnit: unit}, 8, units.DamageImmolation, 0)
+                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 8, units.DamageImmolation, 0)
                     if unit.GetHealth() <= 0 {
                         enemy.RemoveUnit(unit)
                     }

@@ -60,7 +60,7 @@ def qualify(text, names, alias):
             # composite-literal field key (Field: value), but not :=
             line_start = tok.rfind('\n', 0, m.start()) + 1
             before = tok[line_start:m.start()]
-            if re.match(r'\s*:(?!=)', after) and not re.search(r'\bcase\b', before):
+            if re.match(r'\s*:(?!=)', after) and not re.search(r'\bcase\b[^{]*$', before):
                 return word
             # struct field declaration: line starts with the name, followed by a type
             if before.strip() == '' and re.match(r'[ \t]+[\w*\[\]]', tok[m.end():m.end() + 2]):

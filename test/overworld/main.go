@@ -2989,22 +2989,22 @@ func createScenario31(cache *lbx.LbxCache) *gamelib.Game {
 
     game.Events <- &gamelib.GameEventTreasure{
         Player: player,
-        Treasure: gamelib.Treasure{
+        Treasure: gamecore.Treasure{
             Point: data.PlanePoint{X: x + 1, Y: y + 1, Plane: data.PlaneArcanus},
-            Treasures: []gamelib.TreasureItem{
-                &gamelib.TreasureSpell{
+            Treasures: []gamecore.TreasureItem{
+                &gamecore.TreasureSpell{
                     Spell: useSpell,
                 },
-                &gamelib.TreasureMagicalItem{
+                &gamecore.TreasureMagicalItem{
                     Artifact: game.Model.ArtifactPool.FindByName("Pummel Mace"),
                 },
-                &gamelib.TreasureGold{
+                &gamecore.TreasureGold{
                     Amount: 300,
                 },
-                &gamelib.TreasureMana{
+                &gamecore.TreasureMana{
                     Amount: 250,
                 },
-                &gamelib.TreasurePrisonerHero{
+                &gamecore.TreasurePrisonerHero{
                     Hero: player.HeroPool[hero.HeroRakir],
                 },
             },
