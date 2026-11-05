@@ -444,7 +444,7 @@ type UnitBuildPowers struct {
 }
 
 // to be able to use the artifact, the wizard must have enough magic books to satisfy the artifact's requirements
-func canUseArtifact(check *artifact.Artifact, wizard setup.WizardCustom) bool {
+func CanUseArtifact(check *artifact.Artifact, wizard setup.WizardCustom) bool {
     // all artifact requirements must be satisfied
     for _, requirement := range check.Requirements {
         if wizard.MagicLevel(requirement.MagicType) < requirement.Amount {
@@ -3765,7 +3765,7 @@ func (game *Game) doMoveSelectedUnit(yield coroutine.YieldFunc, player *playerli
                         stack.SetX(oldX)
                         stack.SetY(oldY)
                     } else if state == combat.CombatStateDefenderFlee {
-                        game.Model.doMoveFleeingDefender(defenderPlayer, otherStack)
+                        game.Model.DoMoveFleeingDefender(defenderPlayer, otherStack)
                     }
 
                     stack.ExhaustMoves()
@@ -4341,7 +4341,7 @@ func (game *Game) doAiUpdate(yield coroutine.YieldFunc, player *playerlib.Player
         for _, stack := range slices.Clone(player.Stacks) {
             // stop moving once any unit in the stack has no moves left
             for !stack.AnyOutOfMoves() && len(stack.CurrentPath) > 0 {
-                stack.CurrentPath = game.Model.doAiMoveUnit(moveHandlers, player, stack)
+                stack.CurrentPath = game.Model.DoAiMoveUnit(moveHandlers, player, stack)
             }
         }
 
@@ -5258,7 +5258,7 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
 
                 if unit.IsHero() {
                     hero := unit.(*herolib.Hero)
-                    vaultEvents := game.Model.distributeEquipment(player, hero)
+                    vaultEvents := game.Model.DistributeEquipment(player, hero)
                     if player.IsHuman() {
                         showHeroNotice = showHeroNotice || len(vaultEvents) > 0
                     }

@@ -748,7 +748,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                 // FIXME: verify the animation and sound. The spell index is 102
                 game.doCastOnMap(yield, tileX, tileY, 12, 72, func (x int, y int, animationFrame int) {})
-                game.Model.doCallTheVoid(chosenCity, owner)
+                game.Model.DoCallTheVoid(chosenCity, owner)
             }
 
             game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyCity, SelectedFunc: selected}
