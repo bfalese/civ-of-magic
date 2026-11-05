@@ -11,6 +11,8 @@ import (
     "slices"
     "cmp"
 
+    "github.com/bfalese/civ-of-magic/game/magic/combatview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/optional"
@@ -19,7 +21,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
-    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/console"
     "github.com/bfalese/civ-of-magic/game/magic/util"
@@ -109,7 +111,7 @@ type Engine struct {
 
     Difficulty Difficulty
     CombatCoroutine *coroutine.Coroutine
-    CombatScreen *combat.CombatScreen
+    CombatScreen *combatview.CombatScreen
     CurrentBattleReward uint64
 
     LeftClickSound *PlaySound
@@ -452,7 +454,7 @@ func (engine *Engine) MakeBattleFunc() coroutine.AcceptYieldFunc {
     }
 
     model := combat.MakeCombatModel(allSpells, &defendingArmy, &attackingArmy, landscape, data.PlaneArcanus, combat.ZoneType{}, data.MagicNone, 0, 0, make(chan combat.CombatEvent, 100), nil)
-    combatScreen := combat.MakeCombatScreen(engine.Cache, &defendingArmy, &attackingArmy, optional.Of[combat.ArmyPlayer](engine.Player), landscape, data.PlaneArcanus, combat.ZoneType{}, model)
+    combatScreen := combatview.MakeCombatScreen(engine.Cache, &defendingArmy, &attackingArmy, optional.Of[combat.ArmyPlayer](engine.Player), landscape, data.PlaneArcanus, combat.ZoneType{}, model)
     engine.CombatScreen = combatScreen
 
     return func(yield coroutine.YieldFunc) error {
@@ -463,14 +465,14 @@ func (engine *Engine) MakeBattleFunc() coroutine.AcceptYieldFunc {
             yield()
         }
 
-        var endScreen *combat.CombatEndScreen
+        var endScreen *combatview.CombatEndScreen
 
         lastState := combatScreen.Update(yield)
         if lastState == combat.CombatStateAttackerWin || lastState == combat.CombatStateDefenderFlee {
-            endScreen = combat.MakeCombatEndScreen(engine.Cache, combat.CombatEndScreenResultLose, 0, 0, 0, 0)
+            endScreen = combatview.MakeCombatEndScreen(engine.Cache, combatview.CombatEndScreenResultLose, 0, 0, 0, 0)
             engine.Music.PushSong(musiclib.SongYouLose)
         } else if lastState == combat.CombatStateDefenderWin {
-            endScreen = combat.MakeCombatEndScreen(engine.Cache, combat.CombatEndScreenResultWin, 0, 0, 0, 0)
+            endScreen = combatview.MakeCombatEndScreen(engine.Cache, combatview.CombatEndScreenResultWin, 0, 0, 0, 0)
             engine.Music.PushSong(musiclib.SongYouWin)
         }
 
@@ -483,7 +485,7 @@ func (engine *Engine) MakeBattleFunc() coroutine.AcceptYieldFunc {
 
         defer engine.PopDrawer()
 
-        for endScreen.Update() == combat.CombatEndScreenRunning {
+        for endScreen.Update() == combatview.CombatEndScreenRunning {
             yield()
         }
 

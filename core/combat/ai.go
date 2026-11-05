@@ -75,11 +75,11 @@ func doAI(model *CombatModel, spellSystem SpellSystem, aiActions AIUnitActionsIn
     if aiUnit.CanRangeAttack() {
         candidates := slices.Clone(otherArmy.units)
         slices.SortFunc(candidates, func (a *ArmyUnit, b *ArmyUnit) int {
-            return cmp.Compare(computeTileDistance(aiUnit.X, aiUnit.Y, a.X, a.Y), computeTileDistance(aiUnit.X, aiUnit.Y, b.X, b.Y))
+            return cmp.Compare(ComputeTileDistance(aiUnit.X, aiUnit.Y, a.X, a.Y), ComputeTileDistance(aiUnit.X, aiUnit.Y, b.X, b.Y))
         })
 
         for _, candidate := range candidates {
-           if model.withinArrowRange(aiUnit, candidate) && model.canRangeAttack(aiUnit, candidate) {
+           if model.WithinArrowRange(aiUnit, candidate) && model.CanRangeAttack(aiUnit, candidate) {
                model.RemoteRangeAttack(aiUnit, candidate)
                aiActions.RangeAttack(aiUnit, candidate)
                return
@@ -88,7 +88,7 @@ func doAI(model *CombatModel, spellSystem SpellSystem, aiActions AIUnitActionsIn
     }
 
     for _, unit := range otherArmy.units {
-        if model.withinMeleeRange(aiUnit, unit) && model.canMeleeAttack(aiUnit, unit, true) {
+        if model.WithinMeleeRange(aiUnit, unit) && model.CanMeleeAttack(aiUnit, unit, true) {
             model.RemoteMeleeAttack(aiUnit, unit)
             aiActions.MeleeAttack(aiUnit, unit)
             return
@@ -118,7 +118,7 @@ func doAIMovementTeleport(model *CombatModel, aiActions AIUnitActionsInterface, 
             continue
         }
 
-        if model.canMeleeAttack(aiUnit, unit, false) {
+        if model.CanMeleeAttack(aiUnit, unit, false) {
             filterCanAttack = append(filterCanAttack, unit)
         }
     }
@@ -266,7 +266,7 @@ func doAIMovementPathfinding(model *CombatModel, aiActions AIUnitActionsInterfac
 
         for _, unit := range units {
             // skip enemies that we can't melee anyway
-            if !model.canMeleeAttack(aiUnit, unit, false) {
+            if !model.CanMeleeAttack(aiUnit, unit, false) {
                 continue
             }
 
@@ -301,7 +301,7 @@ func doAIMovementPathfinding(model *CombatModel, aiActions AIUnitActionsInterfac
         path := getPath(closestEnemy)
 
         // a path of length 2 contains the position of the aiUnit and the position of the enemy, so they are right next to each other
-        if len(path) == 2 && model.canMeleeAttack(aiUnit, closestEnemy, true) {
+        if len(path) == 2 && model.CanMeleeAttack(aiUnit, closestEnemy, true) {
             model.RemoteMeleeAttack(aiUnit, closestEnemy)
             aiActions.MeleeAttack(aiUnit, closestEnemy)
             return true

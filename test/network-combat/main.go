@@ -13,6 +13,8 @@ import (
     "strconv"
     "context"
 
+    "github.com/bfalese/civ-of-magic/game/magic/combatview"
+
     "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     citylib "github.com/bfalese/civ-of-magic/core/city"
@@ -24,7 +26,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
-    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     netlib "github.com/bfalese/civ-of-magic/lib/net"
     "github.com/bfalese/civ-of-magic/lib/optional"
@@ -74,7 +76,7 @@ func (basic *BasicCatchment) TileDistance(x1 int, y1 int, x2 int, y2 int) int {
 
 type Engine struct {
     Model *combat.CombatModel
-    Combat *combat.CombatScreen
+    Combat *combatview.CombatScreen
     Coroutine *coroutine.Coroutine
 }
 
@@ -91,7 +93,7 @@ func createArmyN(player *player.Player, unit units.Unit, count int) *combat.Army
     return &army
 }
 
-func MakeScenario1(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario1(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
     cache := lbx.AutoCache()
 
     allSpells, err := lbxdata.ReadSpellsFromCache(cache)
@@ -139,7 +141,7 @@ func MakeScenario1(isServer bool, remote *combat.Remote) (*combat.CombatModel, *
     attackingArmy := createArmyN(attackingPlayer, units.DraconianMagician , 3)
 
     model := combat.MakeCombatModel(allSpells, defendingArmy, attackingArmy, combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, data.MagicNone, 10, 25, make(chan combat.CombatEvent, 10), remote)
-    combatScreen := combat.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](attackingPlayer), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
+    combatScreen := combatview.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](attackingPlayer), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
 
     go remote.RunReceiveLoop(combatScreen.Quit)
 
@@ -194,7 +196,7 @@ func receiveArmy(remote *combat.Remote, player *player.Player) (*combat.Army, er
     return nil, fmt.Errorf("did not receive an event from remote")
 }
 
-func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit units.Unit, defendingCount int, attackingUnit units.Unit, attackingCount int) (*combat.CombatModel, *combat.CombatScreen, error) {
+func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit units.Unit, defendingCount int, attackingUnit units.Unit, attackingCount int) (*combat.CombatModel, *combatview.CombatScreen, error) {
     cache := lbx.AutoCache()
 
     allSpells, err := lbxdata.ReadSpellsFromCache(cache)
@@ -298,30 +300,30 @@ func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit uni
         player = defendingPlayer
     }
 
-    combatScreen := combat.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](player), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
+    combatScreen := combatview.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](player), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
 
     go remote.RunReceiveLoop(combatScreen.Quit)
 
     return model, combatScreen, nil
 }
 
-func MakeScenario2(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario2(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
     return makeGenericScenario(isServer, remote, units.ArchAngel, 2, units.Griffin, 2)
 }
 
-func MakeScenario3(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario3(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
     return makeGenericScenario(isServer, remote, units.GnollSpearmen, 3, units.OrcSpearmen, 3)
 }
 
-func MakeScenario4(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario4(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
     return makeGenericScenario(isServer, remote, units.BeastmenPriest, 3, units.ArchAngel, 3)
 }
 
-func MakeScenario5(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario5(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
     return makeGenericScenario(isServer, remote, units.Cockatrices, 3, units.GreatDrake, 3)
 }
 
-func MakeScenario(scenario int, isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario(scenario int, isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
     switch scenario {
         case 1: return MakeScenario1(isServer, remote)
         case 2: return MakeScenario2(isServer, remote)

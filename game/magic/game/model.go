@@ -17,7 +17,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/ai"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     "github.com/bfalese/civ-of-magic/core/artifact"
-    "github.com/bfalese/civ-of-magic/game/magic/combat"
+    "github.com/bfalese/civ-of-magic/core/combat"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/lib/functional"
     "github.com/bfalese/civ-of-magic/lib/set"

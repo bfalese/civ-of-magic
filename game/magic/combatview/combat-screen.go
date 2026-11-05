@@ -1,4 +1,4 @@
-package combat
+package combatview
 
 import (
     "fmt"
@@ -33,111 +33,12 @@ import (
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+    combatlib "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"
     "github.com/hajimehoshi/ebiten/v2/vector"
     "github.com/hajimehoshi/ebiten/v2/colorm"
 )
-
-type CombatState int
-
-const (
-    CombatStateRunning CombatState = iota
-    CombatStateAttackerWin
-    CombatStateDefenderWin
-    CombatStateAttackerFlee
-    CombatStateDefenderFlee
-    CombatStateNoCombat
-)
-
-func (state CombatState) IsWinner(team Team) bool {
-    switch state {
-        case CombatStateAttackerWin: return team == TeamAttacker
-        case CombatStateDefenderWin: return team == TeamDefender
-        case CombatStateAttackerFlee: return team == TeamDefender
-        case CombatStateDefenderFlee: return team == TeamAttacker
-    }
-
-    return false
-}
-
-func (state CombatState) String() string {
-    switch state {
-        case CombatStateRunning: return "Running"
-        case CombatStateAttackerWin: return "AttackerWin"
-        case CombatStateDefenderWin: return "DefenderWin"
-        case CombatStateAttackerFlee: return "AttackerFlee"
-        case CombatStateDefenderFlee: return "DefenderFlee"
-        case CombatStateNoCombat: return "NoCombat"
-    }
-
-    return ""
-}
-
-type CombatEvent interface {
-}
-
-type CombatEventSelectTile struct {
-    SelectTile func(int, int)
-    CanTarget func(int, int) bool
-    Spell spellbook.Spell
-    Selecter Team
-}
-
-type CombatEventNextUnit struct {
-}
-
-type CombatEventGlobalSpell struct {
-    Caster ArmyPlayer
-    Magic data.MagicType
-    Name string
-}
-
-type CombatPlaySound struct {
-    Sound int
-}
-
-type CombatEventSelectUnit struct {
-    SelectTarget func(*ArmyUnit)
-    CanTarget func(*ArmyUnit) bool
-    Spell spellbook.Spell
-    Selecter Team
-    SelectTeam Team
-}
-
-type CombatSelectTargets struct {
-    Title string
-    Targets []*ArmyUnit
-    Select func (*ArmyUnit)
-    Army *Army
-}
-
-type CombatEventSummonUnit struct {
-    Unit *ArmyUnit
-}
-
-type CombatEventMessage struct {
-    Message string
-}
-
-type CombatCreateWallOfFire struct {
-}
-
-type CombatCreateWallOfDarkness struct {
-}
-
-type CombatDoSingleAuto struct {
-}
-
-// FIXME: kind of ugly to need a specific event like this for one projectile type
-type CombatEventCreateLightningBolt struct {
-    Target *ArmyUnit
-    Strength int
-}
-
-type CombatUpdates struct {
-    SingleAuto bool
-}
 
 type MouseState int
 const (
@@ -161,43 +62,6 @@ const (
 
 /* compute the distance between two tiles by moving in one of the 8 directions
  */
-func computeTileDistance(x1 int, y1 int, x2 int, y2 int) int {
-    distance := 0
-
-    for x1 != x2 || y1 != y2 {
-        xDiff := int(math.Abs(float64(x1 - x2)))
-        yDiff := int(math.Abs(float64(y1 - y2)))
-        if xDiff > 0 && yDiff > 0 {
-            distance += 1
-            if x1 < x2 {
-                x1 += 1
-            } else {
-                x1 -= 1
-            }
-            if y1 < y2 {
-                y1 += 1
-            } else {
-                y1 -= 1
-            }
-        } else if xDiff > 0 && yDiff == 0 {
-            distance += 1
-            if x1 < x2 {
-                x1 += 1
-            } else {
-                x1 -= 1
-            }
-        } else if yDiff > 0 && xDiff == 0 {
-            distance += 1
-            if y1 < y2 {
-                y1 += 1
-            } else {
-                y1 -= 1
-            }
-        }
-    }
-
-    return distance
-}
 
 type DamageIndicator struct {
     X int
@@ -211,7 +75,7 @@ type DamageIndicator struct {
 type CombatDrawFunc func(*ebiten.Image)
 
 type CombatScreen struct {
-    Events chan CombatEvent
+    Events chan combatlib.CombatEvent
     Drawer CombatDrawFunc
     ImageCache util.ImageCache
     Cache *lbx.LbxCache
@@ -239,7 +103,7 @@ type CombatScreen struct {
     CameraScale float64
     ExtraControl bool
 
-    ExtraHighlightedUnit *ArmyUnit
+    ExtraHighlightedUnit *combatlib.ArmyUnit
     ShowInfoLevel int
 
     DamageIndicators []DamageIndicator
@@ -265,11 +129,11 @@ type CombatScreen struct {
     // SelectTeam Team
     // invoke this function on the unit that is selected
     /*
-    SelectTarget func(*ArmyUnit)
-    CanTarget func(*ArmyUnit) bool
+    SelectTarget func(*combatlib.ArmyUnit)
+    CanTarget func(*combatlib.ArmyUnit) bool
     */
 
-    Model *CombatModel
+    Model *combatlib.CombatModel
 }
 
 func makePaletteFromBanner(banner data.BannerType) color.Palette {
@@ -297,7 +161,7 @@ type CombatFonts struct {
     DefendingWizardFont *font.Font
 }
 
-func MakeCombatFonts(cache *lbx.LbxCache, defendingArmy *Army, attackingArmy *Army) CombatFonts {
+func MakeCombatFonts(cache *lbx.LbxCache, defendingArmy *combatlib.Army, attackingArmy *combatlib.Army) CombatFonts {
     loader, err := fontslib.Loader(cache)
     if err != nil {
         log.Printf("Unable to load fonts: %v", err)
@@ -332,7 +196,7 @@ func MakeCombatFonts(cache *lbx.LbxCache, defendingArmy *Army, attackingArmy *Ar
 }
 
 // player is always the human player
-func MakeCombatScreen(cache *lbx.LbxCache, defendingArmy *Army, attackingArmy *Army, player optional.Optional[ArmyPlayer], landscape CombatLandscape, plane data.Plane, zone ZoneType, model *CombatModel) *CombatScreen {
+func MakeCombatScreen(cache *lbx.LbxCache, defendingArmy *combatlib.Army, attackingArmy *combatlib.Army, player optional.Optional[combatlib.ArmyPlayer], landscape combatlib.CombatLandscape, plane data.Plane, zone combatlib.ZoneType, model *combatlib.CombatModel) *CombatScreen {
     imageCache := util.MakeImageCache(cache)
 
     fonts := MakeCombatFonts(cache, defendingArmy, attackingArmy)
@@ -460,7 +324,7 @@ func (combat *CombatScreen) computeTopDownOrder() []image.Point {
 
 /* a projectile that shoots down from the sky at an angle
  */
-func (combat *CombatScreen) createSkyProjectile(target *ArmyUnit, images []*ebiten.Image, explodeImages []*ebiten.Image, effect ProjectileEffect) *Projectile {
+func (combat *CombatScreen) createSkyProjectile(target *combatlib.ArmyUnit, images []*ebiten.Image, explodeImages []*ebiten.Image, effect combatlib.ProjectileEffect) *combatlib.Projectile {
     // find where on the screen the unit is
     matrix := combat.GetCameraMatrix()
     screenX, screenY := matrix.Apply(float64(target.X), float64(target.Y))
@@ -477,7 +341,7 @@ func (combat *CombatScreen) createSkyProjectile(target *ArmyUnit, images []*ebit
 
     // log.Printf("Create fireball projectile at %v,%v -> %v,%v", x, y, screenX, screenY)
 
-    projectile := &Projectile{
+    projectile := &combatlib.Projectile{
         X: x,
         Y: y,
         Speed: speed,
@@ -495,7 +359,7 @@ func (combat *CombatScreen) createSkyProjectile(target *ArmyUnit, images []*ebit
 
 /* a projectile that shoots down from the sky vertically
  */
-func (combat *CombatScreen) createVerticalSkyProjectile(target *ArmyUnit, images []*ebiten.Image, explodeImages []*ebiten.Image, effect ProjectileEffect) *Projectile {
+func (combat *CombatScreen) createVerticalSkyProjectile(target *combatlib.ArmyUnit, images []*ebiten.Image, explodeImages []*ebiten.Image, effect combatlib.ProjectileEffect) *combatlib.Projectile {
     // find where on the screen the unit is
     matrix := combat.GetCameraMatrix()
     screenX, screenY := matrix.Apply(float64(target.X), float64(target.Y))
@@ -512,7 +376,7 @@ func (combat *CombatScreen) createVerticalSkyProjectile(target *ArmyUnit, images
 
     // log.Printf("Create fireball projectile at %v,%v -> %v,%v", x, y, screenX, screenY)
 
-    projectile := &Projectile{
+    projectile := &combatlib.Projectile{
         X: x,
         Y: y,
         Speed: speed,
@@ -534,16 +398,10 @@ const (
     UnitPositionUnder
 )
 
-type Targeting int
-const (
-    TargetFriend Targeting = iota
-    TargetEnemy
-    TargetEither
-)
 
 /* needs a new name, but creates a projectile that is already at the target
  */
-func (combat *CombatScreen) createUnitProjectile(target *ArmyUnit, explodeImages []*ebiten.Image, position UnitPosition, effect ProjectileEffect) *Projectile {
+func (combat *CombatScreen) createUnitProjectile(target *combatlib.ArmyUnit, explodeImages []*ebiten.Image, position UnitPosition, effect combatlib.ProjectileEffect) *combatlib.Projectile {
     // find where on the screen the unit is
     matrix := combat.GetCameraMatrix()
 
@@ -568,7 +426,7 @@ func (combat *CombatScreen) createUnitProjectile(target *ArmyUnit, explodeImages
 
     // log.Printf("Create fireball projectile at %v,%v -> %v,%v", x, y, screenX, screenY)
 
-    projectile := &Projectile{
+    projectile := &combatlib.Projectile{
         X: screenX,
         Y: screenY,
         Target: target,
@@ -586,7 +444,7 @@ func (combat *CombatScreen) createUnitProjectile(target *ArmyUnit, explodeImages
     return projectile
 }
 
-func (combat *CombatScreen) CreateIceBoltProjectile(target *ArmyUnit, strength int) *Projectile {
+func (combat *CombatScreen) CreateIceBoltProjectile(target *combatlib.ArmyUnit, strength int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 11)
 
     loopImages := images[0:3]
@@ -597,7 +455,7 @@ func (combat *CombatScreen) CreateIceBoltProjectile(target *ArmyUnit, strength i
     return combat.createSkyProjectile(target, loopImages, explodeImages, effect)
 }
 
-func (combat *CombatScreen) CreateFireBoltProjectile(target *ArmyUnit, strength int) *Projectile {
+func (combat *CombatScreen) CreateFireBoltProjectile(target *combatlib.ArmyUnit, strength int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 0)
     loopImages := images[0:3]
     explodeImages := images[3:]
@@ -607,7 +465,7 @@ func (combat *CombatScreen) CreateFireBoltProjectile(target *ArmyUnit, strength 
     return combat.createSkyProjectile(target, loopImages, explodeImages, effect)
 }
 
-func (combat *CombatScreen) CreateFireballProjectile(target *ArmyUnit, strength int) *Projectile {
+func (combat *CombatScreen) CreateFireballProjectile(target *combatlib.ArmyUnit, strength int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 23)
 
     loopImages := images[0:11]
@@ -618,7 +476,7 @@ func (combat *CombatScreen) CreateFireballProjectile(target *ArmyUnit, strength 
     return combat.createSkyProjectile(target, loopImages, explodeImages, effect)
 }
 
-func (combat *CombatScreen) CreateStarFiresProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateStarFiresProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 9)
     explodeImages := images
 
@@ -627,7 +485,7 @@ func (combat *CombatScreen) CreateStarFiresProjectile(target *ArmyUnit) *Project
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateDispelEvilProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateDispelEvilProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 10)
     explodeImages := images
 
@@ -636,7 +494,7 @@ func (combat *CombatScreen) CreateDispelEvilProjectile(target *ArmyUnit, reduceR
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreatePsionicBlastProjectile(target *ArmyUnit, strength int) *Projectile {
+func (combat *CombatScreen) CreatePsionicBlastProjectile(target *combatlib.ArmyUnit, strength int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 16)
     explodeImages := images
 
@@ -645,7 +503,7 @@ func (combat *CombatScreen) CreatePsionicBlastProjectile(target *ArmyUnit, stren
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateDoomBoltProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateDoomBoltProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 5)
     loopImages := images[0:3]
     explodeImages := images[3:]
@@ -655,7 +513,7 @@ func (combat *CombatScreen) CreateDoomBoltProjectile(target *ArmyUnit) *Projecti
     return combat.createVerticalSkyProjectile(target, loopImages, explodeImages, effect)
 }
 
-func (combat *CombatScreen) CreateLightningBoltProjectile(target *ArmyUnit, strength int) *Projectile {
+func (combat *CombatScreen) CreateLightningBoltProjectile(target *combatlib.ArmyUnit, strength int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 24)
     // loopImages := images
     explodeImages := images
@@ -668,7 +526,7 @@ func (combat *CombatScreen) CreateLightningBoltProjectile(target *ArmyUnit, stre
 
     effect := combat.Model.CreateLightningBoltProjectileEffect(strength, combat)
 
-    projectile := &Projectile{
+    projectile := &combatlib.Projectile{
         X: screenX,
         Y: screenY,
         Target: target,
@@ -685,7 +543,7 @@ func (combat *CombatScreen) CreateLightningBoltProjectile(target *ArmyUnit, stre
     return projectile
 }
 
-func (combat *CombatScreen) CreateWarpLightningProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateWarpLightningProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 3)
     // loopImages := images
     explodeImages := images
@@ -699,7 +557,7 @@ func (combat *CombatScreen) CreateWarpLightningProjectile(target *ArmyUnit) *Pro
 
     effect := combat.Model.CreateWarpLightningProjectileEffect(combat)
 
-    projectile := &Projectile{
+    projectile := &combatlib.Projectile{
         X: screenX,
         Y: screenY,
         Target: target,
@@ -718,7 +576,7 @@ func (combat *CombatScreen) CreateWarpLightningProjectile(target *ArmyUnit) *Pro
 
 // player will never be nil, but unitCaster might be nil if the player is casting the spell
 // if a hero/unit is casting the spell then unitCaster will be non-nil
-func (combat *CombatScreen) CreateLifeDrainProjectile(target *ArmyUnit, reduceResistance int, player ArmyPlayer, unitCaster *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateLifeDrainProjectile(target *combatlib.ArmyUnit, reduceResistance int, player combatlib.ArmyPlayer, unitCaster *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 6)
     explodeImages := images
 
@@ -727,7 +585,7 @@ func (combat *CombatScreen) CreateLifeDrainProjectile(target *ArmyUnit, reduceRe
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateFlameStrikeProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateFlameStrikeProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 33)
     explodeImages := images
 
@@ -736,7 +594,7 @@ func (combat *CombatScreen) CreateFlameStrikeProjectile(target *ArmyUnit) *Proje
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateRecallHeroProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateRecallHeroProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 5)
     explodeImages := images
 
@@ -745,7 +603,7 @@ func (combat *CombatScreen) CreateRecallHeroProjectile(target *ArmyUnit) *Projec
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateHealingProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateHealingProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -755,7 +613,7 @@ func (combat *CombatScreen) CreateHealingProjectile(target *ArmyUnit) *Projectil
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateHeroismProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateHeroismProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -765,7 +623,7 @@ func (combat *CombatScreen) CreateHeroismProjectile(target *ArmyUnit) *Projectil
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateHolyArmorProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateHolyArmorProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -775,7 +633,7 @@ func (combat *CombatScreen) CreateHolyArmorProjectile(target *ArmyUnit) *Project
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateInvulnerabilityProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateInvulnerabilityProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -785,7 +643,7 @@ func (combat *CombatScreen) CreateInvulnerabilityProjectile(target *ArmyUnit) *P
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateLionHeartProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateLionHeartProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -795,7 +653,7 @@ func (combat *CombatScreen) CreateLionHeartProjectile(target *ArmyUnit) *Project
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateTrueSightProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateTrueSightProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -805,7 +663,7 @@ func (combat *CombatScreen) CreateTrueSightProjectile(target *ArmyUnit) *Project
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateElementalArmorProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateElementalArmorProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 0)
     explodeImages := images
@@ -815,7 +673,7 @@ func (combat *CombatScreen) CreateElementalArmorProjectile(target *ArmyUnit) *Pr
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateGiantStrengthProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateGiantStrengthProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 0)
     explodeImages := images
@@ -825,7 +683,7 @@ func (combat *CombatScreen) CreateGiantStrengthProjectile(target *ArmyUnit) *Pro
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateIronSkinProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateIronSkinProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 0)
     explodeImages := images
@@ -835,7 +693,7 @@ func (combat *CombatScreen) CreateIronSkinProjectile(target *ArmyUnit) *Projecti
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateStoneSkinProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateStoneSkinProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 0)
     explodeImages := images
@@ -845,7 +703,7 @@ func (combat *CombatScreen) CreateStoneSkinProjectile(target *ArmyUnit) *Project
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateRegenerationProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateRegenerationProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 0)
     explodeImages := images
@@ -855,7 +713,7 @@ func (combat *CombatScreen) CreateRegenerationProjectile(target *ArmyUnit) *Proj
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateResistElementsProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateResistElementsProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 0)
     explodeImages := images
@@ -865,7 +723,7 @@ func (combat *CombatScreen) CreateResistElementsProjectile(target *ArmyUnit) *Pr
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateRighteousnessProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateRighteousnessProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -875,7 +733,7 @@ func (combat *CombatScreen) CreateRighteousnessProjectile(target *ArmyUnit) *Pro
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateHolyWeaponProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateHolyWeaponProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -885,7 +743,7 @@ func (combat *CombatScreen) CreateHolyWeaponProjectile(target *ArmyUnit) *Projec
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateFlightProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateFlightProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
@@ -895,7 +753,7 @@ func (combat *CombatScreen) CreateFlightProjectile(target *ArmyUnit) *Projectile
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateGuardianWindProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateGuardianWindProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
@@ -905,7 +763,7 @@ func (combat *CombatScreen) CreateGuardianWindProjectile(target *ArmyUnit) *Proj
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateHasteProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateHasteProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
@@ -915,7 +773,7 @@ func (combat *CombatScreen) CreateHasteProjectile(target *ArmyUnit) *Projectile 
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateInvisibilityProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateInvisibilityProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
@@ -925,7 +783,7 @@ func (combat *CombatScreen) CreateInvisibilityProjectile(target *ArmyUnit) *Proj
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateMagicImmunityProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateMagicImmunityProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
@@ -935,7 +793,7 @@ func (combat *CombatScreen) CreateMagicImmunityProjectile(target *ArmyUnit) *Pro
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateResistMagicProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateResistMagicProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
@@ -945,7 +803,7 @@ func (combat *CombatScreen) CreateResistMagicProjectile(target *ArmyUnit) *Proje
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateSpellLockProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateSpellLockProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
@@ -955,7 +813,7 @@ func (combat *CombatScreen) CreateSpellLockProjectile(target *ArmyUnit) *Project
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateEldritchWeaponProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateEldritchWeaponProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 2)
     explodeImages := images
@@ -965,7 +823,7 @@ func (combat *CombatScreen) CreateEldritchWeaponProjectile(target *ArmyUnit) *Pr
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateFlameBladeProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateFlameBladeProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 2)
     explodeImages := images
@@ -975,7 +833,7 @@ func (combat *CombatScreen) CreateFlameBladeProjectile(target *ArmyUnit) *Projec
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateImmolationProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateImmolationProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 2)
     explodeImages := images
@@ -985,7 +843,7 @@ func (combat *CombatScreen) CreateImmolationProjectile(target *ArmyUnit) *Projec
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateBerserkProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateBerserkProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 4)
     explodeImages := images
@@ -995,7 +853,7 @@ func (combat *CombatScreen) CreateBerserkProjectile(target *ArmyUnit) *Projectil
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateCloakOfFearProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateCloakOfFearProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 4)
     explodeImages := images
@@ -1005,7 +863,7 @@ func (combat *CombatScreen) CreateCloakOfFearProjectile(target *ArmyUnit) *Proje
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateWraithFormProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateWraithFormProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: verify this animation
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 4)
     explodeImages := images
@@ -1015,7 +873,7 @@ func (combat *CombatScreen) CreateWraithFormProjectile(target *ArmyUnit) *Projec
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateChaosChannelsProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateChaosChannelsProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 2)
     explodeImages := images
 
@@ -1024,7 +882,7 @@ func (combat *CombatScreen) CreateChaosChannelsProjectile(target *ArmyUnit) *Pro
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateBlessProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateBlessProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -1034,7 +892,7 @@ func (combat *CombatScreen) CreateBlessProjectile(target *ArmyUnit) *Projectile 
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateWeaknessProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateWeaknessProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     // FIXME: verify
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 5)
     explodeImages := images
@@ -1044,7 +902,7 @@ func (combat *CombatScreen) CreateWeaknessProjectile(target *ArmyUnit, reduceRes
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateCreatureBindingProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateCreatureBindingProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
 
@@ -1053,7 +911,7 @@ func (combat *CombatScreen) CreateCreatureBindingProjectile(target *ArmyUnit, re
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreatePetrifyProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreatePetrifyProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 12)
     explodeImages := images
 
@@ -1062,7 +920,7 @@ func (combat *CombatScreen) CreatePetrifyProjectile(target *ArmyUnit, reduceResi
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreatePossessionProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreatePossessionProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     // FIXME: verify
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 8)
     explodeImages := images
@@ -1072,7 +930,7 @@ func (combat *CombatScreen) CreatePossessionProjectile(target *ArmyUnit, reduceR
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateConfusionProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateConfusionProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 20)
     explodeImages := images
 
@@ -1081,7 +939,7 @@ func (combat *CombatScreen) CreateConfusionProjectile(target *ArmyUnit, reduceRe
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateBlackSleepProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateBlackSleepProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     // FIXME: verify
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 5)
     explodeImages := images
@@ -1091,7 +949,7 @@ func (combat *CombatScreen) CreateBlackSleepProjectile(target *ArmyUnit, reduceR
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateVertigoProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateVertigoProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     // FIXME: verify
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 17)
     explodeImages := images
@@ -1101,7 +959,7 @@ func (combat *CombatScreen) CreateVertigoProjectile(target *ArmyUnit, reduceResi
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateShatterProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateShatterProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     // FIXME: verify
     images, _ := combat.ImageCache.GetImages("resource.lbx", 79)
     explodeImages := images
@@ -1111,7 +969,7 @@ func (combat *CombatScreen) CreateShatterProjectile(target *ArmyUnit, reduceResi
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateWarpCreatureProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateWarpCreatureProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     // FIXME: verify
     images, _ := combat.ImageCache.GetImages("resource.lbx", 81)
     explodeImages := images
@@ -1121,7 +979,7 @@ func (combat *CombatScreen) CreateWarpCreatureProjectile(target *ArmyUnit, reduc
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateHolyWordProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateHolyWordProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     // FIXME: the images should be mostly with with transparency
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 3)
     explodeImages := images
@@ -1131,7 +989,7 @@ func (combat *CombatScreen) CreateHolyWordProjectile(target *ArmyUnit, reduceRes
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateWebProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateWebProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 13)
     explodeImages := images
 
@@ -1140,7 +998,7 @@ func (combat *CombatScreen) CreateWebProjectile(target *ArmyUnit) *Projectile {
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateDeathSpellProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateDeathSpellProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 14)
     explodeImages := images
 
@@ -1149,7 +1007,7 @@ func (combat *CombatScreen) CreateDeathSpellProjectile(target *ArmyUnit, reduceR
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateWordOfDeathProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateWordOfDeathProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 14)
     explodeImages := images
 
@@ -1158,7 +1016,7 @@ func (combat *CombatScreen) CreateWordOfDeathProjectile(target *ArmyUnit, reduce
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateWarpWoodProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateWarpWoodProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 2)
     explodeImages := images
 
@@ -1167,7 +1025,7 @@ func (combat *CombatScreen) CreateWarpWoodProjectile(target *ArmyUnit) *Projecti
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateDisintegrateProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateDisintegrateProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 4)
     explodeImages := images
 
@@ -1176,7 +1034,7 @@ func (combat *CombatScreen) CreateDisintegrateProjectile(target *ArmyUnit, reduc
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateWordOfRecallProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateWordOfRecallProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("specfx.lbx", 1)
     explodeImages := images
 
@@ -1185,7 +1043,7 @@ func (combat *CombatScreen) CreateWordOfRecallProjectile(target *ArmyUnit) *Proj
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateDispelMagicProjectile(target *ArmyUnit, caster ArmyPlayer, dispelStrength int) *Projectile {
+func (combat *CombatScreen) CreateDispelMagicProjectile(target *combatlib.ArmyUnit, caster combatlib.ArmyPlayer, dispelStrength int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 26)
     explodeImages := images
 
@@ -1194,7 +1052,7 @@ func (combat *CombatScreen) CreateDispelMagicProjectile(target *ArmyUnit, caster
     return combat.createUnitProjectile(target, explodeImages, UnitPositionMiddle, effect)
 }
 
-func (combat *CombatScreen) CreateCracksCallProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateCracksCallProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 15)
     explodeImages := images
 
@@ -1203,25 +1061,25 @@ func (combat *CombatScreen) CreateCracksCallProjectile(target *ArmyUnit) *Projec
     return combat.createUnitProjectile(target, explodeImages, UnitPositionUnder, effect)
 }
 
-func (combat *CombatScreen) CreateBanishProjectile(target *ArmyUnit, reduceResistance int) *Projectile {
+func (combat *CombatScreen) CreateBanishProjectile(target *combatlib.ArmyUnit, reduceResistance int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 19)
     explodeImages := images
     return combat.createUnitProjectile(target, explodeImages, UnitPositionUnder, combat.Model.CreateBanishProjectileEffect(reduceResistance, combat))
 }
 
-func (combat *CombatScreen) CreateMindStormProjectile(target *ArmyUnit) *Projectile {
+func (combat *CombatScreen) CreateMindStormProjectile(target *combatlib.ArmyUnit) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 21)
     explodeImages := images
 
     return combat.createUnitProjectile(target, explodeImages, UnitPositionUnder, combat.Model.CreateMindStormProjectileEffect())
 }
 
-func (combat *CombatScreen) CreateDisruptProjectile(x int, y int) *Projectile {
+func (combat *CombatScreen) CreateDisruptProjectile(x int, y int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 1)
 
     explodeImages := images
 
-    fakeTarget := ArmyUnit{
+    fakeTarget := combatlib.ArmyUnit{
         X: x,
         Y: y,
     }
@@ -1229,22 +1087,22 @@ func (combat *CombatScreen) CreateDisruptProjectile(x int, y int) *Projectile {
     return combat.createUnitProjectile(&fakeTarget, explodeImages, UnitPositionUnder, combat.Model.CreateDisruptProjectileEffect(x, y))
 }
 
-func (combat *CombatScreen) CreateSummoningCircle(x int, y int) *Projectile {
+func (combat *CombatScreen) CreateSummoningCircle(x int, y int) *combatlib.Projectile {
     images, _ := combat.ImageCache.GetImages("cmbtfx.lbx", 22)
     explodeImages := images
 
-    fakeTarget := ArmyUnit{
+    fakeTarget := combatlib.ArmyUnit{
         X: x,
         Y: y,
     }
 
-    return combat.createUnitProjectile(&fakeTarget, explodeImages, UnitPositionUnder, func (*ArmyUnit){})
+    return combat.createUnitProjectile(&fakeTarget, explodeImages, UnitPositionUnder, func (*combatlib.ArmyUnit){})
 }
 
-func (combat *CombatScreen) CreateMagicVortex(team Team, x int, y int) *MagicVortex {
+func (combat *CombatScreen) CreateMagicVortex(team combatlib.Team, x int, y int) *combatlib.MagicVortex {
     images, _ := combat.ImageCache.GetImages("cmbmagic.lbx", 120)
 
-    unit := &MagicVortex{
+    unit := &combatlib.MagicVortex{
         X: x,
         Y: y,
         Team: team,
@@ -1255,7 +1113,7 @@ func (combat *CombatScreen) CreateMagicVortex(team Team, x int, y int) *MagicVor
     return unit
 }
 
-func (combat *CombatScreen) AddSelectTargetsElements(targets []*ArmyUnit, title string, selected func(*ArmyUnit)) {
+func (combat *CombatScreen) AddSelectTargetsElements(targets []*combatlib.ArmyUnit, title string, selected func(*combatlib.ArmyUnit)) {
     var selections []uilib.Selection
 
     for _, target := range targets {
@@ -1508,7 +1366,7 @@ func (combat *CombatScreen) IsDefenderTurn() bool {
     return false
 }
 
-func (combat *CombatScreen) MakeUI(player ArmyPlayer) *uilib.UI {
+func (combat *CombatScreen) MakeUI(player combatlib.ArmyPlayer) *uilib.UI {
     var elements []*uilib.UIElement
 
     ui := &uilib.UI{
@@ -1750,7 +1608,7 @@ func (combat *CombatScreen) MakeUI(player ArmyPlayer) *uilib.UI {
                                         combat.Model.RemoteSpellFailed(spell)
                                     }
 
-                                    combat.Model.doUnitCast(caster, spell)
+                                    combat.Model.DoUnitCast(caster, spell)
                                 })
                             }
 
@@ -1833,7 +1691,7 @@ func (combat *CombatScreen) MakeUI(player ArmyPlayer) *uilib.UI {
         }
 
         if combat.ExtraControl {
-            combat.Events <- &CombatDoSingleAuto{}
+            combat.Events <- &combatlib.CombatDoSingleAuto{}
             return
         }
 
@@ -1959,7 +1817,7 @@ func computeFacing(angle float64) units.Facing {
 }
 
 /*
-func (combat *CombatScreen) ContainsOppositeArmy(x int, y int, team Team) bool {
+func (combat *CombatScreen) ContainsOppositeArmy(x int, y int, team combatlib.Team) bool {
     unit := combat.Model.GetUnit(x, y)
     if unit == nil {
         return false
@@ -2002,7 +1860,7 @@ func (combat *CombatScreen) doProjectiles(yield coroutine.YieldFunc) {
         if combat.Model.Remote != nil {
             select {
                 case event := <-combat.Model.Remote.Events:
-                    combat.Model.HandleRemoteEvent(optional.Of[SpellSystem](combat), optional.Of[AddDamageIndicators](combat), event)
+                    combat.Model.HandleRemoteEvent(optional.Of[combatlib.SpellSystem](combat), optional.Of[combatlib.AddDamageIndicators](combat), event)
                 default:
             }
         }
@@ -2013,12 +1871,12 @@ func (combat *CombatScreen) doProjectiles(yield coroutine.YieldFunc) {
     }
 }
 
-func (combat *CombatScreen) createUnitToTileProjectile(attacker *ArmyUnit, targetX int, targetY int, offset image.Point, images []*ebiten.Image, explodeImages []*ebiten.Image, effect ProjectileEffect) *Projectile {
+func (combat *CombatScreen) createUnitToTileProjectile(attacker *combatlib.ArmyUnit, targetX int, targetY int, offset image.Point, images []*ebiten.Image, explodeImages []*ebiten.Image, effect combatlib.ProjectileEffect) *combatlib.Projectile {
     // it is assumed that the effect will not use the instantiated ArmyUnit here
-    return combat.createUnitToUnitProjectile(attacker, &ArmyUnit{X: targetX, Y: targetY}, offset, images, explodeImages, effect)
+    return combat.createUnitToUnitProjectile(attacker, &combatlib.ArmyUnit{X: targetX, Y: targetY}, offset, images, explodeImages, effect)
 }
 
-func (combat *CombatScreen) createUnitToUnitProjectile(attacker *ArmyUnit, target *ArmyUnit, offset image.Point, images []*ebiten.Image, explodeImages []*ebiten.Image, effect ProjectileEffect) *Projectile {
+func (combat *CombatScreen) createUnitToUnitProjectile(attacker *combatlib.ArmyUnit, target *combatlib.ArmyUnit, offset image.Point, images []*ebiten.Image, explodeImages []*ebiten.Image, effect combatlib.ProjectileEffect) *combatlib.Projectile {
     matrix := combat.GetCameraMatrix()
     // find where on the screen the unit is
     screenX, screenY := matrix.Apply(float64(attacker.X), float64(attacker.Y))
@@ -2079,7 +1937,7 @@ func (combat *CombatScreen) createUnitToUnitProjectile(attacker *ArmyUnit, targe
 
     // log.Printf("Create fireball projectile at %v,%v -> %v,%v", x, y, screenX, screenY)
 
-    projectile := &Projectile{
+    projectile := &combatlib.Projectile{
         X: screenX,
         Y: screenY,
         Target: target,
@@ -2095,7 +1953,7 @@ func (combat *CombatScreen) createUnitToUnitProjectile(attacker *ArmyUnit, targe
     return projectile
 }
 
-func (combat *CombatScreen) CreateRangeAttack(attacker *ArmyUnit, defender RangeTarget){
+func (combat *CombatScreen) CreateRangeAttack(attacker *combatlib.ArmyUnit, defender combatlib.RangeTarget){
     index := attacker.Unit.GetCombatRangeIndex(attacker.Facing)
     images, err := combat.ImageCache.GetImages("cmbmagic.lbx", index)
     if err != nil {
@@ -2112,16 +1970,16 @@ func (combat *CombatScreen) CreateRangeAttack(attacker *ArmyUnit, defender Range
     explode := images[3:]
 
     switch target := defender.(type) {
-        case *ArmyUnit:
+        case *combatlib.ArmyUnit:
             effect := combat.Model.CreateRangeAttackEffect(attacker, combat)
 
-            for _, offset := range unitview.CombatPoints(attacker.Figures()) {
+            for _, offset := range units.CombatPoints(attacker.Figures()) {
                 combat.Model.Projectiles = append(combat.Model.Projectiles, combat.createUnitToUnitProjectile(attacker, target, offset, animation, explode, effect))
             }
-        case *WallTarget:
+        case *combatlib.WallTarget:
             effect := combat.Model.CreateRangeAttackWallEffect(attacker, target.X, target.Y)
 
-            for _, offset := range unitview.CombatPoints(attacker.Figures()) {
+            for _, offset := range units.CombatPoints(attacker.Figures()) {
                 combat.Model.Projectiles = append(combat.Model.Projectiles, combat.createUnitToTileProjectile(attacker, target.X, target.Y, offset, animation, explode, effect))
             }
         default:
@@ -2129,7 +1987,7 @@ func (combat *CombatScreen) CreateRangeAttack(attacker *ArmyUnit, defender Range
     }
 }
 
-func (combat *CombatScreen) doSelectTile(yield coroutine.YieldFunc, selecter Team, spell spellbook.Spell, canTarget func(int, int) bool, selectTile func(int, int)) {
+func (combat *CombatScreen) doSelectTile(yield coroutine.YieldFunc, selecter combatlib.Team, spell spellbook.Spell, canTarget func(int, int) bool, selectTile func(int, int)) {
     combat.ButtonsDisabled = true
     combat.DoSelectTile = true
     defer func(){
@@ -2144,7 +2002,7 @@ func (combat *CombatScreen) doSelectTile(yield coroutine.YieldFunc, selecter Tea
     quit := false
 
     x := 250
-    if selecter == TeamDefender {
+    if selecter == combatlib.TeamDefender {
         x = 3
     }
 
@@ -2230,7 +2088,7 @@ func (combat *CombatScreen) PlaySound(spell spellbook.Spell) {
     }
 }
 
-func (combat *CombatScreen) doSelectUnit(yield coroutine.YieldFunc, selecter Team, spell spellbook.Spell, selectTarget func (*ArmyUnit), canTarget func (*ArmyUnit) bool, selectTeam Team) {
+func (combat *CombatScreen) doSelectUnit(yield coroutine.YieldFunc, selecter combatlib.Team, spell spellbook.Spell, selectTarget func (*combatlib.ArmyUnit), canTarget func (*combatlib.ArmyUnit) bool, selectTeam combatlib.Team) {
     combat.ButtonsDisabled = true
     combat.DoSelectUnit = true
     defer func(){
@@ -2243,7 +2101,7 @@ func (combat *CombatScreen) doSelectUnit(yield coroutine.YieldFunc, selecter Tea
     hudY := data.ScreenHeight - hudImage.Bounds().Dy()
 
     x := 250
-    if selecter == TeamDefender {
+    if selecter == combatlib.TeamDefender {
         x = 3
     }
 
@@ -2288,7 +2146,7 @@ func (combat *CombatScreen) doSelectUnit(yield coroutine.YieldFunc, selecter Tea
 
     combat.UI.AddElements(elements)
 
-    canTargetMemo := functional.Memoize(func (target *ArmyUnit) bool {
+    canTargetMemo := functional.Memoize(func (target *combatlib.ArmyUnit) bool {
         return canTarget(target) && combat.IsUnitVisible(target)
     })
 
@@ -2314,13 +2172,13 @@ func (combat *CombatScreen) doSelectUnit(yield coroutine.YieldFunc, selecter Tea
             // FIXME: in theory dispel magic and disenchant area can target magic vortexes
 
             unit := combat.Model.GetUnit(combat.MouseTileX, combat.MouseTileY)
-            if unit == nil || (selectTeam != TeamEither && unit.Team != selectTeam) || !canTargetMemo(unit){
+            if unit == nil || (selectTeam != combatlib.TeamEither && unit.Team != selectTeam) || !canTargetMemo(unit){
                 combat.MouseState = CombatNotOk
             }
 
             if unit != nil && canTargetMemo(unit) && inputmanager.LeftClick() && mouseY < scale.Scale(hudY) {
                 // log.Printf("Click unit at %v,%v -> %v", combat.MouseTileX, combat.MouseTileY, unit)
-                if selectTeam == TeamEither || unit.Team == selectTeam {
+                if selectTeam == combatlib.TeamEither || unit.Team == selectTeam {
                     selectTarget(unit)
 
                     // shouldn't need to set the mouse state here
@@ -2341,7 +2199,7 @@ func (combat *CombatScreen) doSelectUnit(yield coroutine.YieldFunc, selecter Tea
     }
 }
 
-func (combat *CombatScreen) doCastEnchantment(yield coroutine.YieldFunc, caster ArmyPlayer, magic data.MagicType, spellName string) {
+func (combat *CombatScreen) doCastEnchantment(yield coroutine.YieldFunc, caster combatlib.ArmyPlayer, magic data.MagicType, spellName string) {
     oldDrawer := combat.Drawer
     defer func(){
         combat.Drawer = oldDrawer
@@ -2390,7 +2248,7 @@ func (combat *CombatScreen) doCastEnchantment(yield coroutine.YieldFunc, caster 
     }
 }
 
-func (combat *CombatScreen) ShowSummon(yield coroutine.YieldFunc, unit *ArmyUnit) {
+func (combat *CombatScreen) ShowSummon(yield coroutine.YieldFunc, unit *combatlib.ArmyUnit) {
     for unit.Height < 0 {
         // so that the summoning circle displays
         combat.Model.UpdateProjectiles(combat.Counter, combat, combat)
@@ -2406,9 +2264,9 @@ func (combat *CombatScreen) ShowSummon(yield coroutine.YieldFunc, unit *ArmyUnit
     }
 }
 
-func (combat *CombatScreen) ProcessEvents(yield coroutine.YieldFunc) CombatUpdates {
+func (combat *CombatScreen) ProcessEvents(yield coroutine.YieldFunc) combatlib.CombatUpdates {
 
-    var updates CombatUpdates
+    var updates combatlib.CombatUpdates
 
     sounds := set.MakeSet[int]()
     defer func(){
@@ -2426,19 +2284,19 @@ func (combat *CombatScreen) ProcessEvents(yield coroutine.YieldFunc) CombatUpdat
         select {
             case event := <-combat.Events:
                 switch event.(type) {
-                    case *CombatEventSelectTile:
-                        use := event.(*CombatEventSelectTile)
+                    case *combatlib.CombatEventSelectTile:
+                        use := event.(*combatlib.CombatEventSelectTile)
                         combat.doSelectTile(yield, use.Selecter, use.Spell, use.CanTarget, use.SelectTile)
-                    case *CombatEventSelectUnit:
-                        use := event.(*CombatEventSelectUnit)
+                    case *combatlib.CombatEventSelectUnit:
+                        use := event.(*combatlib.CombatEventSelectUnit)
                         combat.doSelectUnit(yield, use.Selecter, use.Spell, use.SelectTarget, use.CanTarget, use.SelectTeam)
-                    case *CombatEventNextUnit:
+                    case *combatlib.CombatEventNextUnit:
                         combat.Model.NextUnit()
-                    case *CombatEventGlobalSpell:
-                        use := event.(*CombatEventGlobalSpell)
+                    case *combatlib.CombatEventGlobalSpell:
+                        use := event.(*combatlib.CombatEventGlobalSpell)
                         combat.doCastEnchantment(yield, use.Caster, use.Magic, use.Name)
-                    case *CombatSelectTargets:
-                        use := event.(*CombatSelectTargets)
+                    case *combatlib.CombatSelectTargets:
+                        use := event.(*combatlib.CombatSelectTargets)
                         if use.Army.Auto {
                             if len(use.Targets) > 0 {
                                 pick := use.Targets[rand.N(len(use.Targets))]
@@ -2447,28 +2305,28 @@ func (combat *CombatScreen) ProcessEvents(yield coroutine.YieldFunc) CombatUpdat
                         } else {
                             combat.AddSelectTargetsElements(use.Targets, use.Title, use.Select)
                         }
-                    case *CombatEventMessage:
-                        use := event.(*CombatEventMessage)
+                    case *combatlib.CombatEventMessage:
+                        use := event.(*combatlib.CombatEventMessage)
                         combat.UI.AddElement(uilib.MakeErrorElement(combat.UI, combat.Cache, &combat.ImageCache, use.Message, func(){ yield() }))
-                    case *CombatEventCreateLightningBolt:
-                        bolt := event.(*CombatEventCreateLightningBolt)
+                    case *combatlib.CombatEventCreateLightningBolt:
+                        bolt := event.(*combatlib.CombatEventCreateLightningBolt)
                         combat.Model.AddProjectile(combat.CreateLightningBoltProjectile(bolt.Target, bolt.Strength))
                         sounds.Insert(LightningBoltSound)
-                    case *CombatEventSummonUnit:
-                        summon := event.(*CombatEventSummonUnit)
+                    case *combatlib.CombatEventSummonUnit:
+                        summon := event.(*combatlib.CombatEventSummonUnit)
                         combat.ShowSummon(yield, summon.Unit)
 
-                    case *CombatCreateWallOfFire:
-                        createWallOfFire(combat.Model.Tiles, TownCenterX, TownCenterY, 4, combat.Counter)
+                    case *combatlib.CombatCreateWallOfFire:
+                        combatlib.CreateWallOfFire(combat.Model.Tiles, combatlib.TownCenterX, combatlib.TownCenterY, 4, combat.Counter)
 
-                    case *CombatCreateWallOfDarkness:
-                        createWallOfDarkness(combat.Model.Tiles, TownCenterX, TownCenterY, 4, combat.Counter)
+                    case *combatlib.CombatCreateWallOfDarkness:
+                        combatlib.CreateWallOfDarkness(combat.Model.Tiles, combatlib.TownCenterX, combatlib.TownCenterY, 4, combat.Counter)
 
-                    case *CombatPlaySound:
-                        use := event.(*CombatPlaySound)
+                    case *combatlib.CombatPlaySound:
+                        use := event.(*combatlib.CombatPlaySound)
                         sounds.Insert(use.Sound)
 
-                    case *CombatDoSingleAuto:
+                    case *combatlib.CombatDoSingleAuto:
                         updates.SingleAuto = true
                 }
             default:
@@ -2484,7 +2342,7 @@ func (combat *CombatScreen) UpdateAnimations(){
         }
     }
 
-    updateLost := func (units []*ArmyUnit) {
+    updateLost := func (units []*combatlib.ArmyUnit) {
         for _, unit := range units {
             if unit.LostUnitsTime > 0 {
                 unit.LostUnitsTime -= 1
@@ -2494,13 +2352,13 @@ func (combat *CombatScreen) UpdateAnimations(){
         }
     }
 
-    updateLost(combat.Model.AttackingArmy.units)
-    updateLost(combat.Model.DefendingArmy.units)
+    updateLost(combat.Model.AttackingArmy.GetUnits())
+    updateLost(combat.Model.DefendingArmy.GetUnits())
     updateLost(combat.Model.AttackingArmy.KilledUnits)
     updateLost(combat.Model.DefendingArmy.KilledUnits)
 }
 
-func (combat *CombatScreen) doTeleport(yield coroutine.YieldFunc, mover *ArmyUnit, x int, y int, merge bool) {
+func (combat *CombatScreen) doTeleport(yield coroutine.YieldFunc, mover *combatlib.ArmyUnit, x int, y int, merge bool) {
 
     sound, err := combat.AudioCache.GetSound(mover.Unit.GetMovementSound().LbxIndex())
     if err == nil && combat.IsUnitVisible(mover) {
@@ -2556,7 +2414,7 @@ func (combat *CombatScreen) doTeleport(yield coroutine.YieldFunc, mover *ArmyUni
 }
 
 // generally the path should be of length 1
-func (combat *CombatScreen) doMoveMagicVortex(yield coroutine.YieldFunc, vortex *MagicVortex, path pathfinding.Path){
+func (combat *CombatScreen) doMoveMagicVortex(yield coroutine.YieldFunc, vortex *combatlib.MagicVortex, path pathfinding.Path){
     if len(path) == 0 {
         return
     }
@@ -2646,7 +2504,7 @@ func (combat *CombatScreen) doMoveMagicVortex(yield coroutine.YieldFunc, vortex 
     }
 }
 
-func (combat *CombatScreen) doMoveUnit(yield coroutine.YieldFunc, mover *ArmyUnit, path pathfinding.Path){
+func (combat *CombatScreen) doMoveUnit(yield coroutine.YieldFunc, mover *combatlib.ArmyUnit, path pathfinding.Path){
     if len(path) == 0 {
         return
     }
@@ -2723,7 +2581,7 @@ func (combat *CombatScreen) doMoveUnit(yield coroutine.YieldFunc, mover *ArmyUni
 
             // moving through a wall of fire might create an expectation from the remote player
             if combat.Model.Remote != nil {
-                if combat.Model.WaitForSynchronization(combat.Quit, localYield, optional.Of[SpellSystem](combat), optional.Of[AddDamageIndicators](combat)) != nil {
+                if combat.Model.WaitForSynchronization(combat.Quit, localYield, optional.Of[combatlib.SpellSystem](combat), optional.Of[combatlib.AddDamageIndicators](combat)) != nil {
                     return
                 }
             }
@@ -2757,10 +2615,10 @@ func (combat *CombatScreen) doMoveUnit(yield coroutine.YieldFunc, mover *ArmyUni
     mover.Paths = make(map[image.Point]pathfinding.Path)
 }
 
-func (combat *CombatScreen) doRangeAttack(yield coroutine.YieldFunc, attacker *ArmyUnit, defender RangeTarget){
+func (combat *CombatScreen) doRangeAttack(yield coroutine.YieldFunc, attacker *combatlib.ArmyUnit, defender combatlib.RangeTarget){
     attacker.Facing = faceTowards(attacker.X, attacker.Y, defender.GetX(), defender.GetY())
 
-    combat.Model.rangeAttack(attacker, defender, combat)
+    combat.Model.RangeAttack(attacker, defender, combat)
 
     sound, err := combat.AudioCache.GetSound(attacker.Unit.GetRangeAttackSound().LbxIndex())
     if err == nil {
@@ -2770,7 +2628,7 @@ func (combat *CombatScreen) doRangeAttack(yield coroutine.YieldFunc, attacker *A
     combat.doProjectiles(yield)
 }
 
-func (combat *CombatScreen) doMeleeWall(yield coroutine.YieldFunc, attacker *ArmyUnit, x int, y int){
+func (combat *CombatScreen) doMeleeWall(yield coroutine.YieldFunc, attacker *combatlib.ArmyUnit, x int, y int){
     attacker.Attacking = true
     defer func(){
         attacker.Attacking = false
@@ -2793,7 +2651,7 @@ func (combat *CombatScreen) doMeleeWall(yield coroutine.YieldFunc, attacker *Arm
 
         // delay the actual melee computation to give time for the sound to play
         if i == 20 {
-            combat.Model.meleeAttackWall(attacker, x, y)
+            combat.Model.MeleeAttackWall(attacker, x, y)
         }
 
         if yield() != nil {
@@ -2802,7 +2660,7 @@ func (combat *CombatScreen) doMeleeWall(yield coroutine.YieldFunc, attacker *Arm
     }
 }
 
-func (combat *CombatScreen) doMelee(yield coroutine.YieldFunc, attacker *ArmyUnit, defender *ArmyUnit){
+func (combat *CombatScreen) doMelee(yield coroutine.YieldFunc, attacker *combatlib.ArmyUnit, defender *combatlib.ArmyUnit){
     // this is what causes the attack animation to play
     attacker.Attacking = true
     defender.Defending = true
@@ -2840,16 +2698,16 @@ func (combat *CombatScreen) doMelee(yield coroutine.YieldFunc, attacker *ArmyUni
                 case event := <-combat.Model.Remote.Events:
                     // FIXME: this is redundant with the event switch in model.UpdateProjectiles()
                     switch event.GetType() {
-                        case RemoteDamageIndicatorType:
-                            event := event.(*RemoteDamageIndicatorEvent)
+                        case combatlib.RemoteDamageIndicatorType:
+                            event := event.(*combatlib.RemoteDamageIndicatorEvent)
                             unit := combat.Model.GetUnitById(event.Id)
                             if unit != nil {
                                 combat.AddDamageIndicator(unit, event.Damage)
                             }
-                        case RemoteFinishMeleeAttackType:
+                        case combatlib.RemoteFinishMeleeAttackType:
                             done = true
                         default:
-                            combat.Model.HandleRemoteEvent(optional.Of[SpellSystem](combat), optional.Of[AddDamageIndicators](combat), event)
+                            combat.Model.HandleRemoteEvent(optional.Of[combatlib.SpellSystem](combat), optional.Of[combatlib.AddDamageIndicators](combat), event)
 
                     }
                 default:
@@ -2868,7 +2726,7 @@ func (combat *CombatScreen) doMelee(yield coroutine.YieldFunc, attacker *ArmyUni
 
         // delay the actual melee computation to give time for the sound to play
         if i == 20 {
-            attackerDamage, defenderDamage := combat.Model.meleeAttack(attacker, defender)
+            attackerDamage, defenderDamage := combat.Model.MeleeAttack(attacker, defender)
 
             combat.AddDamageIndicator(defender, attackerDamage)
             combat.AddDamageIndicator(attacker, defenderDamage)
@@ -2885,7 +2743,7 @@ func (combat *CombatScreen) doMelee(yield coroutine.YieldFunc, attacker *ArmyUni
     combat.Model.RemoteFinishMeleeAttack()
 }
 
-func (combat *CombatScreen) AddDamageIndicator(unit *ArmyUnit, damage int) {
+func (combat *CombatScreen) AddDamageIndicator(unit *combatlib.ArmyUnit, damage int) {
     offsetWidth := 8
     indicator := DamageIndicator{
         X: unit.X,
@@ -2998,27 +2856,27 @@ type AIUnitActions struct {
     combat *CombatScreen
 }
 
-func (actions AIUnitActions) Teleport(mover *ArmyUnit, x int, y int, merge bool) {
+func (actions AIUnitActions) Teleport(mover *combatlib.ArmyUnit, x int, y int, merge bool) {
     actions.combat.doTeleport(actions.yield, mover, x, y, merge)
 }
 
-func (actions AIUnitActions) RangeAttack(attacker *ArmyUnit, defender RangeTarget) {
+func (actions AIUnitActions) RangeAttack(attacker *combatlib.ArmyUnit, defender combatlib.RangeTarget) {
     actions.combat.doRangeAttack(actions.yield, attacker, defender)
 }
 
-func (actions AIUnitActions) MeleeAttack(attacker *ArmyUnit, defender *ArmyUnit) {
+func (actions AIUnitActions) MeleeAttack(attacker *combatlib.ArmyUnit, defender *combatlib.ArmyUnit) {
     actions.combat.doMelee(actions.yield, attacker, defender)
 }
 
-func (actions AIUnitActions) MeleeAttackWall(attacker *ArmyUnit, x int, y int) {
+func (actions AIUnitActions) MeleeAttackWall(attacker *combatlib.ArmyUnit, x int, y int) {
     actions.combat.doMeleeWall(actions.yield, attacker, x, y)
 }
 
-func (actions AIUnitActions) MoveMagicVortex(vortex *MagicVortex, path pathfinding.Path) {
+func (actions AIUnitActions) MoveMagicVortex(vortex *combatlib.MagicVortex, path pathfinding.Path) {
     actions.combat.doMoveMagicVortex(actions.yield, vortex, path)
 }
 
-func (actions AIUnitActions) MoveUnit(unit *ArmyUnit, path pathfinding.Path) {
+func (actions AIUnitActions) MoveUnit(unit *combatlib.ArmyUnit, path pathfinding.Path) {
     actions.combat.doMoveUnit(actions.yield, unit, path)
 }
 
@@ -3040,15 +2898,8 @@ func (actions *CombatActions) SingleAuto() bool {
     return actions.singleAuto
 }
 
-func abs(a int) int {
-    if a < 0 {
-        return -a
-    }
-    return a
-}
-
 // return a tile to move the vortex to. must be a cardinal direction (no diagonals)
-func (combat *CombatScreen) GetMagicVortexMoveTile(yield coroutine.YieldFunc, vortex *MagicVortex) (int, int) {
+func (combat *CombatScreen) GetMagicVortexMoveTile(yield coroutine.YieldFunc, vortex *combatlib.MagicVortex) (int, int) {
     vortex.Selected = true
     defer func(){
         vortex.Selected = false
@@ -3126,19 +2977,19 @@ func (combat *CombatScreen) UpdateMagicVortexes(yield coroutine.YieldFunc, actio
                         select {
                             case event := <-combat.Model.Remote.Events:
                                 switch event.GetType() {
-                                    case RemoteMagicVortexMoveType:
-                                        event := event.(*RemoteMagicVortexMoveEvent)
+                                    case combatlib.RemoteMagicVortexMoveType:
+                                        event := event.(*combatlib.RemoteMagicVortexMoveEvent)
                                         if event.VortexId == vortex.Id {
                                             actions.MoveMagicVortex(vortex, event.Path)
                                         }
-                                    case RemoteMagicVortexFinishedType:
-                                        event := event.(*RemoteMagicVortexFinishedEvent)
+                                    case combatlib.RemoteMagicVortexFinishedType:
+                                        event := event.(*combatlib.RemoteMagicVortexFinishedEvent)
                                         if event.VortexId == vortex.Id {
                                             finished = true
                                         }
                                     // check for magic vortex finished event
                                     default:
-                                        combat.Model.HandleRemoteEvent(optional.Of[SpellSystem](combat), optional.Of[AddDamageIndicators](combat), event)
+                                        combat.Model.HandleRemoteEvent(optional.Of[combatlib.SpellSystem](combat), optional.Of[combatlib.AddDamageIndicators](combat), event)
                                 }
 
                             default:
@@ -3156,9 +3007,9 @@ func (combat *CombatScreen) UpdateMagicVortexes(yield coroutine.YieldFunc, actio
     }
 }
 
-func (combat *CombatScreen) Update(yield coroutine.YieldFunc) CombatState {
+func (combat *CombatScreen) Update(yield coroutine.YieldFunc) combatlib.CombatState {
     finalState := combat.Model.FinalState()
-    if finalState != CombatStateRunning {
+    if finalState != combatlib.CombatStateRunning {
         return finalState
     }
 
@@ -3208,7 +3059,7 @@ func (combat *CombatScreen) Update(yield coroutine.YieldFunc) CombatState {
                 combat.MouseState = CombatMoveOk
             } else if attacker.GetRangedAttacks() > 0 && attacker.CanDestroyWallsRangedAttack() && combat.Model.ContainsWall(combat.MouseTileX, combat.MouseTileY) {
                 combat.MouseState = CombatRangeAttackOk
-            } else if attacker.GetMeleeAttackPower() > 0 && combat.Model.ContainsWall(combat.MouseTileX, combat.MouseTileY) && computeTileDistance(attacker.X, attacker.Y, combat.MouseTileX, combat.MouseTileY) == 1 && attacker.HasAbility(data.AbilityWallCrusher) {
+            } else if attacker.GetMeleeAttackPower() > 0 && combat.Model.ContainsWall(combat.MouseTileX, combat.MouseTileY) && combatlib.ComputeTileDistance(attacker.X, attacker.Y, combat.MouseTileX, combat.MouseTileY) == 1 && attacker.HasAbility(data.AbilityWallCrusher) {
                 combat.MouseState = CombatMeleeAttackOk
             } else {
                 combat.MouseState = CombatNotOk
@@ -3217,9 +3068,9 @@ func (combat *CombatScreen) Update(yield coroutine.YieldFunc) CombatState {
             newState := CombatNotOk
 
             // prioritize range attack over melee
-            if combat.Model.canRangeAttack(attacker, who) && combat.Model.withinArrowRange(attacker, who) {
+            if combat.Model.CanRangeAttack(attacker, who) && combat.Model.WithinArrowRange(attacker, who) {
                 newState = CombatRangeAttackOk
-            } else if combat.Model.canMeleeAttack(attacker, who, true) && combat.Model.withinMeleeRange(attacker, who) {
+            } else if combat.Model.CanMeleeAttack(attacker, who, true) && combat.Model.WithinMeleeRange(attacker, who) {
                 newState = CombatMeleeAttackOk
             }
 
@@ -3289,7 +3140,7 @@ func (combat *CombatScreen) Update(yield coroutine.YieldFunc) CombatState {
 
     // log.Printf("Mouse original %v,%v %v,%v -> %v,%v", mouseX, mouseY, tileX, tileY, combat.MouseTileX, combat.MouseTileY)
 
-    return CombatStateRunning
+    return combatlib.CombatStateRunning
 }
 
 func (combat *CombatScreen) DrawHighlightedTile(screen *ebiten.Image, x int, y int, matrix *ebiten.GeoM, minColor color.NRGBA, maxColor color.NRGBA){
@@ -3356,7 +3207,7 @@ func (combat *CombatScreen) DrawHighlightedTile(screen *ebiten.Image, x int, y i
     vector.FillPath(screen, &path, &fill, &pathOptions)
 }
 
-func (combat *CombatScreen) ShowUnitInfo(screen *ebiten.Image, unit *ArmyUnit){
+func (combat *CombatScreen) ShowUnitInfo(screen *ebiten.Image, unit *combatlib.ArmyUnit){
     x1 := 255 - 1
     y1 := 5
     width := 65
@@ -3451,7 +3302,7 @@ func (combat *CombatScreen) ShowUnitInfo(screen *ebiten.Image, unit *ArmyUnit){
 // mostly green if healthy (>66% health)
 // yellow if between 33% to 66% health
 // otherwise red
-func (combat *CombatScreen) DrawHealthBar(screen *ebiten.Image, x int, y int, alpha uint8, unit *ArmyUnit){
+func (combat *CombatScreen) DrawHealthBar(screen *ebiten.Image, x int, y int, alpha uint8, unit *combatlib.ArmyUnit){
     highHealth := color.NRGBA{R: 0, G: 0xff, B: 0, A: alpha}
     mediumHealth := color.NRGBA{R: 0xff, G: 0xff, B: 0, A: alpha}
     lowHealth := color.NRGBA{R: 0xff, G: 0, B: 0, A: alpha}
@@ -3580,31 +3431,31 @@ func (combat *CombatScreen) DrawWall(screen *ebiten.Image, x int, y int, tilePos
         // these values are based on a clockwise 45-degree rotation, but the actual
         // combat screen is a counter-clockwise 45-degree rotation.
         // it doesn't matter, as long as the fire animations are consistent
-        if fire.Contains(FireSideNorth) && fire.Contains(FireSideWest) {
+        if fire.Contains(combatlib.FireSideNorth) && fire.Contains(combatlib.FireSideWest) {
             addDrawWall(Order0, makeDrawAnimatedWall(36, tile.FireActive, -1, -8))
             drewNorth = true
             drewWest = true
         }
 
-        if fire.Contains(FireSideSouth) && fire.Contains(FireSideEast) {
+        if fire.Contains(combatlib.FireSideSouth) && fire.Contains(combatlib.FireSideEast) {
             addDrawWall(Order2, makeDrawAnimatedWall(45, tile.FireActive, -2, -3))
             drewSouth = true
             drewEast = true
         }
 
-        if !drewSouth && fire.Contains(FireSideSouth) {
+        if !drewSouth && fire.Contains(combatlib.FireSideSouth) {
             addDrawWall(Order2, makeDrawAnimatedWall(choose(fireSouth), tile.FireActive, -4, -4))
         }
 
-        if !drewWest && fire.Contains(FireSideWest) {
+        if !drewWest && fire.Contains(combatlib.FireSideWest) {
             addDrawWall(Order0, makeDrawAnimatedWall(choose(fireWest), tile.FireActive, -3, -6))
         }
 
-        if !drewNorth && fire.Contains(FireSideNorth) {
+        if !drewNorth && fire.Contains(combatlib.FireSideNorth) {
             addDrawWall(Order0, makeDrawAnimatedWall(choose(fireNorth), tile.FireActive, 2, -6))
         }
 
-        if !drewEast && fire.Contains(FireSideEast) {
+        if !drewEast && fire.Contains(combatlib.FireSideEast) {
             addDrawWall(Order2, makeDrawAnimatedWall(choose(fireEast), tile.FireActive, 2, -4))
         }
     }
@@ -3629,31 +3480,31 @@ func (combat *CombatScreen) DrawWall(screen *ebiten.Image, x int, y int, tilePos
         // these values are based on a clockwise 45-degree rotation, but the actual
         // combat screen is a counter-clockwise 45-degree rotation.
         // it doesn't matter, as long as the fire animations are consistent
-        if darkness.Contains(DarknessSideNorth) && darkness.Contains(DarknessSideWest) {
+        if darkness.Contains(combatlib.DarknessSideNorth) && darkness.Contains(combatlib.DarknessSideWest) {
             addDrawWall(Order1, makeDrawAnimatedWall(50, tile.DarknessActive, -1, -8))
             drewNorth = true
             drewWest = true
         }
 
-        if darkness.Contains(DarknessSideSouth) && darkness.Contains(DarknessSideEast) {
+        if darkness.Contains(combatlib.DarknessSideSouth) && darkness.Contains(combatlib.DarknessSideEast) {
             addDrawWall(Order1, makeDrawAnimatedWall(59, tile.DarknessActive, -2, -3))
             drewSouth = true
             drewEast = true
         }
 
-        if !drewSouth && darkness.Contains(DarknessSideSouth) {
+        if !drewSouth && darkness.Contains(combatlib.DarknessSideSouth) {
             addDrawWall(Order1, makeDrawAnimatedWall(choose(darknessSouth), tile.DarknessActive, -4, -4))
         }
 
-        if !drewWest && darkness.Contains(DarknessSideWest) {
+        if !drewWest && darkness.Contains(combatlib.DarknessSideWest) {
             addDrawWall(Order1, makeDrawAnimatedWall(choose(darknessWest), tile.DarknessActive, -3, -6))
         }
 
-        if !drewNorth && darkness.Contains(DarknessSideNorth) {
+        if !drewNorth && darkness.Contains(combatlib.DarknessSideNorth) {
             addDrawWall(Order1, makeDrawAnimatedWall(choose(darknessNorth), tile.DarknessActive, 2, -6))
         }
 
-        if !drewEast && darkness.Contains(DarknessSideEast) {
+        if !drewEast && darkness.Contains(combatlib.DarknessSideEast) {
             addDrawWall(Order1, makeDrawAnimatedWall(choose(darknessEast), tile.DarknessActive, 2, -4))
         }
     }
@@ -3714,63 +3565,63 @@ func (combat *CombatScreen) DrawWall(screen *ebiten.Image, x int, y int, tilePos
         // these values are based on a clockwise 45-degree rotation, but the actual
         // combat screen is a counter-clockwise 45-degree rotation.
         // it doesn't matter, as long as the fire animations are consistent
-        if wall.Contains(WallKindNorth) && wall.Contains(WallKindWest) {
+        if wall.Contains(combatlib.WallKindNorth) && wall.Contains(combatlib.WallKindWest) {
             addDrawWall(Order2, makeDrawWall(northWest, -1, -8))
             drewNorth = true
             drewWest = true
         }
 
-        if wall.Contains(WallKindSouth) && wall.Contains(WallKindEast) {
+        if wall.Contains(combatlib.WallKindSouth) && wall.Contains(combatlib.WallKindEast) {
             addDrawWall(Order0, makeDrawWall(southEast, -2, -3))
             drewSouth = true
             drewEast = true
         }
 
-        if wall.Contains(WallKindSouth) && wall.Contains(WallKindWest) {
+        if wall.Contains(combatlib.WallKindSouth) && wall.Contains(combatlib.WallKindWest) {
             addDrawWall(Order2, makeDrawWall(southWest, -2, -3))
             drewSouth = true
             drewWest = true
 
-            if tile.Darkness != nil && tile.Darkness.Contains(DarknessSideSouth) {
+            if tile.Darkness != nil && tile.Darkness.Contains(combatlib.DarknessSideSouth) {
                 addDrawWall(Order3, makeDrawAnimatedWall(choose(darknessSouth), tile.DarknessActive, -4, -4))
             }
 
-            if tile.Fire != nil && tile.Fire.Contains(FireSideSouth) {
+            if tile.Fire != nil && tile.Fire.Contains(combatlib.FireSideSouth) {
                 addDrawWall(Order4, makeDrawAnimatedWall(choose(fireSouth), tile.FireActive, -4, -4))
             }
         }
 
-        if wall.Contains(WallKindNorth) && wall.Contains(WallKindEast) {
+        if wall.Contains(combatlib.WallKindNorth) && wall.Contains(combatlib.WallKindEast) {
             addDrawWall(Order2, makeDrawWall(northEast, -2, -3))
             drewNorth = true
             drewEast = true
 
-            if tile.Darkness != nil && tile.Darkness.Contains(DarknessSideEast) {
+            if tile.Darkness != nil && tile.Darkness.Contains(combatlib.DarknessSideEast) {
                 addDrawWall(Order3, makeDrawAnimatedWall(choose(darknessEast), tile.DarknessActive, 2, -4))
             }
 
-            if tile.Fire != nil && tile.Fire.Contains(FireSideEast) {
+            if tile.Fire != nil && tile.Fire.Contains(combatlib.FireSideEast) {
                 addDrawWall(Order4, makeDrawAnimatedWall(choose(fireEast), tile.FireActive, 2, -4))
             }
         }
 
-        if !drewSouth && wall.Contains(WallKindSouth) {
+        if !drewSouth && wall.Contains(combatlib.WallKindSouth) {
             addDrawWall(Order0, makeDrawWall(choose(south), -4, -4))
         }
 
-        if !drewWest && wall.Contains(WallKindWest) {
+        if !drewWest && wall.Contains(combatlib.WallKindWest) {
             addDrawWall(Order2, makeDrawWall(choose(west), -3, -6))
         }
 
-        if !drewNorth && wall.Contains(WallKindNorth) {
+        if !drewNorth && wall.Contains(combatlib.WallKindNorth) {
             addDrawWall(Order2, makeDrawWall(choose(north), 2, -6))
         }
 
-        if !drewEast && wall.Contains(WallKindEast) {
+        if !drewEast && wall.Contains(combatlib.WallKindEast) {
             addDrawWall(Order0, makeDrawWall(choose(east), 2, -4))
         }
 
-        if wall.Contains(WallKindGate) {
+        if wall.Contains(combatlib.WallKindGate) {
             addDrawWall(Order0, makeDrawWall(gate, -2, -4))
         }
     }
@@ -3788,10 +3639,10 @@ func (combat *CombatScreen) Draw(screen *ebiten.Image){
     combat.Drawer(screen)
 }
 
-func (combat *CombatScreen) makeIsUnitVisibleFunc() func(*ArmyUnit) bool {
-    teamHasIllusionImmunity := functional.Memoize(func(team Team) bool {
+func (combat *CombatScreen) makeIsUnitVisibleFunc() func(*combatlib.ArmyUnit) bool {
+    teamHasIllusionImmunity := functional.Memoize(func(team combatlib.Team) bool {
         army := combat.Model.GetArmyForTeam(team)
-        for _, unit := range army.units {
+        for _, unit := range army.GetUnits() {
             if unit.HasAbility(data.AbilityIllusionsImmunity) {
                 return true
             }
@@ -3800,21 +3651,21 @@ func (combat *CombatScreen) makeIsUnitVisibleFunc() func(*ArmyUnit) bool {
         return false
     })
 
-    return func(unit *ArmyUnit) bool {
+    return func(unit *combatlib.ArmyUnit) bool {
         if !unit.IsInvisible() {
             return true
         }
 
         owner := combat.Model.GetArmy(unit)
-        return owner.Player.IsHuman() || teamHasIllusionImmunity(oppositeTeam(unit.Team)) || combat.Model.IsAdjacentToEnemy(unit)
+        return owner.Player.IsHuman() || teamHasIllusionImmunity(combatlib.OppositeTeam(unit.Team)) || combat.Model.IsAdjacentToEnemy(unit)
     }
 }
 
-func (combat *CombatScreen) IsUnitVisible(unit *ArmyUnit) bool {
+func (combat *CombatScreen) IsUnitVisible(unit *combatlib.ArmyUnit) bool {
     return combat.makeIsUnitVisibleFunc()(unit)
 }
 
-func getDyingColor(unit *ArmyUnit) color.RGBA {
+func getDyingColor(unit *combatlib.ArmyUnit) color.RGBA {
     if unit.GetRealm() == data.MagicNone {
         return color.RGBA{R: 0xff, G: 0, B: 0, A: 0xff} // red
     }
@@ -3822,7 +3673,7 @@ func getDyingColor(unit *ArmyUnit) color.RGBA {
     return data.GetMagicColor(unit.GetRealm())
 }
 
-func (combat *CombatScreen) ShowExtraHighlight(screen *ebiten.Image, unit *ArmyUnit, getTilePoints func(int, int) ([]image.Point)) {
+func (combat *CombatScreen) ShowExtraHighlight(screen *ebiten.Image, unit *combatlib.ArmyUnit, getTilePoints func(int, int) ([]image.Point)) {
     points := getTilePoints(unit.X, unit.Y)
     p1 := points[0]
     // p2 := points[1]
@@ -3905,10 +3756,10 @@ func (combat *CombatScreen) ShowCombatInfo(screen *ebiten.Image) {
         combat.Model.DefendingArmy.Player.GetWizard().Name,
     )
 
-    showUnits := func(startX int, army *Army) {
+    showUnits := func(startX int, army *combatlib.Army) {
         startY := y1 + 10 + 20
         unitFont := combat.Fonts.HudFont
-        for i, unit := range army.units {
+        for i, unit := range army.GetUnits() {
 
             unitX := startX + (i % 3) * 49
             unitY := startY + (i / 3) * unitFont.Height() * 5
@@ -3990,7 +3841,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     }
 
     if combat.DrawRoad {
-        tx, ty := tilePosition(TownCenterX-1, TownCenterY-4)
+        tx, ty := tilePosition(combatlib.TownCenterX-1, combatlib.TownCenterY-4)
 
         road, _ := combat.ImageCache.GetImageTransform("cmbtcity.lbx", 0, 0, "crop", util.AutoCrop)
         options.GeoM.Reset()
@@ -4001,7 +3852,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     }
 
     if combat.DrawClouds {
-        tx, ty := tilePosition(TownCenterX, TownCenterY-5)
+        tx, ty := tilePosition(combatlib.TownCenterX, combatlib.TownCenterY-5)
 
         clouds, _ := combat.ImageCache.GetImage("cmbtcity.lbx", 113, 0)
         options.GeoM.Reset()
@@ -4011,14 +3862,14 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
         scale.DrawScaled(screen, clouds, &options)
     }
 
-    drawExtraObject := func(x int, y int, extra TileTop) {
-        if extra.Drawer != nil {
+    drawExtraObject := func(x int, y int, extra combatlib.TileTop) {
+        if extra.Special != combatlib.TileTopSpecialNone {
             options.GeoM.Reset()
             tx, ty := tilePosition(float64(x), float64(y))
             options.GeoM.Scale(combat.CameraScale, combat.CameraScale)
             options.GeoM.Translate(tx, ty)
 
-            extra.Drawer(screen, &combat.ImageCache, &options, combat.Counter)
+            drawTileTopSpecial(extra.Special, screen, &combat.ImageCache, &options, combat.Counter)
         } else if extra.Index != -1 {
             options.GeoM.Reset()
             // tx,ty is the middle of the tile
@@ -4035,10 +3886,10 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
             extraImage := extraImages[index]
 
             switch extra.Alignment {
-                case TileAlignBottom:
+                case combatlib.TileAlignBottom:
                     options.GeoM.Translate(0, float64(tile0.Bounds().Dy())/2)
                     options.GeoM.Translate(-float64(extraImage.Bounds().Dy())/2, -float64(extraImage.Bounds().Dy()))
-                case TileAlignMiddle:
+                case combatlib.TileAlignMiddle:
                     options.GeoM.Translate(-float64(extraImage.Bounds().Dy())/2, -float64(extraImage.Bounds().Dy()/2))
             }
 
@@ -4112,7 +3963,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
 
                     scale.DrawScaled(screen, movementImage, &options)
 
-                    moves = moves.Subtract(pathCost(image.Pt(lastX, lastY), image.Pt(tileX, tileY)))
+                    moves = moves.Subtract(combatlib.PathCost(image.Pt(lastX, lastY), image.Pt(tileX, tileY)))
                 }
             }
         }
@@ -4125,7 +3976,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
         }
     }
 
-    renderUnit := func(unit *ArmyUnit) {
+    renderUnit := func(unit *combatlib.ArmyUnit) {
         var unitOptions ebiten.DrawImageOptions
         banner := unit.Unit.GetBanner()
         combatImages, _ := combat.ImageCache.GetImagesTransform(unit.Unit.GetCombatLbxFile(), unit.Unit.GetCombatIndex(unit.Facing), banner.String(), unitview.MakeUpdateUnitColorsFunc(banner))
@@ -4193,7 +4044,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
             vector.DrawFilledCircle(screen, float32(x), float32(y), 2, color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}, false)
             */
 
-            lostTime := float64(unit.LostUnitsTime) / LostUnitsMax
+            lostTime := float64(unit.LostUnitsTime) / combatlib.LostUnitsMax
 
             var dying colorm.ColorM
             dyingColor := getDyingColor(unit)
@@ -4294,7 +4145,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
         Render func()
     }
 
-    unitDrawable := func(unit *ArmyUnit) Drawable {
+    unitDrawable := func(unit *combatlib.ArmyUnit) Drawable {
         return Drawable{
             GetX: func() float64 {
                 return float64(unit.X)
@@ -4308,7 +4159,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
         }
     }
 
-    wallDrawable := func(tile TilePoint) Drawable {
+    wallDrawable := func(tile combatlib.TilePoint) Drawable {
         var offset float64 = 0
 
         if tile.Tile.HasEasternWall() || tile.Tile.HasSouthernWall() {
@@ -4331,33 +4182,33 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     }
 
     fortressDrawable := func() Drawable {
-        extra := TileTop{
+        extra := combatlib.TileTop{
             Lbx: "cmbtcity.lbx",
             Index: 17,
-            Alignment: TileAlignBottom,
+            Alignment: combatlib.TileAlignBottom,
         }
 
         return Drawable{
             GetX: func() float64 {
-                return float64(TownCenterX)
+                return float64(combatlib.TownCenterX)
             },
             GetY: func() float64 {
-                return float64(TownCenterY)
+                return float64(combatlib.TownCenterY)
             },
             Render: func() {
-                drawExtraObject(TownCenterX, TownCenterY, extra)
+                drawExtraObject(combatlib.TownCenterX, combatlib.TownCenterY, extra)
             },
         }
     }
 
     // sort units in top down order before drawing them
-    allDrawables := make([]Drawable, 0, len(combat.Model.DefendingArmy.units) + len(combat.Model.AttackingArmy.units) + 100)
+    allDrawables := make([]Drawable, 0, len(combat.Model.DefendingArmy.GetUnits()) + len(combat.Model.AttackingArmy.GetUnits()) + 100)
 
-    for _, unit := range combat.Model.AttackingArmy.units {
+    for _, unit := range combat.Model.AttackingArmy.GetUnits() {
         allDrawables = append(allDrawables, unitDrawable(unit))
     }
 
-    for _, unit := range combat.Model.DefendingArmy.units {
+    for _, unit := range combat.Model.DefendingArmy.GetUnits() {
         allDrawables = append(allDrawables, unitDrawable(unit))
     }
 
@@ -4412,7 +4263,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
 
     for _, vortex := range combat.Model.MagicVortexes {
         var unitOptions ebiten.DrawImageOptions
-        frame := vortex.Animation.Frame()
+        frame := animationFrame(vortex.Animation)
         unitOptions.GeoM.Translate(float64(-frame.Bounds().Dx()/2), float64(-frame.Bounds().Dy()))
         // unitOptions.GeoM.Translate(float64(tile0.Bounds().Dx()/2), float64(tile0.Bounds().Dy()/2))
         unitOptions.GeoM.Translate(0, float64(tile0.Bounds().Dy()/2))
@@ -4496,9 +4347,9 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     for _, projectile := range combat.Model.Projectiles {
         var frame *ebiten.Image
         if projectile.Exploding {
-            frame = projectile.Explode.Frame()
+            frame = animationFrame(projectile.Explode)
         } else {
-            frame = projectile.Animation.Frame()
+            frame = animationFrame(projectile.Animation)
         }
         if frame != nil {
             var options ebiten.DrawImageOptions
@@ -4512,4 +4363,38 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     if combat.ShowInfoLevel > 0 {
         combat.ShowCombatInfo(screen)
     }
+}
+
+// custom drawing for TileTop.Special (moved from a closure that used to live in the combat model)
+func drawTileTopSpecial(special combatlib.TileTopSpecial, screen *ebiten.Image, imageCache *util.ImageCache, options *ebiten.DrawImageOptions, counter uint64) {
+    switch special {
+        case combatlib.TileTopSpecialChaosNodeRiver:
+            base, _ := imageCache.GetImageTransform("chriver.lbx", 32, 0, "crop", util.AutoCrop)
+            scale.DrawScaled(screen, base, options)
+
+            top, _ := imageCache.GetImage("chriver.lbx", 24 + int((counter / 4) % 8), 0)
+            var geom2 ebiten.GeoM
+            geom2.Translate(float64(16), float64(-3))
+            geom2.Concat(options.GeoM)
+
+            saved := options.GeoM
+            options.GeoM = geom2
+            scale.DrawScaled(screen, top, options)
+            options.GeoM = saved
+    }
+}
+
+// the current frame of a model animation created by this screen
+func animationFrame(animation combatlib.Animation) *ebiten.Image {
+    if frames, ok := animation.(*util.Animation); ok {
+        return frames.Frame()
+    }
+    return nil
+}
+
+func abs(a int) int {
+    if a < 0 {
+        return -a
+    }
+    return a
 }

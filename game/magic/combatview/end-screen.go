@@ -1,4 +1,4 @@
-package combat
+package combatview
 
 import (
     "image"

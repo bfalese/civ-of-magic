@@ -1,4 +1,4 @@
-package combat
+package combatview
 
 import (
     "log"
@@ -11,6 +11,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
+    combatlib "github.com/bfalese/civ-of-magic/core/combat"
 
     "github.com/hajimehoshi/ebiten/v2"
 )
@@ -34,7 +35,7 @@ func MakeFonts(cache *lbx.LbxCache) (*UnitViewFonts, error) {
     }, nil
 }
 
-func MakeUnitView(cache *lbx.LbxCache, ui *uilib.UI, unit *ArmyUnit) *uilib.UIElementGroup {
+func MakeUnitView(cache *lbx.LbxCache, ui *uilib.UI, unit *combatlib.ArmyUnit) *uilib.UIElementGroup {
     fonts, err := MakeFonts(cache)
     if err != nil {
         log.Printf("Unable to make fonts: %v", err)
@@ -112,7 +113,7 @@ func MakeUnitView(cache *lbx.LbxCache, ui *uilib.UI, unit *ArmyUnit) *uilib.UIEl
     return group
 }
 
-func RenderUnitInfo(screen *ebiten.Image, imageCache *util.ImageCache, unit *ArmyUnit, fonts *UnitViewFonts, defaultOptions ebiten.DrawImageOptions) {
+func RenderUnitInfo(screen *ebiten.Image, imageCache *util.ImageCache, unit *combatlib.ArmyUnit, fonts *UnitViewFonts, defaultOptions ebiten.DrawImageOptions) {
     x, y := defaultOptions.GeoM.Apply(0, 0)
 
     // FIXME: if the unit is a hero and has a title then the title should show up on the next line after the name

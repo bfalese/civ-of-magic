@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bfalese/civ-of-magic/game/magic/combatview"
+
 	"github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
 	buildinglib "github.com/bfalese/civ-of-magic/core/building"
 	citylib "github.com/bfalese/civ-of-magic/core/city"
-	"github.com/bfalese/civ-of-magic/game/magic/combat"
+	"github.com/bfalese/civ-of-magic/core/combat"
 	"github.com/bfalese/civ-of-magic/core/data"
 	"github.com/bfalese/civ-of-magic/core/player"
 	"github.com/bfalese/civ-of-magic/core/setup"
@@ -157,7 +159,7 @@ func newConfiguredCombat(peer netlib.PacketConn, localID uint64, state protocol.
 	if !localAttacker {
 		human = defendingPlayer
 	}
-	screen := combat.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](human), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
+	screen := combatview.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](human), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
 	if screen == nil {
 		return nil, fmt.Errorf("unable to create combat screen")
 	}

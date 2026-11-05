@@ -8,12 +8,14 @@ import (
 	"math"
 	"time"
 
+	"github.com/bfalese/civ-of-magic/game/magic/combatview"
+
 	"github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
 	"github.com/bfalese/civ-of-magic/game/magic/audio"
 	buildinglib "github.com/bfalese/civ-of-magic/core/building"
 	citylib "github.com/bfalese/civ-of-magic/core/city"
-	"github.com/bfalese/civ-of-magic/game/magic/combat"
+	"github.com/bfalese/civ-of-magic/core/combat"
 	"github.com/bfalese/civ-of-magic/core/data"
 	"github.com/bfalese/civ-of-magic/game/magic/inputmanager"
 	"github.com/bfalese/civ-of-magic/core/maplib"
@@ -84,7 +86,7 @@ func createArmyN(player *player.Player, unit units.Unit, count int) *combat.Army
 
 type Engine struct {
 	Model     *combat.CombatModel
-	Combat    *combat.CombatScreen
+	Combat    *combatview.CombatScreen
 	Coroutine *coroutine.Coroutine
 }
 
@@ -158,7 +160,7 @@ func receiveArmy(remote *combat.Remote, player *player.Player) (*combat.Army, er
 	return army, nil
 }
 
-func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit units.Unit, defendingCount int, attackingUnit units.Unit, attackingCount int) (*combat.CombatModel, *combat.CombatScreen, error) {
+func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit units.Unit, defendingCount int, attackingUnit units.Unit, attackingCount int) (*combat.CombatModel, *combatview.CombatScreen, error) {
 	cache := lbx.AutoCache()
 
 	allSpells, err := lbxdata.ReadSpellsFromCache(cache)
@@ -257,7 +259,7 @@ func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit uni
 		player = defendingPlayer
 	}
 
-	combatScreen := combat.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](player), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
+	combatScreen := combatview.MakeCombatScreen(cache, defendingArmy, attackingArmy, optional.Of[combat.ArmyPlayer](player), combat.CombatLandscapeGrass, data.PlaneArcanus, combat.ZoneType{}, model)
 
 	if combatScreen == nil {
 		return nil, nil, fmt.Errorf("unable to create combat screen (check game assets)")
@@ -267,27 +269,27 @@ func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit uni
 	return model, combatScreen, nil
 }
 
-func MakeScenario1(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario1(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
 	return makeGenericScenario(isServer, remote, units.DragonTurtle, 2, units.StagBeetle, 2)
 }
 
-func MakeScenario2(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario2(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
 	return makeGenericScenario(isServer, remote, units.ArchAngel, 2, units.Griffin, 2)
 }
 
-func MakeScenario3(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario3(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
 	return makeGenericScenario(isServer, remote, units.GnollSpearmen, 3, units.OrcSpearmen, 3)
 }
 
-func MakeScenario4(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario4(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
 	return makeGenericScenario(isServer, remote, units.BeastmenPriest, 3, units.ArchAngel, 3)
 }
 
-func MakeScenario5(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario5(isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
 	return makeGenericScenario(isServer, remote, units.Cockatrices, 3, units.GreatDrake, 3)
 }
 
-func MakeScenario(scenario int, isServer bool, remote *combat.Remote) (*combat.CombatModel, *combat.CombatScreen, error) {
+func MakeScenario(scenario int, isServer bool, remote *combat.Remote) (*combat.CombatModel, *combatview.CombatScreen, error) {
 	switch scenario {
 	case 1:
 		return MakeScenario1(isServer, remote)
@@ -316,7 +318,7 @@ func NewEngine(isServer bool, peer netlib.PacketConn, scenario int) (*Engine, er
 	return makeCombatEngine(model, combatScreen), nil
 }
 
-func makeCombatEngine(model *combat.CombatModel, combatScreen *combat.CombatScreen) *Engine {
+func makeCombatEngine(model *combat.CombatModel, combatScreen *combatview.CombatScreen) *Engine {
 	run := func(yield coroutine.YieldFunc) error {
 		for combatScreen.Quit.Err() == nil && combatScreen.Update(yield) == combat.CombatStateRunning {
 			if err := yield(); err != nil {
