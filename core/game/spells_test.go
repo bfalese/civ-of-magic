@@ -35,3 +35,38 @@ func TestChooseSummonHero(test *testing.T) {
         test.Errorf("only Torin available: expected nil, got %v", hero.HeroType)
     }
 }
+
+func TestApplyDrainPower(test *testing.T) {
+    human, enemy := makeContactPlayers()
+    model := &GameModel{}
+
+    enemy.Mana = 30
+    drained, ok := model.ApplyDrainPower(enemy)
+    if !ok || drained != 30 || enemy.Mana != 0 {
+        test.Errorf("drain capped at the target's mana: drained=%v ok=%v mana=%v", drained, ok, enemy.Mana)
+    }
+
+    enemy.Mana = 1000
+    drained, _ = model.ApplyDrainPower(enemy)
+    if drained < 50 || drained > 150 || enemy.Mana != 1000 - drained {
+        test.Errorf("drain must be 50-150: drained=%v mana=%v", drained, enemy.Mana)
+    }
+
+    human.Banished = true
+    if _, ok := model.ApplyDrainPower(human); ok {
+        test.Errorf("a banished wizard can't be targeted")
+    }
+}
+
+func TestApplySpellBlastNeedsASpellInProgress(test *testing.T) {
+    human, enemy := makeContactPlayers()
+    model := &GameModel{}
+
+    human.Mana = 500
+    if model.ApplySpellBlast(human, enemy) {
+        test.Errorf("target is not casting anything: spell blast must not apply")
+    }
+    if human.Mana != 500 {
+        test.Errorf("caster mana changed: %v", human.Mana)
+    }
+}

@@ -864,7 +864,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                return true
             }
             after := func (unit units.StackUnit) bool {
-                game.RelocateUnit(player, unit)
+                game.Model.RelocateUnit(player, unit)
 
                 return true
             }
@@ -980,7 +980,7 @@ func (game *Game) MakeResurrectionUI(caster *playerlib.Player, heroes []*herolib
                 cancel()
                 hero.SetStatus(herolib.StatusEmployed)
                 caster.AddHeroToSummoningCircle(hero)
-                game.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
+                game.Model.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
 
                 summoningCity := caster.FindSummoningCity()
                 if summoningCity != nil {
@@ -1743,17 +1743,7 @@ func (game *Game) doSummonUnit(player *playerlib.Player, unit units.Unit) {
         default:
     }
 
-    summonCity := player.FindSummoningCity()
-    if summonCity != nil {
-        overworldUnit := units.MakeOverworldUnitFromUnit(unit, summonCity.X, summonCity.Y, summonCity.Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
-        player.DidSummonUnit(overworldUnit)
-        newUnit := player.AddUnit(overworldUnit)
-        game.ResolveStackAt(summonCity.X, summonCity.Y, summonCity.Plane)
-
-        if player.SelectedStack == nil {
-            player.SelectedStack = player.FindStack(newUnit.GetX(), newUnit.GetY(), newUnit.GetPlane())
-        }
-
+    if game.Model.SummonUnit(player, unit) {
         game.RefreshUI()
     }
 }
@@ -2379,12 +2369,7 @@ func (game *Game) doCastCorruption(yield coroutine.YieldFunc, tileX int, tileY i
 func (game *Game) doCastSpellBlast(player *playerlib.Player) {
     var wizSelectionUiGroup *uilib.UIElementGroup
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) bool {
-        if targetPlayer.Defeated || targetPlayer.Banished || !targetPlayer.CastingSpell.Valid() || targetPlayer.CastingSpellProgress > player.Mana {
-            return false
-        }
-        player.Mana -= targetPlayer.CastingSpellProgress
-        targetPlayer.InterruptCastingSpell()
-        return true
+        return game.Model.ApplySpellBlast(player, targetPlayer)
     }
     playersInGame := len(game.Model.Players)
     quit, cancel := context.WithCancel(context.Background())
@@ -2397,15 +2382,10 @@ func (game *Game) doCastSpellBlast(player *playerlib.Player) {
 
 func (game *Game) doCastCruelUnminding(player *playerlib.Player, spell spellbook.Spell) {
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) (bool, string) {
-        if targetPlayer.Defeated || targetPlayer.Banished {
+        actuallyReduced, ok := game.Model.ApplyCruelUnminding(targetPlayer)
+        if !ok {
             return false, ""
         }
-        targetSkill := targetPlayer.ComputeCastingSkill()
-        minReduction := max(targetSkill / 100, 1)
-        maxReduction := max(targetSkill / 10, 1)
-        reductionRandomSpread := max(maxReduction - minReduction, 1) // It should never be zero, or rand.N will crash
-        reduction := minReduction + rand.N(reductionRandomSpread)
-        actuallyReduced := targetPlayer.ReduceCastingSkill(reduction)
         return true, fmt.Sprintf("%s loses %d points of casting ability", targetPlayer.Wizard.Name, actuallyReduced)
     }
     playersInGame := len(game.Model.Players)
@@ -2419,11 +2399,10 @@ func (game *Game) doCastCruelUnminding(player *playerlib.Player, spell spellbook
 
 func (game *Game) doCastDrainPower(player *playerlib.Player, spell spellbook.Spell) {
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) (bool, string) {
-        if targetPlayer.Defeated || targetPlayer.Banished {
+        drainAmount, ok := game.Model.ApplyDrainPower(targetPlayer)
+        if !ok {
             return false, ""
         }
-        drainAmount := min(targetPlayer.Mana, 50 + rand.N(101)) // random 50-150, but don't drain more than the target has
-        targetPlayer.Mana -= drainAmount
         return true, fmt.Sprintf("%s loses %d points of mana", targetPlayer.Wizard.Name, drainAmount)
     }
     playersInGame := len(game.Model.Players)

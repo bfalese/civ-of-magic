@@ -7,6 +7,7 @@ import (
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/core/units"
 )
 
 // why a spell fizzled when it was cast
@@ -96,4 +97,61 @@ func (model *GameModel) ApplyGlobalEnchantment(enchantment data.Enchantment, pla
             }
 
     }
+}
+
+// Drain Power on a target wizard: removes 50-150 mana (at most what they have).
+// Returns the amount drained, or false if the target can't be chosen.
+func (model *GameModel) ApplyDrainPower(targetPlayer *playerlib.Player) (int, bool) {
+    if targetPlayer.Defeated || targetPlayer.Banished {
+        return 0, false
+    }
+    drainAmount := min(targetPlayer.Mana, 50 + rand.N(101)) // random 50-150, but don't drain more than the target has
+    targetPlayer.Mana -= drainAmount
+    return drainAmount, true
+}
+
+// Cruel Unminding on a target wizard: reduces casting skill by 1-10%.
+// Returns the amount actually reduced, or false if the target can't be chosen.
+func (model *GameModel) ApplyCruelUnminding(targetPlayer *playerlib.Player) (int, bool) {
+    if targetPlayer.Defeated || targetPlayer.Banished {
+        return 0, false
+    }
+    targetSkill := targetPlayer.ComputeCastingSkill()
+    minReduction := max(targetSkill / 100, 1)
+    maxReduction := max(targetSkill / 10, 1)
+    reductionRandomSpread := max(maxReduction - minReduction, 1) // It should never be zero, or rand.N will crash
+    reduction := minReduction + rand.N(reductionRandomSpread)
+    actuallyReduced := targetPlayer.ReduceCastingSkill(reduction)
+    return actuallyReduced, true
+}
+
+// Spell Blast: the caster pays the mana the target has put into their current spell, and that spell
+// is interrupted. Returns false (and changes nothing) if the target can't be chosen.
+func (model *GameModel) ApplySpellBlast(player *playerlib.Player, targetPlayer *playerlib.Player) bool {
+    if targetPlayer.Defeated || targetPlayer.Banished || !targetPlayer.CastingSpell.Valid() || targetPlayer.CastingSpellProgress > player.Mana {
+        return false
+    }
+    player.Mana -= targetPlayer.CastingSpellProgress
+    targetPlayer.InterruptCastingSpell()
+    return true
+}
+
+// places a summoned unit at the player's summoning city. Returns false if the player has no
+// summoning city (the unit is lost).
+func (model *GameModel) SummonUnit(player *playerlib.Player, unit units.Unit) bool {
+    summonCity := player.FindSummoningCity()
+    if summonCity == nil {
+        return false
+    }
+
+    overworldUnit := units.MakeOverworldUnitFromUnit(unit, summonCity.X, summonCity.Y, summonCity.Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
+    player.DidSummonUnit(overworldUnit)
+    newUnit := player.AddUnit(overworldUnit)
+    model.ResolveStackAt(summonCity.X, summonCity.Y, summonCity.Plane)
+
+    if player.SelectedStack == nil {
+        player.SelectedStack = player.FindStack(newUnit.GetX(), newUnit.GetY(), newUnit.GetPlane())
+    }
+
+    return true
 }
