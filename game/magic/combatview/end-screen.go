@@ -1,4 +1,4 @@
-package combat
+package combatview
 
 import (
     "image"
@@ -14,6 +14,7 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
 
     "github.com/hajimehoshi/ebiten/v2"
+
 )
 
 type CombatEndScreenState int

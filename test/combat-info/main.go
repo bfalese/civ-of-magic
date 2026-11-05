@@ -6,6 +6,8 @@ import (
     "os"
     // "image/color"
 
+    "github.com/bfalese/civ-of-magic/game/magic/combatview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/combat"
@@ -89,7 +91,7 @@ func NewEngine(scenario int) (*Engine, error) {
     }
 
     ui.SetElementsFromArray(nil)
-    ui.AddGroup(combat.MakeUnitView(cache, ui, unit))
+    ui.AddGroup(combatview.MakeUnitView(cache, ui, unit))
 
     return &Engine{
         LbxCache: cache,

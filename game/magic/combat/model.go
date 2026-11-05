@@ -93,7 +93,7 @@ func (team Team) String() string {
     return "Unknown"
 }
 
-func oppositeTeam(a Team) Team {
+func OppositeTeam(a Team) Team {
     if a == TeamAttacker {
         return TeamDefender
     }
@@ -137,7 +137,7 @@ type TileTop struct {
 }
 
 // cost to move one tile in one of the 8 directions
-func pathCost(from image.Point, to image.Point) fraction.Fraction {
+func PathCost(from image.Point, to image.Point) fraction.Fraction {
     xDiff := int(math.Abs(float64(from.X - to.X)))
     yDiff := int(math.Abs(float64(from.Y - to.Y)))
 
@@ -357,11 +357,11 @@ func makeTiles(width int, height int, landscape CombatLandscape, plane data.Plan
         }
 
         if zone.City.HasWallOfFire() {
-            createWallOfFire(tiles, TownCenterX, TownCenterY, 4, 0)
+            CreateWallOfFire(tiles, TownCenterX, TownCenterY, 4, 0)
         }
 
         if zone.City.HasWallOfDarkness() {
-            createWallOfDarkness(tiles, TownCenterX, TownCenterY, 4, 0)
+            CreateWallOfDarkness(tiles, TownCenterX, TownCenterY, 4, 0)
         }
 
         if zone.City.HasWall() {
@@ -462,7 +462,7 @@ func createWallArea(centerX int, centerY int, sideLength int, set func(int, int,
 }
 
 // update the Fire set on the tiles centered around x/y with a length of sideLength
-func createWallOfFire(tiles [][]Tile, centerX int, centerY int, sideLength int, activateCounter uint64) {
+func CreateWallOfFire(tiles [][]Tile, centerX int, centerY int, sideLength int, activateCounter uint64) {
     set := func(x int, y int, direction CardinalDirection) {
         tile := &tiles[y][x]
         if tile.Fire == nil {
@@ -517,7 +517,7 @@ func createCityWall(tiles [][]Tile, centerX int, centerY int, sideLength int) {
     tiles[maxY][centerX-1].Wall.Insert(WallKindGate)
 }
 
-func createWallOfDarkness(tiles [][]Tile, centerX int, centerY int, sideLength int, activateCounter uint64) {
+func CreateWallOfDarkness(tiles [][]Tile, centerX int, centerY int, sideLength int, activateCounter uint64) {
     set := func(x int, y int, direction CardinalDirection) {
         tile := &tiles[y][x]
         if tile.Darkness == nil {
@@ -969,7 +969,7 @@ func (unit *ArmyUnit) GetAbilityValue(ability data.AbilityType) float32 {
                 }
             }
 
-            if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, oppositeTeam(unit.Team)) {
+            if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, OppositeTeam(unit.Team)) {
                 modifier -= 1
             }
 
@@ -1046,7 +1046,7 @@ func (unit *ArmyUnit) GetAbilityValue(ability data.AbilityType) float32 {
         if value > 0 {
             modifier := float32(0)
 
-            if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, oppositeTeam(unit.Team)) {
+            if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, OppositeTeam(unit.Team)) {
                 modifier -= 1
             }
 
@@ -1097,7 +1097,7 @@ func (unit *ArmyUnit) GetToHitMelee(defender *ArmyUnit) int {
     }
 
     // FIXME: blur doesn't affect to hit, instead it directly reduces damage points
-    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlur, oppositeTeam(unit.Team)) {
+    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlur, OppositeTeam(unit.Team)) {
         modifier -= 10
     }
 
@@ -1192,7 +1192,7 @@ func (unit *ArmyUnit) GetResistance() int {
 
     hasRighteousness := unit.HasEnchantment(data.UnitEnchantmentRighteousness)
 
-    if !hasRighteousness && unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, oppositeTeam(unit.Team)) {
+    if !hasRighteousness && unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, OppositeTeam(unit.Team)) {
         modifier -= 2
     }
 
@@ -1284,7 +1284,7 @@ func (unit *ArmyUnit) GetDefense() int {
         modifier += 2
     }
 
-    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, oppositeTeam(unit.Team)) {
+    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, OppositeTeam(unit.Team)) {
         modifier -= 1
     }
 
@@ -1424,7 +1424,7 @@ func (unit *ArmyUnit) GetMeleeAttackPower() int {
         }
     }
 
-    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, oppositeTeam(unit.Team)) {
+    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentBlackPrayer, OppositeTeam(unit.Team)) {
         modifier -= 1
     }
 
@@ -1517,7 +1517,7 @@ func (unit *ArmyUnit) CanFollowPath(path pathfinding.Path, infiniteMovement bool
     for i := 1; i < len(path); i++ {
         if !infiniteMovement {
             if movesLeft.GreaterThan(fraction.FromInt(0)) {
-                movesLeft = movesLeft.Subtract(pathCost(path[i-1], path[i]))
+                movesLeft = movesLeft.Subtract(PathCost(path[i-1], path[i]))
             } else {
                 return false
             }
@@ -1597,7 +1597,7 @@ func (unit *ArmyUnit) GetMovementSpeed() fraction.Fraction {
 
     base = unit.Unit.MovementSpeedEnchantmentBonus(base, unit.Enchantments)
 
-    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentEntangle, oppositeTeam(unit.Team)) {
+    if unit.Model.IsEnchantmentActive(data.CombatEnchantmentEntangle, OppositeTeam(unit.Team)) {
         unaffected := unit.IsFlying() || unit.HasAbility(data.AbilityNonCorporeal)
 
         if !unaffected {
@@ -2589,14 +2589,14 @@ func (model *CombatModel) Initialize(allSpells spellbook.Spells, overworldX int,
     */
 }
 
-func (model *CombatModel) withinMeleeRange(attacker *ArmyUnit, defender *ArmyUnit) bool {
+func (model *CombatModel) WithinMeleeRange(attacker *ArmyUnit, defender *ArmyUnit) bool {
     xDiff := math.Abs(float64(attacker.X - defender.X))
     yDiff := math.Abs(float64(attacker.Y - defender.Y))
 
     return xDiff <= 1 && yDiff <= 1
 }
 
-func (model *CombatModel) withinArrowRange(attacker *ArmyUnit, defender *ArmyUnit) bool {
+func (model *CombatModel) WithinArrowRange(attacker *ArmyUnit, defender *ArmyUnit) bool {
     /*
     xDiff := math.Abs(float64(attacker.X - defender.X))
     yDiff := math.Abs(float64(attacker.Y - defender.Y))
@@ -3358,7 +3358,7 @@ func (model *CombatModel) NextUnit() {
         if nextChoice == nil {
             model.FinishTurn(model.Turn)
             // if there are no available units then the team must be out of moves, so try the next team
-            model.Turn = oppositeTeam(model.Turn)
+            model.Turn = OppositeTeam(model.Turn)
             nextChoice = model.ChooseNextUnit(model.Turn)
 
             if nextChoice == nil {
@@ -3913,7 +3913,7 @@ func (model *CombatModel) ApplyWallOfFireDamage(defender *ArmyUnit) int {
     return hurt
 }
 
-func (model *CombatModel) canRangeAttack(attacker *ArmyUnit, defender *ArmyUnit) bool {
+func (model *CombatModel) CanRangeAttack(attacker *ArmyUnit, defender *ArmyUnit) bool {
     if attacker == defender {
         return false
     }
@@ -3962,7 +3962,7 @@ func (model *CombatModel) canRangeAttack(attacker *ArmyUnit, defender *ArmyUnit)
     return true
 }
 
-func (model *CombatModel) canMeleeAttack(attacker *ArmyUnit, defender *ArmyUnit, considerWall bool) bool {
+func (model *CombatModel) CanMeleeAttack(attacker *ArmyUnit, defender *ArmyUnit, considerWall bool) bool {
     if attacker == defender {
         return false
     }
@@ -4088,7 +4088,7 @@ func (model *CombatModel) canMeleeAttack(attacker *ArmyUnit, defender *ArmyUnit,
     return true
 }
 
-func (model *CombatModel) meleeAttackWall(attacker *ArmyUnit, x int, y int) {
+func (model *CombatModel) MeleeAttackWall(attacker *ArmyUnit, x int, y int) {
     pointsUsed := attacker.GetMovementSpeed().Divide(fraction.FromInt(2))
     if pointsUsed.LessThan(fraction.FromInt(1)) {
         pointsUsed = fraction.FromInt(1)
@@ -4111,7 +4111,7 @@ func (model *CombatModel) meleeAttackWall(attacker *ArmyUnit, x int, y int) {
 /* attacker is performing a physical melee attack against defender
  * returns total damage done by attacker and total damage done by defender
  */
-func (model *CombatModel) meleeAttack(attacker *ArmyUnit, defender *ArmyUnit) (int, int){
+func (model *CombatModel) MeleeAttack(attacker *ArmyUnit, defender *ArmyUnit) (int, int){
     // attacking takes 50% of movement points
     // FIXME: in some cases an extra 0.5 movements points is lost, possibly due to counter attacks?
     pointsUsed := attacker.GetMovementSpeed().Divide(fraction.FromInt(2))
@@ -4410,7 +4410,7 @@ func (model *CombatModel) meleeAttack(attacker *ArmyUnit, defender *ArmyUnit) (i
 
     defender.Attacked += 1
 
-    model.meleeAttackWall(attacker, defender.X, defender.Y)
+    model.MeleeAttackWall(attacker, defender.X, defender.Y)
 
     return totalAttackerDamage, totalDefenderDamage
 }
@@ -5167,7 +5167,7 @@ func (model *CombatModel) doUnitTargetSpell(spellSystem SpellSystem, target *Arm
     }
 }
 
-func (model *CombatModel) doUnitCast(caster *ArmyUnit, spell spellbook.Spell) {
+func (model *CombatModel) DoUnitCast(caster *ArmyUnit, spell spellbook.Spell) {
     charge, hasCharge := caster.SpellCharges[spell]
     if hasCharge && charge > 0 {
         caster.SpellCharges[spell] -= 1
@@ -6782,11 +6782,11 @@ func (model *CombatModel) Update(spellSystem SpellSystem, actions CombatActionsI
 
            if defender != nil {
                // try a ranged attack first
-               if model.withinArrowRange(attacker, defender) && model.canRangeAttack(attacker, defender) {
+               if model.WithinArrowRange(attacker, defender) && model.CanRangeAttack(attacker, defender) {
                    model.RemoteRangeAttack(attacker, defender)
                    actions.RangeAttack(attacker, defender)
                // then fall back to melee
-               } else if model.withinMeleeRange(attacker, defender) && model.canMeleeAttack(attacker, defender, true){
+               } else if model.WithinMeleeRange(attacker, defender) && model.CanMeleeAttack(attacker, defender, true){
                    model.RemoteMeleeAttack(attacker, defender)
                    actions.MeleeAttack(attacker, defender)
                    attacker.Paths = make(map[image.Point]pathfinding.Path)
@@ -6794,7 +6794,7 @@ func (model *CombatModel) Update(spellSystem SpellSystem, actions CombatActionsI
            } else if attacker.GetRangedAttacks() > 0 && attacker.CanDestroyWallsRangedAttack() && model.ContainsWall(actionTileX, actionTileY) {
                model.RemoteRangeAttackWall(attacker, actionTileX, actionTileY)
                actions.RangeAttack(attacker, &WallTarget{X: actionTileX, Y: actionTileY})
-           } else if attacker.GetMeleeAttackPower() > 0 && attacker.HasAbility(data.AbilityWallCrusher) && model.ContainsWall(actionTileX, actionTileY) && computeTileDistance(attacker.X, attacker.Y, actionTileX, actionTileY) == 1 {
+           } else if attacker.GetMeleeAttackPower() > 0 && attacker.HasAbility(data.AbilityWallCrusher) && model.ContainsWall(actionTileX, actionTileY) && ComputeTileDistance(attacker.X, attacker.Y, actionTileX, actionTileY) == 1 {
                model.RemoteMeleeAttackWall(attacker, actionTileX, actionTileY)
                actions.MeleeAttackWall(attacker, actionTileX, actionTileY)
            }
@@ -6854,7 +6854,7 @@ func (model *CombatModel) HandleRemoteEvent(spellSystem optional.Optional[SpellS
                 spell := model.AllSpells.FindByName(event.Spell)
                 if spell.Valid() {
                     spell.OverrideCost = event.OverrideCost
-                    model.doUnitCast(unit, spell)
+                    model.DoUnitCast(unit, spell)
                 }
             }
 
@@ -8612,7 +8612,7 @@ func (model *CombatModel) MoveUnit(mover *ArmyUnit, targetX int, targetY int) bo
     // tile where the unit came from is now empty
     model.setTileUnit(mover.X, mover.Y, nil)
 
-    mover.MovesLeft = mover.MovesLeft.Subtract(pathCost(image.Pt(mover.X, mover.Y), image.Pt(targetX, targetY)))
+    mover.MovesLeft = mover.MovesLeft.Subtract(PathCost(image.Pt(mover.X, mover.Y), image.Pt(targetX, targetY)))
     if mover.MovesLeft.LessThan(fraction.FromInt(0)) {
         mover.MovesLeft = fraction.FromInt(0)
     }
@@ -8737,7 +8737,7 @@ func (model *CombatModel) CreateRangeAttackEffect(attacker *ArmyUnit, damageIndi
             return
         }
 
-        tileDistance := computeTileDistance(attacker.X, attacker.Y, defender.X, defender.Y)
+        tileDistance := ComputeTileDistance(attacker.X, attacker.Y, defender.X, defender.Y)
 
         damage := attacker.ComputeRangeDamage(defender, tileDistance)
 
@@ -8822,7 +8822,7 @@ type RangeTarget interface {
     GetY() int
 }
 
-func (model *CombatModel) rangeAttack(attacker *ArmyUnit, defender RangeTarget, actions RangeAttackActions) {
+func (model *CombatModel) RangeAttack(attacker *ArmyUnit, defender RangeTarget, actions RangeAttackActions) {
     attacker.MovesLeft = attacker.MovesLeft.Subtract(fraction.FromInt(10))
     if attacker.MovesLeft.LessThan(fraction.FromInt(0)) {
         attacker.MovesLeft = fraction.FromInt(0)
@@ -8844,7 +8844,7 @@ func (model *CombatModel) rangeAttack(attacker *ArmyUnit, defender RangeTarget, 
     }
 }
 
-func computeTileDistance(x1 int, y1 int, x2 int, y2 int) int {
+func ComputeTileDistance(x1 int, y1 int, x2 int, y2 int) int {
     distance := 0
 
     for x1 != x2 || y1 != y2 {

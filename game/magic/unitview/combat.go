@@ -1,113 +1,15 @@
 package unitview
 
 import (
-    "image"
-    "math"
 
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/colorm"
 )
-
-// hard coding the points is what the real master of magic does
-// see Unit_Figure_Position() in UnitView.C
-// https://github.com/jbalcomb/ReMoM/blob/8642bb8c46433cc31c058759b28f297947b3b501/src/UnitView.C#L2685
-func CombatPoints(count int) []image.Point {
-    switch count {
-        case 0: return nil
-        case 1: return []image.Point{image.Pt(0, 0)}
-        case 2:
-            // FIXME: this was just copied from case 8
-            return []image.Point{
-                image.Pt(2, -4),
-                image.Pt(6, -2),
-            }
-        case 3:
-            // FIXME: this was just copied from case 8
-            return []image.Point{
-                image.Pt(2, -4),
-                image.Pt(6, -2),
-                image.Pt(-1, 0),
-            }
-        case 4:
-            // FIXME: this was just copied from case 8
-            return []image.Point{
-                image.Pt(1, -4),
-                image.Pt(7, -2),
-                image.Pt(-1, 3),
-                image.Pt(-8, 0),
-            }
-        case 5:
-            // FIXME: this was just copied from case 8
-            return []image.Point{
-                image.Pt(2, -4),
-                image.Pt(6, -2),
-                image.Pt(-1, 0),
-                image.Pt(-8, 0),
-                image.Pt(10, 0),
-            }
-        case 6:
-            // FIXME: this was just copied from case 8
-            return []image.Point{
-                image.Pt(2, -4),
-                image.Pt(6, -2),
-                image.Pt(-1, 0),
-                image.Pt(-8, 0),
-                image.Pt(10, 0),
-                image.Pt(3, 4),
-            }
-        case 7:
-            // FIXME: this was just copied from case 8
-            return []image.Point{
-                image.Pt(2, -4),
-                image.Pt(6, -2),
-                image.Pt(-1, 0),
-                image.Pt(-8, 0),
-                image.Pt(10, 0),
-                image.Pt(3, 1),
-                image.Pt(-4, 3),
-            }
-        case 8:
-            // fairly accurate
-            return []image.Point{
-                image.Pt(2, -4),
-                image.Pt(6, -2),
-                image.Pt(-1, 0),
-                image.Pt(-8, 0),
-                image.Pt(10, 0),
-                image.Pt(3, 1),
-                image.Pt(-4, 3),
-                image.Pt(1, 5),
-            }
-    }
-
-    rows := math.Round(math.Sqrt(float64(count)))
-    columns := math.Round(float64(count) / rows)
-
-    var points []image.Point
-    total := 0
-
-    startRow := -int(rows) * 4 / 2
-    rowGap := 4
-    startColumn := -int(columns) * 4 / 2
-    columnGap := 4
-
-    for row := range int(rows) {
-        for column := range int(columns) {
-            if total >= count {
-                break
-            }
-
-            points = append(points, image.Pt(startColumn + column * columnGap, startRow + row * rowGap))
-            total += 1
-        }
-    }
-
-    return points
-}
 
 // draws the unit semi-transparently in a solid greyish color
 func RenderCombatSemiInvisible(screen *ebiten.Image, use *ebiten.Image, options ebiten.DrawImageOptions, count int, lostCount int, lostColor *colorm.ColorM, timeCounter uint64, imageCache *util.ImageCache) {
@@ -124,7 +26,7 @@ func RenderCombatSemiInvisible(screen *ebiten.Image, use *ebiten.Image, options 
 
     var dyingOptions colorm.DrawImageOptions
 
-    for i, point := range CombatPoints(count + lostCount) {
+    for i, point := range units.CombatPoints(count + lostCount) {
         greyOptions.GeoM.Reset()
         greyOptions.GeoM.Translate(float64(point.X), float64(point.Y))
         greyOptions.GeoM.Translate(-float64(use.Bounds().Dx() / 2), -float64(use.Bounds().Dy()) + groundHeight)
@@ -155,7 +57,7 @@ func RenderCombatUnitGrey(screen *ebiten.Image, use *ebiten.Image, options ebite
 
     geoM := options.GeoM
 
-    for i, point := range CombatPoints(count + lostCount) {
+    for i, point := range units.CombatPoints(count + lostCount) {
         greyOptions.GeoM.Reset()
         greyOptions.GeoM.Translate(float64(point.X), float64(point.Y))
         greyOptions.GeoM.Translate(-float64(use.Bounds().Dx() / 2), -float64(use.Bounds().Dy()) + groundHeight)
@@ -185,7 +87,7 @@ func RenderCombatUnit(screen *ebiten.Image, use *ebiten.Image, options ebiten.Dr
     var dyingOptions colorm.DrawImageOptions
 
     geoM := options.GeoM
-    for i, point := range CombatPoints(totalCount) {
+    for i, point := range units.CombatPoints(totalCount) {
         options.GeoM.Reset()
         options.GeoM.Translate(float64(point.X), float64(point.Y))
         options.GeoM.Translate(-float64(use.Bounds().Dx() / 2), -float64(use.Bounds().Dy()) + groundHeight)

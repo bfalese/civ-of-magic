@@ -5,7 +5,7 @@ import (
 
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     "github.com/bfalese/civ-of-magic/core/spellbook"
-    "github.com/bfalese/civ-of-magic/game/magic/unitview"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/log"
     "github.com/bfalese/civ-of-magic/lib/optional"
@@ -489,28 +489,28 @@ func (actions *ProxyActions) CreateRangeAttack(attacker *ArmyUnit, defender Rang
     switch target := defender.(type) {
         case *ArmyUnit:
             effect := actions.Model.CreateRangeAttackEffect(attacker, &FakeDamageIndicators{})
-            for range unitview.CombatPoints(attacker.Figures()) {
+            for range units.CombatPoints(attacker.Figures()) {
                 effect(target)
             }
 
         case *WallTarget:
             effect := actions.Model.CreateRangeAttackWallEffect(attacker, target.X, target.Y)
-            for range unitview.CombatPoints(attacker.Figures()) {
+            for range units.CombatPoints(attacker.Figures()) {
                 effect(nil)
             }
     }
 }
 
 func (actions *ProxyActions) RangeAttack(attacker *ArmyUnit, defender RangeTarget) {
-    actions.Model.rangeAttack(attacker, defender, actions)
+    actions.Model.RangeAttack(attacker, defender, actions)
 }
 
 func (actions *ProxyActions) MeleeAttack(attacker *ArmyUnit, defender *ArmyUnit) {
-    actions.Model.meleeAttack(attacker, defender)
+    actions.Model.MeleeAttack(attacker, defender)
 }
 
 func (actions *ProxyActions) MeleeAttackWall(attacker *ArmyUnit, x int, y int) {
-    actions.Model.meleeAttackWall(attacker, x, y)
+    actions.Model.MeleeAttackWall(attacker, x, y)
 }
 
 func (actions *ProxyActions) MoveMagicVortex(vortex *MagicVortex, path pathfinding.Path) {

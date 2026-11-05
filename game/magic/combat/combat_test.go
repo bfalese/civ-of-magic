@@ -7,7 +7,6 @@ import (
     "context"
     "time"
     "testing"
-    "math"
     "slices"
     "image"
 
@@ -24,50 +23,6 @@ import (
     "github.com/bfalese/civ-of-magic/lib/set"
     netlib "github.com/bfalese/civ-of-magic/lib/net"
 )
-
-func TestAngle(test *testing.T){
-
-    if !betweenAngle(0, 0, math.Pi/8){
-        test.Errorf("Error check 0 in 0 spread pi/4")
-    }
-
-    if !betweenAngle(math.Pi/2, math.Pi/4, math.Pi/2){
-        test.Errorf("Error check pi/2 in pi/4 spread pi/2")
-    }
-
-    if !betweenAngle(-math.Pi, math.Pi, math.Pi/8){
-        test.Errorf("Error check -pi in pi spread pi/8")
-    }
-
-    if betweenAngle(math.Pi, 0, math.Pi/8){
-        test.Errorf("Error check pi not in 0 spread pi/4")
-    }
-
-    if betweenAngle(0, math.Pi, math.Pi/3){
-        test.Errorf("Error check 0 not in pi spread pi/3")
-    }
-
-}
-
-func tmp(f units.Facing){
-    _ = f
-}
-
-func BenchmarkAngle(bench *testing.B){
-    var final units.Facing
-    for range bench.N {
-        // for angle := range 360 {
-        angle := 32
-            radians := float64(angle) * math.Pi / 180
-            facing := computeFacing(radians)
-            if facing == units.FacingDown {
-                final = facing
-            }
-        // }
-    }
-
-    tmp(final)
-}
 
 func TestUnitHealth(test *testing.T) {
     unit := units.MakeOverworldUnitFromUnit(units.LizardSpearmen, 0, 0, data.PlaneArcanus, data.BannerRed, &units.NoExperienceInfo{}, &units.NoEnchantments{})
@@ -228,7 +183,7 @@ func TestBasicMelee(test *testing.T){
     combat.Observer.AddObserver(observer)
 
     // even if both units kill each other, they both get to attack
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if !attackerMelee || !defenderMelee {
         test.Errorf("Error: attacker and defender should have both attacked")
@@ -320,7 +275,7 @@ func TestAttackerHaste(test *testing.T){
     combat.Observer.AddObserver(observer)
 
     // attacker should get to attack twice
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if attackerMelee != 2 {
         test.Errorf("Error: attacker should have attacked twice")
@@ -377,7 +332,7 @@ func TestFirstStrike(test *testing.T){
     combat.Observer.AddObserver(observer)
 
     // attacker should get to attack first
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if attackerMelee != 1 {
         test.Errorf("Error: attacker should have attacked once")
@@ -436,7 +391,7 @@ func TestFirstStrikeNegate(test *testing.T){
     }
     combat.Observer.AddObserver(observer)
 
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if attackerMelee != 1 {
         test.Errorf("Error: attacker should have attacked once")
@@ -499,7 +454,7 @@ func TestThrowAttack(test *testing.T){
     }
     combat.Observer.AddObserver(observer)
 
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if attackerThrow != 1 {
         test.Errorf("Error: attacker should have thrown once")
@@ -576,7 +531,7 @@ func TestThrownTouchAttack(test *testing.T){
     }
     combat.Observer.AddObserver(observer)
 
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if attackerThrow != 1 {
         test.Errorf("Error: attacker should have thrown once")
@@ -651,7 +606,7 @@ func TestFear(test *testing.T){
     }
     combat.Observer.AddObserver(observer)
 
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if attackerMelee != 1 {
         test.Errorf("Error: attacker should have attacked once")
@@ -695,8 +650,8 @@ func TestCounterAttackPenalty(test *testing.T){
     }
 
     // attack twice
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
-    combat.meleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
+    combat.MeleeAttack(attackingArmy.units[0], defendingArmy.units[0])
 
     if defendingArmy.units[0].GetCounterAttackToHit(attackingArmy.GetUnits()[0]) != 20 {
         test.Errorf("Error: defender should have 20%% counter attack to-hit")
@@ -1389,7 +1344,7 @@ func TestCombatOffMapTileAccessDoesNotPanic(test *testing.T) {
     attacker.MovesLeft = fraction.FromInt(2)
 
     model.ComputeWallDefense(attacker, defender)
-    model.canMeleeAttack(attacker, defender, true)
+    model.CanMeleeAttack(attacker, defender, true)
     model.DestroyWall(30, 15)
     model.MoveUnit(attacker, 30, 15)
     attacker.X = 30
@@ -2536,7 +2491,7 @@ func TestAIUnitDeathDoesNotFinishNextUnitsTurn(test *testing.T) {
             initialTurn := model.CurrentTurn
             nextLastTurn, nextMoves := next.LastTurn, next.MovesLeft
             enemyLastTurn := enemy.LastTurn
-            if !model.IsAIControlled(aiUnit) || !model.canMeleeAttack(aiUnit, enemy, true) {
+            if !model.IsAIControlled(aiUnit) || !model.CanMeleeAttack(aiUnit, enemy, true) {
                 test.Fatal("Expected a locally controlled AI unit able to melee the adjacent enemy")
             }
 
@@ -2737,7 +2692,7 @@ func TestRemoteTurnEnchantments(test *testing.T) {
                     initialHealth := source.GetUnitById(ids[0]).GetHealth()
                     for _, model := range []*CombatModel{attackerModel, defenderModel} {
                         affected := model.GetArmyForTeam(affectedTeam)
-                        caster := model.GetArmyForTeam(oppositeTeam(affectedTeam))
+                        caster := model.GetArmyForTeam(OppositeTeam(affectedTeam))
                         caster.AddEnchantment(scenario.enchantment)
                         affected.ManaPool = scenario.mana
                         affected.Player.(*playerlib.Player).Mana = scenario.mana
@@ -2854,7 +2809,7 @@ func TestRemoteTurnEnchantments(test *testing.T) {
                                     test.Errorf("Round %d, unit %d: casting skill = %v, want %v", round, id, unit.CastingSkill, expectedSkill)
                                 }
                             }
-                            caster := model.GetArmyForTeam(oppositeTeam(affectedTeam))
+                            caster := model.GetArmyForTeam(OppositeTeam(affectedTeam))
                             if caster.ManaPool != 37 || caster.Player.GetMana() != 37 {
                                 test.Error("Enchantment drained its own army's mana")
                             }
@@ -3183,7 +3138,7 @@ func (actions *remoteMeleeTestActions) MeleeAttack(attacker, defender *ArmyUnit)
 	actions.test.Helper()
 	model := actions.Model
 	if !model.IsRemoteUnit(attacker) {
-		model.meleeAttack(attacker, defender)
+		model.MeleeAttack(attacker, defender)
 		if err := model.RemoteFinishMeleeAttack(); err != nil {
 			actions.test.Fatal(err)
 		}
@@ -3264,7 +3219,7 @@ func TestRemoteDefenderMeleeMutualDeathSelectsNextUnit(test *testing.T) {
 	clientNext := client.DefendingArmy.units[1]
 	serverNext := server.DefendingArmy.units[1]
 	initialTurn := client.CurrentTurn
-	if !client.canMeleeAttack(clientMover, clientTarget, true) || clientMover.GetMovementSpeed().LessThan(fraction.FromInt(2)) {
+	if !client.CanMeleeAttack(clientMover, clientTarget, true) || clientMover.GetMovementSpeed().LessThan(fraction.FromInt(2)) {
 		test.Fatal("Expected defender to be able to melee twice in one turn")
 	}
 

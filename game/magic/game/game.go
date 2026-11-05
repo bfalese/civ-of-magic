@@ -18,6 +18,8 @@ import (
     "bufio"
     "compress/gzip"
 
+    "github.com/bfalese/civ-of-magic/game/magic/combatview"
+
     "github.com/bfalese/civ-of-magic/game/magic/mapview"
 
     "github.com/bfalese/civ-of-magic/game/magic/scale"
@@ -5030,7 +5032,7 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
             controllingPlayer = optional.Empty[combat.ArmyPlayer]()
         }
 
-        combatScreen := combat.MakeCombatScreen(game.Cache, defendingArmy, attackingArmy, controllingPlayer, landscape, attackerStack.Plane(), zone, combatModel)
+        combatScreen := combatview.MakeCombatScreen(game.Cache, defendingArmy, attackingArmy, controllingPlayer, landscape, attackerStack.Plane(), zone, combatModel)
 
         game.PushDrawer(func (screen *ebiten.Image){
             combatScreen.Draw(screen)
@@ -5048,7 +5050,7 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
         }
 
         game.Music.PopSong()
-        combatScreen.MouseState = combat.CombatClickHud
+        combatScreen.MouseState = combatview.CombatClickHud
     } else {
         // do non-graphical combat (ai vs ai)
         state = combat.Run(combatModel)
@@ -5179,7 +5181,7 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
 
     // Show end screen
     if useHuman {
-        result := combat.CombatEndScreenResultLose
+        result := combatview.CombatEndScreenResultLose
         humanAttacker := attacker.IsHuman()
         fame := defenderFame
 
@@ -5190,14 +5192,14 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
         switch {
             case state == combat.CombatStateAttackerWin && humanAttacker,
                  state == combat.CombatStateDefenderWin && !humanAttacker:
-                result = combat.CombatEndScreenResultWin
+                result = combatview.CombatEndScreenResultWin
             case state == combat.CombatStateAttackerFlee && humanAttacker,
                  state == combat.CombatStateDefenderFlee && !humanAttacker:
-                result = combat.CombatEndScreenResultRetreat
+                result = combatview.CombatEndScreenResultRetreat
         }
 
         // FIXME: show how much gold was plundered (or lost)
-        endScreen := combat.MakeCombatEndScreen(game.Cache, result, combatModel.DiedWhileFleeing, fame, cityPopulationLoss, len(cityBuildingLoss))
+        endScreen := combatview.MakeCombatEndScreen(game.Cache, result, combatModel.DiedWhileFleeing, fame, cityPopulationLoss, len(cityBuildingLoss))
 
         lastDrawer := game.LastDrawer()
         game.PushDrawer(func (screen *ebiten.Image){
@@ -5205,8 +5207,8 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
             endScreen.Draw(screen)
         })
 
-        state2 := combat.CombatEndScreenRunning
-        for state2 == combat.CombatEndScreenRunning {
+        state2 := combatview.CombatEndScreenRunning
+        for state2 == combatview.CombatEndScreenRunning {
             state2 = endScreen.Update()
             yield()
         }
