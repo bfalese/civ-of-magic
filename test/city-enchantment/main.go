@@ -4,6 +4,8 @@ import (
     "log"
     "context"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/fraction"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
@@ -77,14 +79,14 @@ func NewEngine() (*Engine, error) {
 }
 
 func (engine *Engine) MakeUI() (*uilib.UI, context.Context, error) {
-    buildingInfo, _ := buildinglib.ReadBuildingInfo(engine.Cache)
+    buildingInfo, _ := lbxdata.ReadBuildingInfo(engine.Cache)
 
     terrainLbx, err := engine.Cache.GetLbxFile("terrain.lbx")
     if err != nil {
         return nil, context.Background(), err
     }
 
-    terrainData, err := terrain.ReadTerrainData(terrainLbx)
+    terrainData, err := lbxdata.ReadTerrainData(terrainLbx)
     if err != nil {
         return nil, context.Background(), err
     }

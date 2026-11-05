@@ -18,6 +18,8 @@ import (
     "bufio"
     "compress/gzip"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/keybinds"
@@ -540,7 +542,7 @@ func MakeGame(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *setti
         return nil
     }
 
-    terrainData, err := terrain.ReadTerrainData(terrainLbx)
+    terrainData, err := lbxdata.ReadTerrainData(terrainLbx)
     if err != nil {
         log.Printf("Error: could not load terrain: %v", err)
         return nil
@@ -554,7 +556,7 @@ func MakeGame(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *setti
 
     heroNames := herolib.ReadNamesPerWizard(lbxCache)
 
-    buildingInfo, err := buildinglib.ReadBuildingInfo(lbxCache)
+    buildingInfo, err := lbxdata.ReadBuildingInfo(lbxCache)
     if err != nil {
         log.Printf("Unable to read building info: %v", err)
         return nil
@@ -572,7 +574,7 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
 
     heroNames := herolib.ReadNamesPerWizard(lbxCache)
 
-    buildingInfo, err := buildinglib.ReadBuildingInfo(lbxCache)
+    buildingInfo, err := lbxdata.ReadBuildingInfo(lbxCache)
     if err != nil {
         log.Printf("Unable to read building info: %v", err)
         return nil
@@ -590,7 +592,7 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
         return nil
     }
 
-    terrainData, err := terrain.ReadTerrainData(terrainLbx)
+    terrainData, err := lbxdata.ReadTerrainData(terrainLbx)
     if err != nil {
         log.Printf("Error: could not load terrain: %v", err)
         return nil

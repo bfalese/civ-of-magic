@@ -5,6 +5,8 @@ import (
     "math/rand/v2"
     // "image/color"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -97,14 +99,14 @@ func NewEngine() (*Engine, error) {
 
     player.Gold = 500
 
-    buildingInfo, _ := buildinglib.ReadBuildingInfo(cache)
+    buildingInfo, _ := lbxdata.ReadBuildingInfo(cache)
 
     terrainLbx, err := cache.GetLbxFile("terrain.lbx")
     if err != nil {
         return nil, err
     }
 
-    terrainData, err := terrain.ReadTerrainData(terrainLbx)
+    terrainData, err := lbxdata.ReadTerrainData(terrainLbx)
     if err != nil {
         return nil, err
     }

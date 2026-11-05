@@ -5,6 +5,8 @@ import (
     "image"
     "image/color"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/util/common"
     "github.com/bfalese/civ-of-magic/game/magic/terrain"
@@ -262,7 +264,7 @@ func display(lbxData lbx.LbxFile) error {
         return err
     }
     */
-    data, err := terrain.ReadTerrainData(&lbxData)
+    data, err := lbxdata.ReadTerrainData(&lbxData)
     if err != nil {
         return err
     }

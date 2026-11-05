@@ -9,6 +9,8 @@ import (
     "image"
     "image/color"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/util/common"
     "github.com/bfalese/civ-of-magic/game/magic/terrain"
@@ -362,7 +364,7 @@ func MakeEditor() *Editor {
         os.Exit(0)
     }
 
-    terrainData, err := terrain.ReadTerrainData(lbxFile)
+    terrainData, err := lbxdata.ReadTerrainData(lbxFile)
     if err != nil {
         fmt.Printf("Could not read terrain data: %v\n", err)
         os.Exit(0)

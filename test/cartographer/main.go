@@ -6,13 +6,14 @@ import (
     "os"
     "math/rand/v2"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/cartographer"
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
-    "github.com/bfalese/civ-of-magic/game/magic/terrain"
     "github.com/bfalese/civ-of-magic/game/magic/units"
     playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
@@ -55,7 +56,7 @@ func NewEngine(scenario int) (*Engine, error) {
         return nil, err
     }
 
-    terrainData, err := terrain.ReadTerrainData(terrainLbx)
+    terrainData, err := lbxdata.ReadTerrainData(terrainLbx)
     if err != nil {
         return nil, err
     }

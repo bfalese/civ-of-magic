@@ -13,6 +13,8 @@ import (
     "archive/zip"
     "flag"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -21,7 +23,6 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/game"
     "github.com/bfalese/civ-of-magic/game/magic/hero"
-    "github.com/bfalese/civ-of-magic/game/magic/building"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
 )
 
@@ -188,7 +189,7 @@ func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, 
         files := make(map[string]*lbx.LbxFile)
         files["builddat.lbx"] = &file
         cache := lbx.MakeCacheFromLbxFiles(files)
-        buildings, err := building.ReadBuildingInfo(cache)
+        buildings, err := lbxdata.ReadBuildingInfo(cache)
 
         if err != nil {
             return err

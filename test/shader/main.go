@@ -9,6 +9,8 @@ import (
     "os"
     "strconv"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/shaders"
@@ -145,7 +147,7 @@ func DrawScenario2(engine *Engine, screen *ebiten.Image){
         return
     }
 
-    data, err := terrain.ReadTerrainData(lbxFile)
+    data, err := lbxdata.ReadTerrainData(lbxFile)
     if err != nil {
         fmt.Printf("could not read terrain data")
         return

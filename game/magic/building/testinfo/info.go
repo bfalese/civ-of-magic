@@ -3,13 +3,14 @@ package main
 import (
     "log"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
-    "github.com/bfalese/civ-of-magic/game/magic/building"
 )
 
 func main(){
     cache := lbx.AutoCache()
-    infos, err := building.ReadBuildingInfo(cache)
+    infos, err := lbxdata.ReadBuildingInfo(cache)
     if err != nil {
         log.Printf("Error: %v", err)
     } else {
