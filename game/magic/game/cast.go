@@ -89,17 +89,11 @@ func MakeSpellSpecialUIFonts(cache *lbx.LbxCache) *SpellSpecialUIFonts {
 }
 
 // the reason a spell was fizzled due to some global enchantment
-type FizzleReason struct {
-    // the owner of the enchantment
-    Owner *playerlib.Player
-    // the enchantment that caused the spell to fizzle
-    Enchantment data.Enchantment
-}
 
 func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
     // FIXME: if the player is AI then invoke some callback that the AI will use to select targets instead of using the GameEventSelectLocationForSpell
 
-    fizzled, reason := game.checkInstantFizzleForCastSpell(player, spell)
+    fizzled, reason := game.Model.CheckInstantFizzle(player, spell)
     if fizzled {
         // Fizzle the spell and return
         game.ShowFizzleSpell(spell, player)
@@ -899,27 +893,8 @@ func (game *Game) ApplyGlobalEnchantment(enchantment data.Enchantment, player *p
             player.LiftFogAll(data.PlaneArcanus)
             player.LiftFogAll(data.PlaneMyrror)
             game.discoverWizards(nil)
-        case data.EnchantmentGreatWasting:
-            for _, player := range game.Model.Players {
-                player.UpdateUnrest()
-            }
-        case data.EnchantmentArmageddon:
-            for _, player := range game.Model.Players {
-                player.UpdateUnrest()
-            }
-        case data.EnchantmentJustCause:
-            player.UpdateUnrest()
-        case data.EnchantmentHolyArms:
-            // all units implicitly have holy weapon, so the actual enchantment is removed from all units
-            for unit := range player.Units() {
-                unit.RemoveEnchantment(data.UnitEnchantmentHolyWeapon)
-            }
-        case data.EnchantmentAuraOfMajesty:
-            for _, other := range player.GetKnownPlayers() {
-                other.AdjustDiplomaticRelation(player, 10)
-                player.AdjustDiplomaticRelation(other, 10)
-            }
-
+        default:
+            game.Model.ApplyGlobalEnchantment(enchantment, player)
     }
 }
 
@@ -1467,38 +1442,6 @@ func (game *Game) MakeSubversionUI(caster *playerlib.Player, spell spellbook.Spe
 
 // Returns true if the spell is rolled to be instantly fizzled on cast (caused by spells like Life Force)
 // also returns the reason why the fizzle occurred (due to tranquility, supress magic, etc
-func (game *Game) checkInstantFizzleForCastSpell(player *playerlib.Player, spell spellbook.Spell) (bool, FizzleReason) {
-    var dispelChances []FizzleReason
-
-    for _, checkingPlayer := range game.Model.Players {
-
-        // Tranquility effect: if it's a chaos spell, it should either resist a strength 500 dispel check or fizzle right away.
-        if spell.IsOfRealm(data.ChaosMagic) {
-            // FIXME: Not sure if multiple instances of Tranquility stack or are checked separately.
-            if checkingPlayer != player && checkingPlayer.HasEnchantment(data.EnchantmentTranquility) {
-                dispelChances = append(dispelChances, FizzleReason{Owner: checkingPlayer, Enchantment: data.EnchantmentTranquility})
-            }
-        }
-        // Life Force effect: if it's a death spell, it should either resist a strength 500 dispel check or fizzle right away.
-        if spell.IsOfRealm(data.DeathMagic) {
-            // FIXME: Not sure if multiple instances of Life Force stack or are checked separately.
-            if checkingPlayer != player && checkingPlayer.HasEnchantment(data.EnchantmentLifeForce) {
-                dispelChances = append(dispelChances, FizzleReason{Owner: checkingPlayer, Enchantment: data.EnchantmentLifeForce})
-            }
-        }
-
-        if checkingPlayer != player && checkingPlayer.HasEnchantment(data.EnchantmentSuppressMagic) {
-            dispelChances = append(dispelChances, FizzleReason{Owner: checkingPlayer, Enchantment: data.EnchantmentSuppressMagic})
-        }
-    }
-
-    for _, reason := range dispelChances {
-        if spellbook.RollDispelChance(spellbook.ComputeDispelChance(500, spell.Cost(true), spell.Magic, &player.Wizard)) {
-            return true, reason
-        }
-    }
-    return false, FizzleReason{}
-}
 
 func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spell) {
     wards := []data.CityEnchantment{
@@ -1748,16 +1691,8 @@ func (game *Game) doSelectUnit(yield coroutine.YieldFunc, player *playerlib.Play
 }
 
 func (game *Game) doSummonHero(player *playerlib.Player, champion bool) {
-    var choices []*herolib.Hero
-    for _, hero := range player.HeroPool {
-        // torin is not summonable through this method
-        if hero.Status == herolib.StatusAvailable && hero.IsChampion() == champion && hero.HeroType != herolib.HeroTorin {
-            choices = append(choices, hero)
-        }
-    }
-
-    if len(choices) > 0 {
-        hero := choices[rand.N(len(choices))]
+    hero := game.Model.ChooseSummonHero(player, champion)
+    if hero != nil {
 
         summonEvent := GameEventSummonHero{
             Player: player,
