@@ -22,7 +22,7 @@ The current work plan lives in `docs/handoff/` (latest handoff first). Read it b
 go build -o magic ./game/magic      # or: make
 go run ./game/magic                 # needs MoM LBX data for now (see README.md)
 go vet ./...
-go test ./lib/... ./game/...        # CI runs this under xvfb-run on Linux
+go test ./core/... ./lib/... ./game/...   # CI runs this under xvfb-run on Linux
 make wasm                           # GOOS=js GOARCH=wasm build
 ```
 
@@ -30,11 +30,13 @@ make wasm                           # GOOS=js GOARCH=wasm build
 - Linux deps for Ebitengine: `libasound2-dev xorg-dev` (+ `xvfb` for tests headless).
 - Module path: `github.com/bfalese/civ-of-magic`.
 
-## Layout (as inherited)
+## Layout
 
+- `core/` — rendering-free, LBX-free game logic (CI-enforced). So far: `data`, `pathfinding`, `neural`.
 - `game/magic/` — the main game. `main.go` + one package per subsystem.
-  - Already rendering-free (no Ebitengine imports): `ai`, `player`, `city`, `terrain`, `data`,
-    `hero`, `building`, `pathfinding`, `neural`.
+  - No *direct* Ebitengine imports, but not yet core-ready: `terrain`, `building`, `city`, `hero`
+    import `lib/lbx` (which pulls in Ebitengine); `ai`, `player` depend on those plus
+    `units`, `maplib`, `artifact`, `spellbook`, etc. Check with `go list -deps`, not grep.
   - `game/model.go` is rendering-free; `game/game.go` (~8.6k lines) is the main UI/state tangle.
   - `combat/` is the template for the split: `model.go` (logic) vs `combat-screen.go` (UI),
     plus rendering-free networking in `remote.go` / `observer.go`.
