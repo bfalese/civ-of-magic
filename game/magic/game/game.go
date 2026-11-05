@@ -186,7 +186,7 @@ type GameEventRunUI struct {
 type GameEventSelectLocationForSpell struct {
     Spell spellbook.Spell
     Player *playerlib.Player
-    LocationType LocationType
+    LocationType gamecore.LocationType
     SelectedFunc func (yield coroutine.YieldFunc, tileX int, tileY int)
 }
 
