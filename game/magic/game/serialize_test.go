@@ -7,6 +7,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/keybinds"
     settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
     "github.com/bfalese/civ-of-magic/core/setup"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 
     "github.com/hajimehoshi/ebiten/v2"
 )
@@ -32,9 +33,11 @@ func TestSerializedGamePreferencesRoundTrip(test *testing.T) {
     prefs.Keybindings.Set(keybinds.ActionNextTurn, ebiten.KeySpace)
 
     original := SerializedGame{
-        Settings: setup.NewGameSettings{Opponents: 3},
+        SerializedGame: gamecore.SerializedGame{
+            Settings: setup.NewGameSettings{Opponents: 3},
+            Turn: 12,
+        },
         Preferences: settingslib.SerializeSettings(prefs),
-        Turn: 12,
     }
 
     raw, err := json.Marshal(original)
@@ -60,5 +63,31 @@ func TestSerializedGamePreferencesRoundTrip(test *testing.T) {
     }
     if restored.Keybindings.Get(keybinds.ActionNextTurn) != ebiten.KeySpace {
         test.Errorf("keybindings did not round trip")
+    }
+}
+
+// the core state is embedded; the save file must stay flat (same layout as before the split)
+func TestSerializedGameJSONIsFlat(test *testing.T) {
+    original := SerializedGame{
+        SerializedGame: gamecore.SerializedGame{Turn: 7},
+        Preferences: settingslib.SerializeSettings(settingslib.MakeSettings(nil)),
+    }
+
+    raw, err := json.Marshal(original)
+    if err != nil {
+        test.Fatalf("marshal: %v", err)
+    }
+
+    var keys map[string]json.RawMessage
+    if err := json.Unmarshal(raw, &keys); err != nil {
+        test.Fatalf("unmarshal: %v", err)
+    }
+    for _, key := range []string{"metadata", "settings", "turn", "players", "preferences"} {
+        if _, ok := keys[key]; !ok {
+            test.Errorf("top-level key %q missing", key)
+        }
+    }
+    if _, ok := keys["SerializedGame"]; ok {
+        test.Errorf("core state must not be nested under SerializedGame")
     }
 }

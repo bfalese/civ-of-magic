@@ -548,7 +548,7 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
     }
 
     return MakeGameWithModel(lbxCache, music, gameSettings, func (lbxCache *lbx.LbxCache, events chan GameEvent) *gamecore.GameModel {
-        return MakeModelFromSerialized(serializedGame, events, heroNames, allSpells, createArtifactPool(lbxCache), buildingInfo, terrainData)
+        return gamecore.MakeModelFromSerialized(&serializedGame.SerializedGame, events, heroNames, allSpells, createArtifactPool(lbxCache), buildingInfo, terrainData)
     })
 }
 

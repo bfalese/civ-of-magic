@@ -1,0 +1,230 @@
+package game
+
+import (
+    "time"
+    "log"
+
+    "github.com/bfalese/civ-of-magic/core/ai"
+    "github.com/bfalese/civ-of-magic/core/maplib"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
+    "github.com/bfalese/civ-of-magic/core/data"
+    "github.com/bfalese/civ-of-magic/core/serialize"
+    "github.com/bfalese/civ-of-magic/core/setup"
+    "github.com/bfalese/civ-of-magic/core/artifact"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/core/terrain"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
+)
+
+const SerializeVersion = 1
+
+type SerializedTargetCity struct {
+    X int `json:"x"`
+    Y int `json:"y"`
+    Plane data.Plane `json:"plane"`
+    Banner data.BannerType `json:"banner"`
+}
+
+// we only really have to keep track of the non-instant events
+type SerializedRandomEvent struct {
+    Type RandomEventType `json:"type"`
+    Year uint64 `json:"year"`
+
+    TargetCity *SerializedTargetCity `json:"city,omitempty"`
+
+    // events that target players are all instant, so this will almost always be nil
+    TargetPlayer *data.BannerType `json:"player,omitempty"`
+}
+
+func serializeRandomEvents(events []*RandomEvent) []SerializedRandomEvent {
+    out := make([]SerializedRandomEvent, 0, len(events))
+    for _, event := range events {
+        serialized := SerializedRandomEvent{
+            Type: event.Type,
+            Year: event.BirthYear,
+        }
+
+        if event.TargetCity != nil {
+            serialized.TargetCity = &SerializedTargetCity{
+                X: event.TargetCity.X,
+                Y: event.TargetCity.Y,
+                Plane: event.TargetCity.Plane,
+                Banner: event.TargetCity.ReignProvider.GetBanner(),
+            }
+        }
+
+        if event.TargetPlayer != nil {
+            banner := event.TargetPlayer.GetBanner()
+            serialized.TargetPlayer = &banner
+        }
+
+        out = append(out, serialized)
+    }
+
+    return out
+}
+
+type SerializedGame struct {
+    Metadata serialize.SaveMetadata `json:"metadata"`
+    Arcanus maplib.SerializedMap `json:"arcanus"`
+    Myrror maplib.SerializedMap `json:"myrror"`
+    Plane data.Plane `json:"plane"`
+    // ArtifactPool is the old remaining-name list. New saves also write
+    // ArtifactCatalog + ArtifactAvailable; load prefers those when present.
+    ArtifactPool []string `json:"artifact-pool,omitempty"`
+    ArtifactCatalog []artifact.SerializedArtifact `json:"artifact-catalog,omitempty"`
+    ArtifactAvailable []bool `json:"artifact-available,omitempty"`
+    Settings setup.NewGameSettings `json:"settings"`
+    // a frontend may add its own fields by embedding this struct (see game/magic/game.SerializedGame)
+    CurrentPlayer int `json:"current-player"`
+    Turn uint64 `json:"turn"`
+    LastEventTurn uint64 `json:"last-event-turn"`
+    Players []playerlib.SerializedPlayer `json:"players"`
+    Events []SerializedRandomEvent `json:"events"`
+}
+
+func SerializeModel(model *GameModel, saveName string) SerializedGame {
+    var players []playerlib.SerializedPlayer
+    for _, player := range model.Players {
+        players = append(players, playerlib.SerializePlayer(player))
+    }
+
+    return SerializedGame{
+        Metadata: serialize.SaveMetadata{
+            Version: SerializeVersion,
+            Date: time.Now(),
+            Name: saveName,
+        },
+        Arcanus: maplib.SerializeMap(model.ArcanusMap),
+        Myrror: maplib.SerializeMap(model.MyrrorMap),
+        ArtifactPool: model.ArtifactPool.AvailableNames(),
+        ArtifactCatalog: model.ArtifactPool.Serialize(),
+        ArtifactAvailable: model.ArtifactPool.AvailableMask(),
+        Plane:  model.Plane,
+        Settings: model.Settings,
+        CurrentPlayer: model.CurrentPlayer,
+        Turn: model.TurnNumber,
+        LastEventTurn: model.LastEventTurn,
+        Players: players,
+        Events: serializeRandomEvents(model.RandomEvents),
+    }
+}
+
+func reconstructArtifactPool(serializedGame *SerializedGame, vanilla *artifact.Catalog, allSpells spellbook.Spells) *artifact.Catalog {
+    if len(serializedGame.ArtifactCatalog) > 0 {
+        return artifact.ReconstructCatalog(serializedGame.ArtifactCatalog, serializedGame.ArtifactAvailable, allSpells)
+    }
+
+    return vanilla.WithAvailableNames(serializedGame.ArtifactPool)
+}
+
+func reconstructRandomEvents(serializedEvents []SerializedRandomEvent, model *GameModel) []*RandomEvent {
+    var out []*RandomEvent
+
+    findTargetCity := func(serializedCity *SerializedTargetCity) *citylib.City {
+        city, _ := model.FindCity(serializedCity.X, serializedCity.Y, serializedCity.Plane)
+        if city == nil {
+            log.Printf("Warning: could not find target city at (%d, %d) on %v during event deserialization", serializedCity.X, serializedCity.Y, serializedCity.Plane)
+        }
+        return city
+    }
+
+    // implement later if needed
+    /*
+    findTargetPlayer := func(banner *data.BannerType) *playerlib.Player {
+        return nil
+    }
+    */
+
+    for _, event := range serializedEvents {
+        switch event.Type {
+            case RandomEventBadMoon: out = append(out, MakeBadMoonEvent(event.Year))
+            case RandomEventConjunctionChaos: out = append(out, MakeConjunctionChaosEvent(event.Year))
+            case RandomEventConjunctionNature: out = append(out, MakeConjunctionNatureEvent(event.Year))
+            case RandomEventConjunctionSorcery: out = append(out, MakeConjunctionSorceryEvent(event.Year))
+            case RandomEventPopulationBoom: out = append(out, MakePopulationBoomEvent(event.Year, findTargetCity(event.TargetCity)))
+            case RandomEventPlague: out = append(out, MakePlagueEvent(event.Year, findTargetCity(event.TargetCity)))
+            case RandomEventDisjunction: out = append(out, MakeDisjunctionEvent(event.Year))
+            case RandomEventGoodMoon: out = append(out, MakeGoodMoonEvent(event.Year))
+            case RandomEventManaShort: out = append(out, MakeManaShortEvent(event.Year))
+
+            case RandomEventDepletion, RandomEventDiplomaticMarriage, RandomEventRebellion,
+                RandomEventDonation, RandomEventGift, RandomEventGreatMeteor, RandomEventPiracy,
+                RandomEventEarthquake, RandomEventNewMinerals:
+                log.Printf("Warning: unhandled event %d during deserialization", event.Type)
+        }
+    }
+
+    return out
+}
+
+func MakeModelFromSerialized(
+    serializedGame *SerializedGame, events chan GameEvent,
+    heroNames map[int]map[herolib.HeroType]string,
+    allSpells spellbook.Spells,
+    artifactPool *artifact.Catalog,
+    buildingInfo buildinglib.BuildingInfos,
+    terrainData *terrain.TerrainData,
+) *GameModel {
+    model := &GameModel{
+        Plane: serializedGame.Plane,
+        ArtifactPool: reconstructArtifactPool(serializedGame, artifactPool, allSpells),
+        Settings: serializedGame.Settings,
+        HeroNames: heroNames,
+        AllSpells: allSpells,
+        CurrentPlayer: serializedGame.CurrentPlayer,
+        TurnNumber: serializedGame.Turn,
+        Events: events,
+        BuildingInfo: buildingInfo,
+        LastEventTurn: serializedGame.LastEventTurn,
+    }
+
+    var players []*playerlib.Player
+
+    var cityInitializers []func(*maplib.Map, *maplib.Map)
+    var playerInitializers []func([]*playerlib.Player)
+
+    for _, serializedPlayer := range serializedGame.Players {
+        player, initializeCities, initializePlayer := playerlib.ReconstructPlayer(&serializedPlayer, model, allSpells, buildingInfo, model)
+        cityInitializers = append(cityInitializers, initializeCities)
+        playerInitializers = append(playerInitializers, initializePlayer)
+
+        if !player.Human {
+            if player.GetBanner() == data.BannerBrown {
+                player.AIBehavior = ai.MakeRaiderAI()
+            } else {
+                // use the same active wizard AI as a freshly-started game
+                // (model.go AddPlayer) so loading a save doesn't silently drop
+                // back to the legacy EnemyAI
+                player.AIBehavior = ai.MakeEnemy2AI()
+            }
+            player.StrategicCombat = true
+        }
+
+        players = append(players, player)
+    }
+
+    for _, initializer := range playerInitializers {
+        initializer(players)
+    }
+
+    model.Players = players
+
+    wizards := make([]maplib.Wizard, 0, len(serializedGame.Players))
+    for _, player := range model.Players {
+        wizards = append(wizards, player)
+    }
+
+    model.ArcanusMap = maplib.ReconstructMap(serializedGame.Arcanus, terrainData, model, wizards)
+    model.MyrrorMap = maplib.ReconstructMap(serializedGame.Myrror, terrainData, model, wizards)
+
+    for _, initializer := range cityInitializers {
+        initializer(model.ArcanusMap, model.MyrrorMap)
+    }
+
+    model.RandomEvents = reconstructRandomEvents(serializedGame.Events, model)
+
+    return model
+}
