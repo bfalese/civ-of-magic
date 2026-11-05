@@ -277,15 +277,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
             game.doCastCityEnchantment(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentProsperity)
         case "Consecration":
             after := func (city *citylib.City) bool {
-                // Remove all the city curses from the targeted city on cast (https://masterofmagic.fandom.com/wiki/Consecration)
-                // Wiki specifies only the following ones as city curses
-                city.RemoveEnchantments(
-                    data.CityEnchantmentChaosRift,
-                    data.CityEnchantmentCursedLands,
-                    data.CityEnchantmentEvilPresence,
-                    data.CityEnchantmentFamine,
-                    data.CityEnchantmentPestilence,
-                )
+                game.Model.ApplyConsecration(city)
                 return true
             }
             game.doCastCityEnchantmentFull(spell, player, LocationTypeFriendlyCity, data.CityEnchantmentConsecration, noCityCallback, after)
@@ -721,33 +713,13 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
             game.doCastNewCityBuilding(spell, player, LocationTypeFriendlyCity, building.BuildingCityWalls, "This city already has a Wall of Stone", after)
         case "Summoning Circle":
             after := func(chosenCity *citylib.City) bool {
-                for _, city := range player.Cities {
-                    if city != chosenCity && city.Buildings.Contains(building.BuildingSummoningCircle) {
-                        city.Buildings.Remove(building.BuildingSummoningCircle)
-                        break
-                    }
-                }
+                game.Model.ApplySummoningCircleMoved(player, chosenCity)
                 return true
             }
             game.doCastNewCityBuilding(spell, player, LocationTypeFriendlyCity, building.BuildingSummoningCircle, "Your summoning circle is already in this city", after)
         case "Move Fortress":
             after := func(chosenCity *citylib.City) bool {
-                player.Wizard.Race = chosenCity.Race
-
-                for _, city := range player.Cities {
-                    if city != chosenCity && city.Buildings.Contains(building.BuildingFortress) {
-                        city.Buildings.Remove(building.BuildingFortress)
-
-                        if city.Buildings.Contains(building.BuildingSummoningCircle) {
-                            chosenCity.Buildings.Insert(building.BuildingSummoningCircle)
-                            city.Buildings.Remove(building.BuildingSummoningCircle)
-                        }
-                        break
-                    }
-                }
-
-                player.UpdateUnrest()
-
+                game.Model.ApplyFortressMoved(player, chosenCity)
                 return true
             }
             game.doCastNewCityBuilding(spell, player, LocationTypeFriendlyCity, building.BuildingFortress, "Your fortress is already in this city", after)
@@ -2010,8 +1982,7 @@ func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellb
 }
 
 func (game *Game) doAddCityEnchantment(yield coroutine.YieldFunc, chosenCity *citylib.City, player *playerlib.Player, spell spellbook.Spell, enchantment data.CityEnchantment) {
-    chosenCity.AddEnchantment(enchantment, player.GetBanner())
-    chosenCity.UpdateUnrest()
+    game.Model.AddCityEnchantment(chosenCity, player, enchantment)
 
     yield()
 
@@ -2073,8 +2044,7 @@ func (game *Game) doCastNewCityBuilding(spell spellbook.Spell, player *playerlib
             return
         }
 
-        chosenCity.AddBuilding(newBuilding)
-        chosenCity.UpdateUnrest()
+        game.Model.AddCityBuilding(chosenCity, newBuilding)
 
         yield()
 
