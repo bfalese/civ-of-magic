@@ -1209,7 +1209,7 @@ func (cityScreen *CityScreen) MakeUI(newBuilding buildinglib.Building) *uilib.UI
 
         for _, unit := range garrison {
             func (){
-                garrisonBackground, err := units.GetUnitBackgroundImage(unit.GetBanner(), &cityScreen.ImageCache)
+                garrisonBackground, err := unitview.GetUnitBackgroundImage(unit.GetBanner(), &cityScreen.ImageCache)
                 if err != nil {
                     return
                 }

@@ -5489,8 +5489,8 @@ func GetCityImage(city *citylib.City, cache *util.ImageCache) (*ebiten.Image, er
     }
 
     // the city image is a sub-frame of animation 20
-    // return cache.GetImageTransform("mapback.lbx", 20, index, city.GetBanner().String(), util.ComposeImageTransform(units.MakeUpdateUnitColorsFunc(city.GetBanner()), util.AutoCropGeneric))
-    return cache.GetImageTransform("mapback.lbx", spriteIndex, animationIndex, city.GetBanner().String(), units.MakeUpdateUnitColorsFunc(city.GetBanner()))
+    // return cache.GetImageTransform("mapback.lbx", 20, index, city.GetBanner().String(), util.ComposeImageTransform(unitview.MakeUpdateUnitColorsFunc(city.GetBanner()), util.AutoCropGeneric))
+    return cache.GetImageTransform("mapback.lbx", spriteIndex, animationIndex, city.GetBanner().String(), unitview.MakeUpdateUnitColorsFunc(city.GetBanner()))
 }
 
 func (game *Game) ShowGrandVizierUI(){
@@ -6505,7 +6505,7 @@ func (game *Game) MakeHudUI() *uilib.UI {
                         options.GeoM.Translate(1, 1)
 
                         if stack.IsActive(unit){
-                            unitBack, _ := units.GetUnitBackgroundImage(unit.GetBanner(), &game.ImageCache)
+                            unitBack, _ := unitview.GetUnitBackgroundImage(unit.GetBanner(), &game.ImageCache)
                             scale.DrawScaled(screen, unitBack, &options)
                         }
 
@@ -8389,7 +8389,7 @@ func (overworld *Overworld) DrawOverworld(screen *ebiten.Image, geom ebiten.GeoM
 
                 leader := stack.Leader()
 
-                unitBack, err := units.GetUnitBackgroundImage(leader.GetBanner(), overworld.ImageCache)
+                unitBack, err := unitview.GetUnitBackgroundImage(leader.GetBanner(), overworld.ImageCache)
                 if err == nil {
                     saveGeom := options.GeoM
                     options.GeoM.Concat(geom)

@@ -1575,7 +1575,7 @@ func (combat *CombatScreen) MakeUI(player ArmyPlayer) *uilib.UI {
 
             if combat.Model.SelectedUnit != nil && combat.IsUnitVisible(combat.Model.SelectedUnit) {
 
-                rightImage, _ := combat.ImageCache.GetImageTransform(combat.Model.SelectedUnit.Unit.GetCombatLbxFile(), combat.Model.SelectedUnit.Unit.GetCombatIndex(units.FacingRight), 0, player.GetWizard().Banner.String(), units.MakeUpdateUnitColorsFunc(player.GetWizard().Banner))
+                rightImage, _ := combat.ImageCache.GetImageTransform(combat.Model.SelectedUnit.Unit.GetCombatLbxFile(), combat.Model.SelectedUnit.Unit.GetCombatIndex(units.FacingRight), 0, player.GetWizard().Banner.String(), unitview.MakeUpdateUnitColorsFunc(player.GetWizard().Banner))
                 options.GeoM.Reset()
                 options.GeoM.Translate(85, 170)
                 scale.DrawScaled(screen, rightImage, &options)
@@ -4128,7 +4128,7 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     renderUnit := func(unit *ArmyUnit) {
         var unitOptions ebiten.DrawImageOptions
         banner := unit.Unit.GetBanner()
-        combatImages, _ := combat.ImageCache.GetImagesTransform(unit.Unit.GetCombatLbxFile(), unit.Unit.GetCombatIndex(unit.Facing), banner.String(), units.MakeUpdateUnitColorsFunc(banner))
+        combatImages, _ := combat.ImageCache.GetImagesTransform(unit.Unit.GetCombatLbxFile(), unit.Unit.GetCombatIndex(unit.Facing), banner.String(), unitview.MakeUpdateUnitColorsFunc(banner))
 
         if combatImages != nil {
             var tx float64

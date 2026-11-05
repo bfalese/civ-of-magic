@@ -6,6 +6,7 @@ import (
     "image"
     "image/color"
 
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/fraction"
@@ -423,12 +424,12 @@ func MakeSmallListView(cache *lbx.LbxCache, ui *uilib.UI, stack []UnitView, titl
                 var unitOptions ebiten.DrawImageOptions
                 banner := unit.GetBanner()
 
-                unitBack, err := units.GetUnitBackgroundImage(unit.GetBanner(), &imageCache)
+                unitBack, err := GetUnitBackgroundImage(unit.GetBanner(), &imageCache)
                 if err != nil {
                     return
                 }
 
-                unitImage, err := imageCache.GetImageTransform(unit.GetLbxFile(), unit.GetLbxIndex(), 0, banner.String(), units.MakeUpdateUnitColorsFunc(banner))
+                unitImage, err := imageCache.GetImageTransform(unit.GetLbxFile(), unit.GetLbxIndex(), 0, banner.String(), MakeUpdateUnitColorsFunc(banner))
                 if err != nil {
                     return
                 }
@@ -511,5 +512,5 @@ type OverworldUnit interface {
 }
 
 func GetUnitOverworldImage(imageCache *util.ImageCache, unit OverworldUnit) (*ebiten.Image, error) {
-    return imageCache.GetImageTransform(unit.GetLbxFile(), unit.GetLbxIndex(), 0, unit.GetBanner().String(), units.MakeUpdateUnitColorsFunc(unit.GetBanner()))
+    return imageCache.GetImageTransform(unit.GetLbxFile(), unit.GetLbxIndex(), 0, unit.GetBanner().String(), MakeUpdateUnitColorsFunc(unit.GetBanner()))
 }
