@@ -843,7 +843,7 @@ func (game *Game) SuggestCityName(race data.Race) (string) {
     allCities := game.Model.AllCities()
     fallback := fmt.Sprintf("City %d", len(allCities)+1)
 
-    predefinedNames, err := citylib.ReadCityNames(game.Cache)
+    predefinedNames, err := lbxdata.ReadCityNames(game.Cache)
     if err != nil {
         log.Printf("Unable to read predefined city names: %v", err)
         return fallback
