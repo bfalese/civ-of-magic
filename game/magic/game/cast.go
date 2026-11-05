@@ -25,7 +25,7 @@ import (
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/game/magic/combat"
     "github.com/bfalese/civ-of-magic/game/magic/mirror"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
@@ -33,9 +33,9 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
-    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
-    "github.com/bfalese/civ-of-magic/game/magic/building"
+    "github.com/bfalese/civ-of-magic/core/building"
 
     "github.com/hajimehoshi/ebiten/v2"
 )

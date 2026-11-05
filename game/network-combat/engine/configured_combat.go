@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+	buildinglib "github.com/bfalese/civ-of-magic/core/building"
 	citylib "github.com/bfalese/civ-of-magic/game/magic/city"
 	"github.com/bfalese/civ-of-magic/game/magic/combat"
 	"github.com/bfalese/civ-of-magic/core/data"

@@ -6,7 +6,7 @@ import (
     "encoding/json"
 
     "github.com/bfalese/civ-of-magic/lib/set"
-    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/core/data"
 

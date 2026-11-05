@@ -5,7 +5,7 @@ import (
     "fmt"
     "log"
 
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 

@@ -11,7 +11,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
-    "github.com/bfalese/civ-of-magic/game/magic/terrain"
+    "github.com/bfalese/civ-of-magic/core/terrain"
 )
 
 func TestPathBasic(test *testing.T) {

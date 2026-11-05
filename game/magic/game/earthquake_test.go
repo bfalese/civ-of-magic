@@ -3,7 +3,7 @@ package game
 import (
     "testing"
 
-    buildinglib "github.com/bfalese/civ-of-magic/game/magic/building"
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     "github.com/bfalese/civ-of-magic/core/data"
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
