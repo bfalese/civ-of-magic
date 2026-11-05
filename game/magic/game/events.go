@@ -6,8 +6,8 @@ import (
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/core/data"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
 )
 
 type RandomEventType int

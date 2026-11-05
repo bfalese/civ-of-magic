@@ -7,13 +7,13 @@ import (
     "github.com/bfalese/civ-of-magic/lib/fraction"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/core/terrain"
     // "github.com/bfalese/civ-of-magic/core/spellbook"
@@ -93,7 +93,6 @@ func (engine *Engine) MakeUI() (*uilib.UI, context.Context, error) {
     gameMap := maplib.Map{
         Data: terrainData,
         Map: terrain.GenerateLandCellularAutomata(20, 20, terrainData, data.PlaneArcanus),
-        TileCache: make(map[int]*ebiten.Image),
     }
 
     player := &playerlib.Player{

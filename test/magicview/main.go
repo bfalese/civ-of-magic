@@ -7,10 +7,10 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/game/magic/magicview"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/hajimehoshi/ebiten/v2"

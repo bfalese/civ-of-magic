@@ -6,7 +6,7 @@ import (
     "slices"
 
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/lib/set"

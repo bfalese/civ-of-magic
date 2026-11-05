@@ -7,27 +7,24 @@ import (
     "math/rand/v2"
     "log"
 
-
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/terrain"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/units"
     settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
-    "github.com/bfalese/civ-of-magic/game/magic/ai"
+    "github.com/bfalese/civ-of-magic/core/ai"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/artifact"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-
-    "github.com/hajimehoshi/ebiten/v2"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
 )
 
 func fromRaceValue(raceValue int) data.Race {
@@ -89,7 +86,6 @@ func (saveGame *SaveGame) ConvertMap(terrainData *terrain.TerrainData, plane dat
         Data: terrainData,
         Map: terrain.MakeMap(WorldHeight, WorldWidth),
         Plane: plane,
-        TileCache: make(map[int]*ebiten.Image),
         ExtraMap: make(map[image.Point]map[maplib.ExtraKind]maplib.ExtraTile),
         CityProvider: cityProvider,
     }

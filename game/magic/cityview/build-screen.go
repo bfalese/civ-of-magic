@@ -15,7 +15,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     // "github.com/bfalese/civ-of-magic/game/magic/combat"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"

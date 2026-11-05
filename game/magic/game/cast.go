@@ -14,15 +14,16 @@ import (
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/lbx"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     "github.com/bfalese/civ-of-magic/game/magic/music"
     "github.com/bfalese/civ-of-magic/core/units"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
@@ -1930,7 +1931,7 @@ func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellb
         return Overworld{
             Camera: game.Camera,
             Counter: game.Counter,
-            Map: game.Model.CurrentMap(),
+            Map: mapview.Renderer{Map: game.Model.CurrentMap()},
             Cities: cities,
             CitiesMiniMap: citiesMiniMap,
             Stacks: stacks,

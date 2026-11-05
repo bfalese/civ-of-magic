@@ -7,15 +7,16 @@ import (
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     // "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
+    "github.com/bfalese/civ-of-magic/core/maplib"
 
     "github.com/hajimehoshi/ebiten/v2"
 )
@@ -54,7 +55,7 @@ func (game *Game) doSurveyor(yield coroutine.YieldFunc) {
         return Overworld{
             Camera: game.Camera,
             Counter: game.Counter,
-            Map: game.Model.CurrentMap(),
+            Map: mapview.Renderer{Map: game.Model.CurrentMap()},
             Cities: cities,
             Stacks: stacks,
             SelectedStack: nil,

@@ -18,8 +18,10 @@ import (
     "bufio"
     "compress/gzip"
 
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
+
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/game/magic/keybinds"
     "github.com/bfalese/civ-of-magic/game/magic/mastery"
     "github.com/bfalese/civ-of-magic/core/units"
@@ -29,10 +31,10 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/mirror"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
     "github.com/bfalese/civ-of-magic/game/magic/banish"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/game/magic/combat"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
@@ -46,7 +48,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/cartographer"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/gamemenu"
@@ -662,8 +664,8 @@ func (game *Game) Shutdown() {
 func (game *Game) UpdateImages() {
     game.ImageCache = util.MakeImageCache(game.Cache)
     game.Fog = nil
-    game.Model.ArcanusMap.ResetCache()
-    game.Model.MyrrorMap.ResetCache()
+    mapview.ResetCache(game.Model.ArcanusMap)
+    mapview.ResetCache(game.Model.MyrrorMap)
 
     mouseData, err := mouselib.MakeMouseData(game.Cache, &game.ImageCache)
     if err != nil {
@@ -841,7 +843,7 @@ func (game *Game) SuggestCityName(race data.Race) (string) {
     allCities := game.Model.AllCities()
     fallback := fmt.Sprintf("City %d", len(allCities)+1)
 
-    predefinedNames, err := citylib.ReadCityNames(game.Cache)
+    predefinedNames, err := lbxdata.ReadCityNames(game.Cache)
     if err != nil {
         log.Printf("Unable to read predefined city names: %v", err)
         return fallback
@@ -919,7 +921,7 @@ func (game *Game) doCityListView(yield coroutine.YieldFunc) {
         if plane == data.PlaneMyrror {
             use = myrrorCities
         }
-        game.GetMap(plane).DrawMinimap(screen, use, x, y, 1, player.GetFog(plane), counter, false)
+        mapview.DrawMinimap(game.GetMap(plane), screen, use, x, y, 1, player.GetFog(plane), counter, false)
     }
 
     quit := false
@@ -971,7 +973,7 @@ func (game *Game) doArmyView(yield coroutine.YieldFunc) {
     }
 
     drawMinimap := func (screen *ebiten.Image, x int, y int, fog data.FogMap, plane data.Plane, counter uint64){
-        game.GetMap(plane).DrawMinimap(screen, citiesMiniMap, x, y, 1, fog, counter, false)
+        mapview.DrawMinimap(game.GetMap(plane), screen, citiesMiniMap, x, y, 1, fog, counter, false)
     }
 
     showVault := func(){
@@ -4414,7 +4416,7 @@ func (game *Game) doCityScreen(yield coroutine.YieldFunc, city *citylib.City, pl
     overworld := Overworld{
         Camera: camera.MakeCameraAt(city.X, city.Y).UpdateSize(4, 4),
         Counter: 0,
-        Map: mapUse,
+        Map: mapview.Renderer{Map: mapUse},
         Cities: cities,
         Stacks: stacks,
         SelectedStack: nil,
@@ -8552,7 +8554,7 @@ func (game *Game) DrawGame(screen *ebiten.Image){
     overworld := Overworld{
         Camera: game.Camera,
         Counter: useCounter,
-        Map: game.Model.CurrentMap(),
+        Map: mapview.Renderer{Map: game.Model.CurrentMap()},
         Cities: cities,
         CitiesMiniMap: citiesMiniMap,
         Stacks: stacks,

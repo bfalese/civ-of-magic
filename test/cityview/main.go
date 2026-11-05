@@ -8,19 +8,20 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/set"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
+    "github.com/bfalese/civ-of-magic/game/magic/mapview"
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/game/magic/game"
-    "github.com/bfalese/civ-of-magic/game/magic/maplib"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
@@ -114,7 +115,6 @@ func NewEngine() (*Engine, error) {
     gameMap := maplib.Map{
         Data: terrainData,
         Map: terrain.GenerateLandCellularAutomata(20, 20, terrainData, data.PlaneArcanus),
-        TileCache: make(map[int]*ebiten.Image),
         CityProvider: &NoMaplibCityProvider{},
     }
 
@@ -251,7 +251,7 @@ func (engine *Engine) Draw(screen *ebiten.Image) {
     engine.CityScreen.Draw(screen, func (where *ebiten.Image, geom ebiten.GeoM, counter uint64) {
         overworld := game.Overworld{
             Camera: camera.MakeCameraAt(cameraX, cameraY),
-            Map: engine.Map,
+            Map: mapview.Renderer{Map: engine.Map},
             Cities: []*citylib.City{engine.CityScreen.City},
             Stacks: []*playerlib.UnitStack{},
             SelectedStack: nil,

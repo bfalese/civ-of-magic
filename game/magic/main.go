@@ -26,6 +26,8 @@ import (
     "os"
     */
 
+    "github.com/bfalese/civ-of-magic/game/magic/setupview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/system"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
@@ -35,20 +37,20 @@ import (
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
     settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/ai"
+    "github.com/bfalese/civ-of-magic/core/ai"
     "github.com/bfalese/civ-of-magic/game/magic/load"
     "github.com/bfalese/civ-of-magic/game/magic/serialize"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     mouselib "github.com/bfalese/civ-of-magic/lib/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/mainview"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
@@ -127,35 +129,35 @@ func runIntro(yield coroutine.YieldFunc, game *MagicGame) {
 }
 
 func runNewGame(yield coroutine.YieldFunc, game *MagicGame) (bool, setup.NewGameSettings) {
-    newGame := setup.MakeNewGameScreen(game.Cache)
+    newGame := setupview.MakeNewGameScreen(game.Cache)
 
     game.Drawer = func(screen *ebiten.Image) {
         newGame.Draw(screen)
     }
 
     state := newGame.Update()
-    for state == setup.NewGameStateRunning {
+    for state == setupview.NewGameStateRunning {
         yield()
         state = newGame.Update()
     }
 
-    return state == setup.NewGameStateCancel, newGame.Settings
+    return state == setupview.NewGameStateCancel, newGame.Settings
 }
 
 func runNewWizard(yield coroutine.YieldFunc, game *MagicGame) (bool, setup.WizardCustom) {
-    newWizard := setup.MakeNewWizardScreen(game.Cache)
+    newWizard := setupview.MakeNewWizardScreen(game.Cache)
 
     game.Drawer = func(screen *ebiten.Image) {
         newWizard.Draw(screen)
     }
 
     state := newWizard.Update()
-    for state != setup.NewWizardScreenStateFinished && state != setup.NewWizardScreenStateCanceled {
+    for state != setupview.NewWizardScreenStateFinished && state != setupview.NewWizardScreenStateCanceled {
         yield()
         state = newWizard.Update()
     }
 
-    return state == setup.NewWizardScreenStateCanceled, newWizard.CustomWizard
+    return state == setupview.NewWizardScreenStateCanceled, newWizard.CustomWizard
 }
 
 func runMainMenu(yield coroutine.YieldFunc, game *MagicGame, gameLoader *OriginalGameLoader, music *musiclib.Music) (*gamelib.Game, mainview.MainScreenState) {

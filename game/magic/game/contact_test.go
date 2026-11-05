@@ -3,11 +3,11 @@ package game
 import (
     "testing"
 
-    citylib "github.com/bfalese/civ-of-magic/game/magic/city"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/data"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
-    playerlib "github.com/bfalese/civ-of-magic/game/magic/player"
-    "github.com/bfalese/civ-of-magic/game/magic/setup"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/setup"
 )
 
 func makeContactPlayers() (*playerlib.Player, *playerlib.Player) {
