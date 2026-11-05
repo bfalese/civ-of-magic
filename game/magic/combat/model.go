@@ -20,12 +20,10 @@ import (
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/core/setup"
     // playerlib "github.com/bfalese/civ-of-magic/core/player"
     citylib "github.com/bfalese/civ-of-magic/core/city"
 
-    "github.com/hajimehoshi/ebiten/v2"
 )
 
 const MAX_TURNS = 50
@@ -125,10 +123,15 @@ const (
     TileAlignBottom
 )
 
-type TileDraw func(*ebiten.Image, *util.ImageCache, *ebiten.DrawImageOptions, uint64)
+// tile tops that need custom drawing instead of a single Lbx/Index image; drawn by the combat screen
+type TileTopSpecial int
+const (
+    TileTopSpecialNone TileTopSpecial = iota
+    TileTopSpecialChaosNodeRiver
+)
 
 type TileTop struct {
-    Drawer TileDraw
+    Special TileTopSpecial
     Lbx string
     Index int
     Alignment TileAlignment
@@ -420,20 +423,7 @@ func makeTiles(width int, height int, landscape CombatLandscape, plane data.Plan
                 }
             case ZoneChaosNode:
                 tiles[TownCenterY-1][TownCenterX].ExtraObject = TileTop{
-                    Drawer: func(screen *ebiten.Image, imageCache *util.ImageCache, options *ebiten.DrawImageOptions, counter uint64) {
-                        base, _ := imageCache.GetImageTransform("chriver.lbx", 32, 0, "crop", util.AutoCrop)
-                        scale.DrawScaled(screen, base, options)
-
-                        top, _ := imageCache.GetImage("chriver.lbx", 24 + int((counter / 4) % 8), 0)
-                        var geom2 ebiten.GeoM
-                        geom2.Translate(float64(16), float64(-3))
-                        geom2.Concat(options.GeoM)
-
-                        saved := options.GeoM
-                        options.GeoM = geom2
-                        scale.DrawScaled(screen, top, options)
-                        options.GeoM = saved
-                    },
+                    Special: TileTopSpecialChaosNodeRiver,
                 }
         }
     }

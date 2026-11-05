@@ -4012,13 +4012,13 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
     }
 
     drawExtraObject := func(x int, y int, extra TileTop) {
-        if extra.Drawer != nil {
+        if extra.Special != TileTopSpecialNone {
             options.GeoM.Reset()
             tx, ty := tilePosition(float64(x), float64(y))
             options.GeoM.Scale(combat.CameraScale, combat.CameraScale)
             options.GeoM.Translate(tx, ty)
 
-            extra.Drawer(screen, &combat.ImageCache, &options, combat.Counter)
+            drawTileTopSpecial(extra.Special, screen, &combat.ImageCache, &options, combat.Counter)
         } else if extra.Index != -1 {
             options.GeoM.Reset()
             // tx,ty is the middle of the tile
@@ -4511,5 +4511,24 @@ func (combat *CombatScreen) NormalDraw(screen *ebiten.Image) {
 
     if combat.ShowInfoLevel > 0 {
         combat.ShowCombatInfo(screen)
+    }
+}
+
+// custom drawing for TileTop.Special (moved from a closure that used to live in the combat model)
+func drawTileTopSpecial(special TileTopSpecial, screen *ebiten.Image, imageCache *util.ImageCache, options *ebiten.DrawImageOptions, counter uint64) {
+    switch special {
+        case TileTopSpecialChaosNodeRiver:
+            base, _ := imageCache.GetImageTransform("chriver.lbx", 32, 0, "crop", util.AutoCrop)
+            scale.DrawScaled(screen, base, options)
+
+            top, _ := imageCache.GetImage("chriver.lbx", 24 + int((counter / 4) % 8), 0)
+            var geom2 ebiten.GeoM
+            geom2.Translate(float64(16), float64(-3))
+            geom2.Concat(options.GeoM)
+
+            saved := options.GeoM
+            options.GeoM = geom2
+            scale.DrawScaled(screen, top, options)
+            options.GeoM = saved
     }
 }
