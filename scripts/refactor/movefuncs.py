@@ -46,7 +46,8 @@ def exported_idents(pkg_dir):
 def qualify(text, names, alias):
     out = []
     # split on string/rune literals and comments so we leave them alone
-    tokens = re.split(r'("(?:\\.|[^"\\])*"|`[^`]*`|\'(?:\\.|[^\'\\])*\'|//[^\n]*)', text)
+    # (rune literals stay on one line; /* */ blocks count as comments)
+    tokens = re.split(r'("(?:\\.|[^"\\\n])*"|`[^`]*`|\'(?:\\.|[^\'\\\n])*\'|//[^\n]*|/\*.*?\*/)', text, flags=re.S)
     for k, tok in enumerate(tokens):
         if k % 2 == 1:
             out.append(tok)

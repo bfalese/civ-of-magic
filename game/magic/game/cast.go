@@ -37,6 +37,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
     "github.com/bfalese/civ-of-magic/core/building"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 
     "github.com/hajimehoshi/ebiten/v2"
 )
@@ -180,13 +181,13 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
             before := func (unit units.StackUnit) bool {
                 if unit.GetRace() == data.RaceFantastic {
-                    game.Events <- &GameEventNotice{Message: "That unit cannot be targeted"}
+                    game.Events <- &gamecore.GameEventNotice{Message: "That unit cannot be targeted"}
                     return false
                 }
 
                 for _, enchantment := range choices {
                     if unit.HasEnchantment(enchantment) {
-                        game.Events <- &GameEventNotice{Message: "That unit cannot be targeted"}
+                        game.Events <- &gamecore.GameEventNotice{Message: "That unit cannot be targeted"}
                         return false
                     }
                 }
@@ -246,17 +247,17 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         case "Lycanthropy":
             before := func (unit units.StackUnit) bool {
                 if unit.GetRace() == data.RaceFantastic {
-                    game.Events <- &GameEventNotice{Message: "Summoned units may not have cast Lycanthropy on them"}
+                    game.Events <- &gamecore.GameEventNotice{Message: "Summoned units may not have cast Lycanthropy on them"}
                     return false
                 }
 
                 if unit.GetRace() == data.RaceHero {
-                    game.Events <- &GameEventNotice{Message: "Heroes units may not have cast Lycanthropy on them"}
+                    game.Events <- &gamecore.GameEventNotice{Message: "Heroes units may not have cast Lycanthropy on them"}
                     return false
                 }
 
                 if unit.IsUndead() || unit.HasEnchantment(data.UnitEnchantmentBlackChannels) || unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonSkin) || unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonWings) || unit.HasEnchantment(data.UnitEnchantmentChaosChannelsFireBreath) {
-                    game.Events <- &GameEventNotice{Message: "Chaos channeled and Undead units may not have cast Lycanthropy on them"}
+                    game.Events <- &gamecore.GameEventNotice{Message: "Chaos channeled and Undead units may not have cast Lycanthropy on them"}
                     return false
                 }
                return true
@@ -466,7 +467,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 if stack != nil {
                     err := game.PlaneShift(stack, player)
                     if err != nil {
-                        game.Events <- &GameEventNotice{Message: fmt.Sprintf("%v", err)}
+                        game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("%v", err)}
                     } else {
                         game.Model.Plane = stack.Plane()
                     }
@@ -478,7 +479,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         case "Subversion":
             uiGroup, quit, err := game.MakeSubversionUI(player, spell)
             if err != nil {
-                game.Events <- &GameEventNotice{Message: fmt.Sprintf("%v", err)}
+                game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("%v", err)}
             } else {
                 game.Events <- &GameEventRunUI{Group: uiGroup, Quit: quit}
             }
@@ -582,7 +583,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         case "Spell Binding":
             uiGroup, quit, err := game.MakeSpellBindingUI(player, spell)
             if err != nil {
-                game.Events <- &GameEventNotice{Message: fmt.Sprintf("%v", err)}
+                game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("%v", err)}
             } else {
                 game.Events <- &GameEventRunUI{Group: uiGroup, Quit: quit}
             }
@@ -639,9 +640,9 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         case "Resurrection":
             heroes := player.GetDeadHeroes()
             if len(heroes) == 0 {
-                game.Events <- &GameEventNotice{Message: "No dead heroes to resurrect"}
+                game.Events <- &gamecore.GameEventNotice{Message: "No dead heroes to resurrect"}
             } else if player.FreeHeroSlots() == 0 {
-                game.Events <- &GameEventNotice{Message: "No free hero slots to resurrect hero"}
+                game.Events <- &gamecore.GameEventNotice{Message: "No free hero slots to resurrect hero"}
             } else {
                 // show selection box for all dead heroes
 
@@ -722,14 +723,14 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         case "Disjunction", "Disjunction True":
             uiGroup, quit, err := game.MakeDisjunctionUI(player, spell)
             if err != nil {
-                game.Events <- &GameEventNotice{Message: fmt.Sprintf("%v", err)}
+                game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("%v", err)}
             } else {
                 game.Events <- &GameEventRunUI{Group: uiGroup, Quit: quit}
             }
 
         case "Create Artifact", "Enchant Item":
             game.Events <- &GameEventSummonArtifact{Player: player}
-            game.Events <- &GameEventVault{CreatedArtifact: player.CreateArtifact, Player: player}
+            game.Events <- &gamecore.GameEventVault{CreatedArtifact: player.CreateArtifact, Player: player}
             player.CreateArtifact = nil
         case "Earth Lore":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
@@ -748,7 +749,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
 
                 // FIXME: verify the animation and sound. The spell index is 102
                 game.doCastOnMap(yield, tileX, tileY, 12, 72, func (x int, y int, animationFrame int) {})
-                game.Model.doCallTheVoid(chosenCity, owner)
+                game.Model.DoCallTheVoid(chosenCity, owner)
             }
 
             game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeEnemyCity, SelectedFunc: selected}
@@ -857,12 +858,12 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 }
 
                 if unit.GetX() == summonCity.X && unit.GetY() == summonCity.Y {
-                    game.Events <- &GameEventNotice{Message: "Your unit is already in this city"}
+                    game.Events <- &gamecore.GameEventNotice{Message: "Your unit is already in this city"}
                     return false
                 }
 
                 if unit.GetPlane() != summonCity.Plane && game.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
-                    game.Events <- &GameEventNotice{Message: "Your unit cannot planar travel to this location"}
+                    game.Events <- &gamecore.GameEventNotice{Message: "Your unit cannot planar travel to this location"}
                     return false
                 }
 
@@ -1524,7 +1525,7 @@ func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spel
         }
 
         if choices.Size() == 0 {
-            game.Events <- &GameEventNotice{Message: "No wards are available to cast on this city."}
+            game.Events <- &gamecore.GameEventNotice{Message: "No wards are available to cast on this city."}
             game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: LocationTypeFriendlyCity, SelectedFunc: selectCity}
             return
         }
@@ -1674,7 +1675,7 @@ func (game *Game) doCastOnUnit(player *playerlib.Player, spell spellbook.Spell, 
 func (game *Game) doCastUnitEnchantmentFull(player *playerlib.Player, spell spellbook.Spell, enchantment data.UnitEnchantment, customBefore UnitEnchantmentCallback, customAfter UnitEnchantmentCallback) {
     before := func (unit units.StackUnit) bool {
         if unit.HasEnchantment(enchantment) {
-            game.Events <- &GameEventNotice{Message: fmt.Sprintf("That unit already has %v cast on it", spell.Name)}
+            game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("That unit already has %v cast on it", spell.Name)}
             return false
         }
 
@@ -2274,7 +2275,7 @@ func (game *Game) doCastCityEnchantmentFull(spell spellbook.Spell, player *playe
         }
 
         if chosenCity.HasEnchantment(enchantment) {
-            game.Events <- &GameEventNotice{Message: fmt.Sprintf("This city already has a %v cast on it", spell.Name)}
+            game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("This city already has a %v cast on it", spell.Name)}
             game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: locationType, SelectedFunc: selected}
             return
         }
@@ -2302,7 +2303,7 @@ func (game *Game) doCastNewCityBuilding(spell spellbook.Spell, player *playerlib
         }
 
         if chosenCity.Buildings.Contains(newBuilding) {
-            game.Events <- &GameEventNotice{Message: errorMessage}
+            game.Events <- &gamecore.GameEventNotice{Message: errorMessage}
             game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: locationType, SelectedFunc: selected}
             return
         }

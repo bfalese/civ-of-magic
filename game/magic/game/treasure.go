@@ -13,6 +13,7 @@ import (
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 )
 
 type TreasureItem interface {
@@ -299,7 +300,7 @@ func makeTreasure(cache *lbx.LbxCache, encounterType maplib.EncounterType, budge
 
                     for _, choice := range rand.Perm(len(artifacts)) {
                         use := artifacts[choice]
-                        if budget >= use.Cost && canUseArtifact(use, wizard) {
+                        if budget >= use.Cost && gamecore.CanUseArtifact(use, wizard) {
                             magicItemRemaining -= 1
                             budget -= use.Cost
                             items = append(items, &TreasureMagicalItem{Artifact: use})
@@ -311,7 +312,7 @@ func makeTreasure(cache *lbx.LbxCache, encounterType maplib.EncounterType, budge
                     if err == nil {
                         randomArtifact = artifact.MakeRandomArtifact(costs, compatibilities)
                     }
-                    if budget >= randomArtifact.Cost && canUseArtifact(&randomArtifact, wizard) {
+                    if budget >= randomArtifact.Cost && gamecore.CanUseArtifact(&randomArtifact, wizard) {
                         magicItemRemaining -= 1
                         budget -= randomArtifact.Cost
                         items = append(items, &TreasureMagicalItem{Artifact: &randomArtifact})

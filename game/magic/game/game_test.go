@@ -15,6 +15,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/set"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 )
 
 func TestCityName(test *testing.T){
@@ -104,7 +105,7 @@ func TestChangeCityOwner(test *testing.T){
         test.Errorf("Unrest is unexpected")
     }
 
-    ChangeCityOwner(city, player1, player2, ChangeCityKeepEnchantments)
+    gamecore.ChangeCityOwner(city, player1, player2, gamecore.ChangeCityKeepEnchantments)
 
     if player1.OwnsCity(city) {
         test.Errorf("Player 1 still owns the city")
@@ -128,7 +129,7 @@ func TestChangeCityOwner(test *testing.T){
 
     city.AddEnchantment(data.CityEnchantmentGaiasBlessing, player2.GetBanner())
 
-    ChangeCityOwner(city, player2, player1, ChangeCityRemoveOwnerEnchantments)
+    gamecore.ChangeCityOwner(city, player2, player1, gamecore.ChangeCityRemoveOwnerEnchantments)
 
     if player2.OwnsCity(city) {
         test.Errorf("Player 2 still owns the city")

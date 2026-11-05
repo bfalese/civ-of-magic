@@ -43,8 +43,8 @@ type GameModel struct {
 
     AIMode ai.Mode
 
-    heroNames map[int]map[herolib.HeroType]string
-    allSpells spellbook.Spells
+    HeroNames map[int]map[herolib.HeroType]string
+    AllSpells spellbook.Spells
 
     // water bodies holds all the points that are part of the same body of water.
     // a plane can have mulitple bodies of water if some bodies are landlocked (enclosed entirely by a continent)
@@ -80,8 +80,8 @@ func MakeGameModel(terrainData *terrain.TerrainData, settings setup.NewGameSetti
     model := GameModel{
         ArtifactPool: artifactPool,
         Settings: settings,
-        heroNames: heroNames,
-        allSpells: allSpells,
+        HeroNames: heroNames,
+        AllSpells: allSpells,
         Plane: startingPlane,
         CurrentPlayer: -1,
         Events: events,
@@ -130,7 +130,7 @@ func computeInitialCastingSkillPower(books []data.WizardBook) int {
 }
 
 func (model *GameModel) AddPlayer(wizard setup.WizardCustom, human bool) *playerlib.Player {
-    useNames := model.heroNames[len(model.Players)]
+    useNames := model.HeroNames[len(model.Players)]
     if useNames == nil {
         useNames = make(map[herolib.HeroType]string)
     }
@@ -157,19 +157,19 @@ func (model *GameModel) AddPlayer(wizard setup.WizardCustom, human bool) *player
 
     // not sure its necessary to add the starting spells to the research pool
     for _, spell := range startingSpells {
-        newPlayer.ResearchPoolSpells.AddSpell(model.allSpells.FindByName(spell))
+        newPlayer.ResearchPoolSpells.AddSpell(model.AllSpells.FindByName(spell))
     }
 
     // every wizard gets all arcane spells by default
-    newPlayer.ResearchPoolSpells.AddAllSpells(model.allSpells.GetSpellsByMagic(data.ArcaneMagic))
+    newPlayer.ResearchPoolSpells.AddAllSpells(model.AllSpells.GetSpellsByMagic(data.ArcaneMagic))
 
     newPlayer.KnownSpells = wizard.StartingSpells.Copy()
     for _, spell := range startingSpells {
-        newPlayer.KnownSpells.AddSpell(model.allSpells.FindByName(spell))
+        newPlayer.KnownSpells.AddSpell(model.AllSpells.FindByName(spell))
     }
     newPlayer.CastingSkillPower = computeInitialCastingSkillPower(newPlayer.Wizard.Books)
 
-    newPlayer.InitializeResearchableSpells(&model.allSpells)
+    newPlayer.InitializeResearchableSpells(&model.AllSpells)
     newPlayer.UpdateResearchCandidates()
 
     // log.Printf("Research spells: %v", newPlayer.ResearchPoolSpells)
@@ -1067,7 +1067,7 @@ func (model *GameModel) DoRandomEvents() {
                     case RandomEventGift:
                         var out []*artifact.Artifact
                         for _, candidate := range model.ArtifactPool.AvailableArtifacts() {
-                            if canUseArtifact(candidate, target.Wizard) {
+                            if CanUseArtifact(candidate, target.Wizard) {
                                 out = append(out, candidate)
                             }
                         }
@@ -1152,7 +1152,7 @@ func (model *GameModel) DoRandomEvents() {
 
                         city := choices[rand.N(len(choices))]
 
-                        people, units, buildings := model.doCallTheVoid(city, target)
+                        people, units, buildings := model.DoCallTheVoid(city, target)
 
                         return MakeGreatMeteorEvent(model.TurnNumber, city.Name, people, units, buildings), nil
 
@@ -1529,7 +1529,7 @@ func (model *GameModel) GetAllGlobalEnchantments() map[data.BannerType]*set.Set[
 
 
 func (model *GameModel) GetSpellByName(name string) spellbook.Spell {
-    return model.allSpells.FindByName(name)
+    return model.AllSpells.FindByName(name)
 }
 
 func (model *GameModel) RefreshUI() {
@@ -1550,7 +1550,7 @@ func earthquakeBuildingProtected(building buildinglib.Building, intact *set.Set[
 }
 
 // create a vault event for all items the hero owned, and return vault events for each item
-func (model *GameModel) distributeEquipment(player *playerlib.Player, hero *herolib.Hero) []*GameEventVault {
+func (model *GameModel) DistributeEquipment(player *playerlib.Player, hero *herolib.Hero) []*GameEventVault {
     var events []*GameEventVault
 
     for index, item := range hero.Equipment {
@@ -1595,7 +1595,7 @@ func (model *GameModel) DoEarthquake(city *citylib.City, player *playerlib.Playe
     for _, unit := range killedUnits {
         if unit.IsHero() {
             hero := unit.(*herolib.Hero)
-            vaultEvents := model.distributeEquipment(player, hero)
+            vaultEvents := model.DistributeEquipment(player, hero)
             if player.IsHuman() {
                 showNotice.Do(func() {
                     noticeEvent := &GameEventNotice{Message: "One or more heroes died in combat. You must redistribute their equipment."}
@@ -1635,7 +1635,7 @@ func (model *GameModel) DoEarthquake(city *citylib.City, player *playerlib.Playe
 }
 
 // returns number of citizens killed, units killed, and buildings destroyed
-func (model *GameModel) doCallTheVoid(city *citylib.City, player *playerlib.Player) (int, int, int) {
+func (model *GameModel) DoCallTheVoid(city *citylib.City, player *playerlib.Player) (int, int, int) {
     // https://masterofmagic.fandom.com/wiki/Call_the_Void
 
     var destroyedBuildings []buildinglib.Building
@@ -1799,7 +1799,7 @@ type MovementHandler interface {
 
 // FIXME: can this just use doMoveSelectedUnit?
 // returns the rest of the path the stack should walk (nil if the path ends)
-func (model *GameModel) doAiMoveUnit(handlers MovementHandler, player *playerlib.Player, stack *playerlib.UnitStack) pathfinding.Path {
+func (model *GameModel) DoAiMoveUnit(handlers MovementHandler, player *playerlib.Player, stack *playerlib.UnitStack) pathfinding.Path {
     if len(stack.Units()) > 0 {
         // stack = player.SplitStack(stack, stack.ActiveUnits())
         for _, unit := range stack.Units() {
@@ -1889,7 +1889,7 @@ func (model *GameModel) doAiMoveUnit(handlers MovementHandler, player *playerlib
                     stack.SetX(oldX)
                     stack.SetY(oldY)
                 } else if state == combat.CombatStateDefenderFlee {
-                    model.doMoveFleeingDefender(enemy, enemyStack)
+                    model.DoMoveFleeingDefender(enemy, enemyStack)
                 }
 
                 return nil
@@ -1920,7 +1920,7 @@ func (model *GameModel) doAiMoveUnit(handlers MovementHandler, player *playerlib
 }
 
 // try to relocate a fleeing stack, kills units that are unable
-func (model *GameModel) doMoveFleeingDefender(player *playerlib.Player, stack *playerlib.UnitStack) {
+func (model *GameModel) DoMoveFleeingDefender(player *playerlib.Player, stack *playerlib.UnitStack) {
     stackUnits := stack.Units()
 
     for _, i := range rand.Perm(len(stackUnits)) {

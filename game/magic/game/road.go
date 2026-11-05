@@ -18,40 +18,20 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
-    "github.com/bfalese/civ-of-magic/core/units"
     fontslib "github.com/bfalese/civ-of-magic/game/magic/fonts"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     citylib "github.com/bfalese/civ-of-magic/core/city"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-// return the number of engineers in the stack. only consider ones currently building a road if buildingRoad is true
-func ComputeEngineerCount(stack *playerlib.UnitStack, buildingRoad bool) int {
-    engineerCount := 0
-    for _, unit := range stack.Units() {
-        if unit.HasAbility(data.AbilityConstruction) && (!buildingRoad || unit.GetBusy() == units.BusyStatusBuildRoad) {
-            engineerCount += 1
-
-            if unit.GetRace() == data.RaceDwarf {
-                engineerCount += 1
-            }
-
-            if unit.HasEnchantment(data.UnitEnchantmentEndurance) {
-                engineerCount += 1
-            }
-        }
-    }
-
-    return engineerCount
-}
-
 func (game *Game) ComputeRoadTime(path []image.Point, stack *playerlib.UnitStack) int {
     turns := float64(0)
 
-    engineerCount := ComputeEngineerCount(stack, false)
+    engineerCount := gamecore.ComputeEngineerCount(stack, false)
 
     mapUse := game.GetMap(stack.Plane())
 

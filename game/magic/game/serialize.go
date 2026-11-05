@@ -17,6 +17,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/terrain"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 )
 
 const SerializeVersion = 1
@@ -30,7 +31,7 @@ type SerializedTargetCity struct {
 
 // we only really have to keep track of the non-instant events
 type SerializedRandomEvent struct {
-    Type RandomEventType `json:"type"`
+    Type gamecore.RandomEventType `json:"type"`
     Year uint64 `json:"year"`
 
     TargetCity *SerializedTargetCity `json:"city,omitempty"`
@@ -39,7 +40,7 @@ type SerializedRandomEvent struct {
     TargetPlayer *data.BannerType `json:"player,omitempty"`
 }
 
-func serializeRandomEvents(events []*RandomEvent) []SerializedRandomEvent {
+func serializeRandomEvents(events []*gamecore.RandomEvent) []SerializedRandomEvent {
     out := make([]SerializedRandomEvent, 0, len(events))
     for _, event := range events {
         serialized := SerializedRandomEvent{
@@ -89,7 +90,7 @@ type SerializedGame struct {
     Events []SerializedRandomEvent `json:"events"`
 }
 
-func SerializeModel(model *GameModel, saveName string, prefs *settingslib.Settings) SerializedGame {
+func SerializeModel(model *gamecore.GameModel, saveName string, prefs *settingslib.Settings) SerializedGame {
     var players []playerlib.SerializedPlayer
     for _, player := range model.Players {
         players = append(players, playerlib.SerializePlayer(player))
@@ -125,8 +126,8 @@ func reconstructArtifactPool(serializedGame *SerializedGame, vanilla *artifact.C
     return vanilla.WithAvailableNames(serializedGame.ArtifactPool)
 }
 
-func reconstructRandomEvents(serializedEvents []SerializedRandomEvent, model *GameModel) []*RandomEvent {
-    var out []*RandomEvent
+func reconstructRandomEvents(serializedEvents []SerializedRandomEvent, model *gamecore.GameModel) []*gamecore.RandomEvent {
+    var out []*gamecore.RandomEvent
 
     findTargetCity := func(serializedCity *SerializedTargetCity) *citylib.City {
         city, _ := model.FindCity(serializedCity.X, serializedCity.Y, serializedCity.Plane)
@@ -145,19 +146,19 @@ func reconstructRandomEvents(serializedEvents []SerializedRandomEvent, model *Ga
 
     for _, event := range serializedEvents {
         switch event.Type {
-            case RandomEventBadMoon: out = append(out, MakeBadMoonEvent(event.Year))
-            case RandomEventConjunctionChaos: out = append(out, MakeConjunctionChaosEvent(event.Year))
-            case RandomEventConjunctionNature: out = append(out, MakeConjunctionNatureEvent(event.Year))
-            case RandomEventConjunctionSorcery: out = append(out, MakeConjunctionSorceryEvent(event.Year))
-            case RandomEventPopulationBoom: out = append(out, MakePopulationBoomEvent(event.Year, findTargetCity(event.TargetCity)))
-            case RandomEventPlague: out = append(out, MakePlagueEvent(event.Year, findTargetCity(event.TargetCity)))
-            case RandomEventDisjunction: out = append(out, MakeDisjunctionEvent(event.Year))
-            case RandomEventGoodMoon: out = append(out, MakeGoodMoonEvent(event.Year))
-            case RandomEventManaShort: out = append(out, MakeManaShortEvent(event.Year))
+            case gamecore.RandomEventBadMoon: out = append(out, gamecore.MakeBadMoonEvent(event.Year))
+            case gamecore.RandomEventConjunctionChaos: out = append(out, gamecore.MakeConjunctionChaosEvent(event.Year))
+            case gamecore.RandomEventConjunctionNature: out = append(out, gamecore.MakeConjunctionNatureEvent(event.Year))
+            case gamecore.RandomEventConjunctionSorcery: out = append(out, gamecore.MakeConjunctionSorceryEvent(event.Year))
+            case gamecore.RandomEventPopulationBoom: out = append(out, gamecore.MakePopulationBoomEvent(event.Year, findTargetCity(event.TargetCity)))
+            case gamecore.RandomEventPlague: out = append(out, gamecore.MakePlagueEvent(event.Year, findTargetCity(event.TargetCity)))
+            case gamecore.RandomEventDisjunction: out = append(out, gamecore.MakeDisjunctionEvent(event.Year))
+            case gamecore.RandomEventGoodMoon: out = append(out, gamecore.MakeGoodMoonEvent(event.Year))
+            case gamecore.RandomEventManaShort: out = append(out, gamecore.MakeManaShortEvent(event.Year))
 
-            case RandomEventDepletion, RandomEventDiplomaticMarriage, RandomEventRebellion,
-                RandomEventDonation, RandomEventGift, RandomEventGreatMeteor, RandomEventPiracy,
-                RandomEventEarthquake, RandomEventNewMinerals:
+            case gamecore.RandomEventDepletion, gamecore.RandomEventDiplomaticMarriage, gamecore.RandomEventRebellion,
+                gamecore.RandomEventDonation, gamecore.RandomEventGift, gamecore.RandomEventGreatMeteor, gamecore.RandomEventPiracy,
+                gamecore.RandomEventEarthquake, gamecore.RandomEventNewMinerals:
                 log.Printf("Warning: unhandled event %d during deserialization", event.Type)
         }
     }
@@ -172,13 +173,13 @@ func MakeModelFromSerialized(
     artifactPool *artifact.Catalog,
     buildingInfo buildinglib.BuildingInfos,
     terrainData *terrain.TerrainData,
-) *GameModel {
-    model := &GameModel{
+) *gamecore.GameModel {
+    model := &gamecore.GameModel{
         Plane: serializedGame.Plane,
         ArtifactPool: reconstructArtifactPool(serializedGame, artifactPool, allSpells),
         Settings: serializedGame.Settings,
-        heroNames: heroNames,
-        allSpells: allSpells,
+        HeroNames: heroNames,
+        AllSpells: allSpells,
         CurrentPlayer: serializedGame.CurrentPlayer,
         TurnNumber: serializedGame.Turn,
         Events: events,

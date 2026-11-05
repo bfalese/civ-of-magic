@@ -12,10 +12,11 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/terrain"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 )
 
 func TestPathBasic(test *testing.T) {
-    var model GameModel
+    var model gamecore.GameModel
 
     // just have two tiles, land and ocean
     terrainData := terrain.MakeTerrainData([]image.Image{nil, nil}, []terrain.TerrainTile{
@@ -224,7 +225,7 @@ func TestPathBasic(test *testing.T) {
 }
 
 func TestFindPathUnreachableAcrossOceanDoesNotHang(test *testing.T) {
-    var model GameModel
+    var model gamecore.GameModel
 
     terrainData := terrain.MakeTerrainData([]image.Image{nil, nil}, []terrain.TerrainTile{
         terrain.TerrainTile{TileIndex: 0, Tile: terrain.TileLand},
