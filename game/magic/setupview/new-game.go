@@ -9,10 +9,9 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-
-    "github.com/hajimehoshi/ebiten/v2"
     "github.com/bfalese/civ-of-magic/core/setup"
 
+    "github.com/hajimehoshi/ebiten/v2"
 )
 
 const DifficultyMax = 4

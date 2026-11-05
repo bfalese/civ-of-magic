@@ -9,7 +9,6 @@ import (
     "github.com/bfalese/civ-of-magic/core/terrain"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/core/data"
-
 )
 
 type ExtraMapData struct {

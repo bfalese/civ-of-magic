@@ -21,11 +21,10 @@ import (
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+    "github.com/bfalese/civ-of-magic/core/setup"
     _ "github.com/hajimehoshi/ebiten/v2/vector"
 
     "github.com/hajimehoshi/ebiten/v2"
-    "github.com/bfalese/civ-of-magic/core/setup"
-
 )
 
 type NewWizardScreenState int

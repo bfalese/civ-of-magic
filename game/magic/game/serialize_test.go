@@ -4,10 +4,11 @@ import (
     "encoding/json"
     "testing"
 
-    "github.com/hajimehoshi/ebiten/v2"
     "github.com/bfalese/civ-of-magic/game/magic/keybinds"
     settingslib "github.com/bfalese/civ-of-magic/game/magic/settings"
     "github.com/bfalese/civ-of-magic/core/setup"
+
+    "github.com/hajimehoshi/ebiten/v2"
 )
 
 func TestSerializedGameOldJSONLeavesPreferencesNil(test *testing.T) {

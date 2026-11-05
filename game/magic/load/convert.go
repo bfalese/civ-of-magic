@@ -7,7 +7,6 @@ import (
     "math/rand/v2"
     "log"
 
-
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -26,7 +25,6 @@ import (
     citylib "github.com/bfalese/civ-of-magic/core/city"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
-
 )
 
 func fromRaceValue(raceValue int) data.Race {

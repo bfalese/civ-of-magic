@@ -32,13 +32,13 @@ make wasm                           # GOOS=js GOARCH=wasm build
 
 ## Layout
 
-- `core/` — rendering-free, LBX-free game logic (CI-enforced): `data`, `pathfinding`, `neural`,
-  `terrain`, `building`, `spellbook`, `artifact`, `units`, `hero`.
-  Their LBX parsers live in `game/magic/lbxdata`; their screens in `game/magic/*view`
-  (`spellbookview`, `artifactview`, `unitview`).
+- `core/` — rendering-free, LBX-free game logic (CI-enforced): `ai`, `artifact`, `building`, `city`,
+  `data`, `hero`, `maplib`, `neural`, `pathfinding`, `player`, `setup`, `spellbook`, `terrain`, `units`.
+  - LBX parsers live in `game/magic/lbxdata`; drawing/screens in `game/magic/*view`
+    (`mapview`, `spellbookview`, `artifactview`, `unitview`, `setupview`, ...).
+  - Frontend-owned state: `maplib.Map.RenderCache` (opaque to core, filled by `mapview`).
+    `mapview.Renderer` wraps a `*maplib.Map` with draw methods for code that wants a map that draws itself.
 - `game/magic/` — the main game. `main.go` + one package per subsystem.
-  - Not yet core-ready: `city` (`ReadCityNames` + depends on `maplib`), `maplib` (map model mixed
-    with drawing), and `player`, `ai` on top of those. Check with `go list -deps`, not grep.
   - `game/model.go` is rendering-free; `game/game.go` (~8.6k lines) is the main UI/state tangle.
   - `combat/` is the template for the split: `model.go` (logic) vs `combat-screen.go` (UI),
     plus rendering-free networking in `remote.go` / `observer.go`.
