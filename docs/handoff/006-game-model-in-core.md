@@ -65,3 +65,24 @@ by 11 files for the UI package `game/magic/game`.
 `scripts/refactor/` got fixes this round (see its README): `/* */` blocks and single-line rune
 literals in the qualifier, aliased imports in `fixcallers.py`, and notes on the remaining gotchas
 (map-literal keys, multi-line `case` lists, parameters named like an exported field).
+
+## Update (same day, branch `game-quickwins`, PR #11)
+
+- `treasure.go`, `damage.go` → `core/game` (`MakeTreasure` takes a `getPowers` func instead of the
+  LBX cache). `core/serialize` (save metadata) moved.
+- Save files: `core/game.SerializedGame` holds the game state; the UI's `SerializedGame` embeds it
+  and adds `Preferences`. JSON layout unchanged (test `TestSerializedGameJSONIsFlat`).
+- `cast.go` split started. Pattern: the UI keeps the animation/dialog and calls a `GameModel`
+  method at the same moment (same animation frame) the effect used to happen.
+  Done: map spells (`core/game/spells_map.go`), instant fizzle, summon-hero choice, global
+  enchantment effects (`core/game/spells.go`), with headless tests.
+  Next in `cast.go`: Drain Power / Cruel Unminding / Spell Blast effects (inside wizard-selection
+  callbacks), `doSummonUnit` (+ `Game.ResolveStackAt`, pure logic → model), Spell Ward,
+  Disenchant Area, then the big `doCastSpell` dispatcher.
+
+### What's left overall (measured)
+Only `game/magic/game` still mixes logic and UI (~14.6k lines: `game.go` 8.5k, `cast.go` ~2.6k,
+plus `vault`, `surveyor`, `hero`, `road`, `mercenaries`, `merchant`, `undead`, `learn-spell`,
+`cast-select-wizard`). Possibly some logic in `cityview/city-screen.go` (check). Everything else
+under `game/magic/` is screens or asset loading (LBX fonts/music/help, `load` = original-MoM save
+importer) and stays in the frontend by design.

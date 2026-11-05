@@ -89,17 +89,11 @@ func MakeSpellSpecialUIFonts(cache *lbx.LbxCache) *SpellSpecialUIFonts {
 }
 
 // the reason a spell was fizzled due to some global enchantment
-type FizzleReason struct {
-    // the owner of the enchantment
-    Owner *playerlib.Player
-    // the enchantment that caused the spell to fizzle
-    Enchantment data.Enchantment
-}
 
 func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
     // FIXME: if the player is AI then invoke some callback that the AI will use to select targets instead of using the GameEventSelectLocationForSpell
 
-    fizzled, reason := game.checkInstantFizzleForCastSpell(player, spell)
+    fizzled, reason := game.Model.CheckInstantFizzle(player, spell)
     if fizzled {
         // Fizzle the spell and return
         game.ShowFizzleSpell(spell, player)
@@ -686,7 +680,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastOnMap(yield, tileX, tileY, 10, spell.Sound, func (x int, y int, animationFrame int) {})
 
                 for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&UnitDamageWrapper{StackUnit: unit}, 6, units.DamageCold, 0)
+                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 6, units.DamageCold, 0)
                     if unit.GetHealth() <= 0 {
                         enemy.RemoveUnit(unit)
                     }
@@ -709,7 +703,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 game.doCastOnMap(yield, tileX, tileY, 6, spell.Sound, func (x int, y int, animationFrame int) {})
 
                 for _, unit := range enemyStack.Units() {
-                    combat.ApplyAreaDamage(&UnitDamageWrapper{StackUnit: unit}, 8, units.DamageImmolation, 0)
+                    combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 8, units.DamageImmolation, 0)
                     if unit.GetHealth() <= 0 {
                         enemy.RemoveUnit(unit)
                     }
@@ -899,27 +893,8 @@ func (game *Game) ApplyGlobalEnchantment(enchantment data.Enchantment, player *p
             player.LiftFogAll(data.PlaneArcanus)
             player.LiftFogAll(data.PlaneMyrror)
             game.discoverWizards(nil)
-        case data.EnchantmentGreatWasting:
-            for _, player := range game.Model.Players {
-                player.UpdateUnrest()
-            }
-        case data.EnchantmentArmageddon:
-            for _, player := range game.Model.Players {
-                player.UpdateUnrest()
-            }
-        case data.EnchantmentJustCause:
-            player.UpdateUnrest()
-        case data.EnchantmentHolyArms:
-            // all units implicitly have holy weapon, so the actual enchantment is removed from all units
-            for unit := range player.Units() {
-                unit.RemoveEnchantment(data.UnitEnchantmentHolyWeapon)
-            }
-        case data.EnchantmentAuraOfMajesty:
-            for _, other := range player.GetKnownPlayers() {
-                other.AdjustDiplomaticRelation(player, 10)
-                player.AdjustDiplomaticRelation(other, 10)
-            }
-
+        default:
+            game.Model.ApplyGlobalEnchantment(enchantment, player)
     }
 }
 
@@ -1467,38 +1442,6 @@ func (game *Game) MakeSubversionUI(caster *playerlib.Player, spell spellbook.Spe
 
 // Returns true if the spell is rolled to be instantly fizzled on cast (caused by spells like Life Force)
 // also returns the reason why the fizzle occurred (due to tranquility, supress magic, etc
-func (game *Game) checkInstantFizzleForCastSpell(player *playerlib.Player, spell spellbook.Spell) (bool, FizzleReason) {
-    var dispelChances []FizzleReason
-
-    for _, checkingPlayer := range game.Model.Players {
-
-        // Tranquility effect: if it's a chaos spell, it should either resist a strength 500 dispel check or fizzle right away.
-        if spell.IsOfRealm(data.ChaosMagic) {
-            // FIXME: Not sure if multiple instances of Tranquility stack or are checked separately.
-            if checkingPlayer != player && checkingPlayer.HasEnchantment(data.EnchantmentTranquility) {
-                dispelChances = append(dispelChances, FizzleReason{Owner: checkingPlayer, Enchantment: data.EnchantmentTranquility})
-            }
-        }
-        // Life Force effect: if it's a death spell, it should either resist a strength 500 dispel check or fizzle right away.
-        if spell.IsOfRealm(data.DeathMagic) {
-            // FIXME: Not sure if multiple instances of Life Force stack or are checked separately.
-            if checkingPlayer != player && checkingPlayer.HasEnchantment(data.EnchantmentLifeForce) {
-                dispelChances = append(dispelChances, FizzleReason{Owner: checkingPlayer, Enchantment: data.EnchantmentLifeForce})
-            }
-        }
-
-        if checkingPlayer != player && checkingPlayer.HasEnchantment(data.EnchantmentSuppressMagic) {
-            dispelChances = append(dispelChances, FizzleReason{Owner: checkingPlayer, Enchantment: data.EnchantmentSuppressMagic})
-        }
-    }
-
-    for _, reason := range dispelChances {
-        if spellbook.RollDispelChance(spellbook.ComputeDispelChance(500, spell.Cost(true), spell.Magic, &player.Wizard)) {
-            return true, reason
-        }
-    }
-    return false, FizzleReason{}
-}
 
 func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spell) {
     wards := []data.CityEnchantment{
@@ -1748,16 +1691,8 @@ func (game *Game) doSelectUnit(yield coroutine.YieldFunc, player *playerlib.Play
 }
 
 func (game *Game) doSummonHero(player *playerlib.Player, champion bool) {
-    var choices []*herolib.Hero
-    for _, hero := range player.HeroPool {
-        // torin is not summonable through this method
-        if hero.Status == herolib.StatusAvailable && hero.IsChampion() == champion && hero.HeroType != herolib.HeroTorin {
-            choices = append(choices, hero)
-        }
-    }
-
-    if len(choices) > 0 {
-        hero := choices[rand.N(len(choices))]
+    hero := game.Model.ChooseSummonHero(player, champion)
+    if hero != nil {
 
         summonEvent := GameEventSummonHero{
             Player: player,
@@ -2382,22 +2317,7 @@ func (game *Game) doCastEnchantRoad(yield coroutine.YieldFunc, tileX int, tileY 
 
     game.doCastOnMap(yield, tileX, tileY, 46, 86, update)
 
-    useMap := game.Model.CurrentMap()
-
-    // all roads in a 5x5 square around the target tile should become enchanted
-    for dx := -2; dx <= 2; dx++ {
-        for dy := -2; dy <= 2; dy++ {
-            cx := useMap.WrapX(tileX + dx)
-            cy := tileY + dy
-            if cy < 0 || cy >= useMap.Height() {
-                continue
-            }
-
-            if useMap.ContainsRoad(cx, cy) {
-                useMap.SetRoad(cx, cy, true)
-            }
-        }
-    }
+    game.Model.ApplyEnchantRoad(tileX, tileY)
 }
 
 func (game *Game) doCastEarthLore(yield coroutine.YieldFunc, tileX int, tileY int, player *playerlib.Player, soundIndex int) {
@@ -2412,17 +2332,7 @@ func (game *Game) doCastEarthLore(yield coroutine.YieldFunc, tileX int, tileY in
 func (game *Game) doCastChangeTerrain(yield coroutine.YieldFunc, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 7 {
-            mapObject := game.Model.CurrentMap()
-            switch mapObject.GetTile(x, y).Tile.TerrainType() {
-                case terrain.Desert, terrain.Forest, terrain.Hill, terrain.Swamp:
-                    mapObject.Map.SetTerrainAt(x, y, terrain.Grass, mapObject.Data, mapObject.Plane)
-                case terrain.Grass:
-                    mapObject.Map.SetTerrainAt(x, y, terrain.Forest, mapObject.Data, mapObject.Plane)
-                case terrain.Volcano:
-                    mapObject.RemoveVolcano(x, y)
-                case terrain.Mountain:
-                    mapObject.Map.SetTerrainAt(x, y, terrain.Hill, mapObject.Data, mapObject.Plane)
-            }
+            game.Model.ApplyChangeTerrain(x, y)
         }
     }
 
@@ -2433,15 +2343,7 @@ func (game *Game) doCastChangeTerrain(yield coroutine.YieldFunc, tileX int, tile
 func (game *Game) doCastTransmute(yield coroutine.YieldFunc, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 6 {
-            mapObject := game.Model.CurrentMap()
-            switch mapObject.GetBonusTile(x, y) {
-                case data.BonusCoal: mapObject.SetBonus(x, y, data.BonusGem)
-                case data.BonusGem: mapObject.SetBonus(x, y, data.BonusCoal)
-                case data.BonusIronOre: mapObject.SetBonus(x, y, data.BonusGoldOre)
-                case data.BonusGoldOre: mapObject.SetBonus(x, y, data.BonusIronOre)
-                case data.BonusSilverOre: mapObject.SetBonus(x, y, data.BonusMithrilOre)
-                case data.BonusMithrilOre: mapObject.SetBonus(x, y, data.BonusSilverOre)
-            }
+            game.Model.ApplyTransmute(x, y)
         }
     }
 
@@ -2452,28 +2354,13 @@ func (game *Game) doCastTransmute(yield coroutine.YieldFunc, tileX int, tileY in
 func (game *Game) doCastRaiseVolcano(yield coroutine.YieldFunc, tileX int, tileY int, player *playerlib.Player) {
     update := func (x int, y int, frame int) {
         if frame == 8 {
-            mapObject := game.Model.CurrentMap()
-            mapObject.Map.SetTerrainAt(x, y, terrain.Grass, mapObject.Data, mapObject.Plane)
-            mapObject.SetBonus(tileX, tileY, data.BonusNone)
+            game.Model.ApplyRaiseVolcanoTerrain(x, y, tileX, tileY)
         }
     }
 
     game.doCastOnMap(yield, tileX, tileY, 11, 98, update)
 
-    mapObject := game.Model.CurrentMap()
-    mapObject.SetVolcano(tileX, tileY, player)
-
-    // volcanoes may destroy buildings if cast in a city
-    for _, player := range game.Model.Players {
-        city := player.FindCity(tileX, tileY, mapObject.Plane)
-        if city != nil {
-            for _, building := range city.Buildings.Values() {
-                if rand.N(100) < 15 {
-                    city.Buildings.Remove(building)
-                }
-            }
-        }
-    }
+    game.Model.ApplyRaiseVolcano(tileX, tileY, player)
 
     game.RefreshUI()
 }
@@ -2481,11 +2368,7 @@ func (game *Game) doCastRaiseVolcano(yield coroutine.YieldFunc, tileX int, tileY
 func (game *Game) doCastCorruption(yield coroutine.YieldFunc, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 6 {
-            mapObject := game.Model.CurrentMap()
-            if y >= 0 || y < mapObject.Map.Rows() {
-                x = mapObject.WrapX(x)
-                mapObject.SetCorruption(x, y)
-            }
+            game.Model.ApplyCorruption(x, y)
         }
     }
 
@@ -2557,11 +2440,7 @@ func (game *Game) doCastWarpNode(yield coroutine.YieldFunc, tileX int, tileY int
 
     game.doCastOnMap(yield, tileX, tileY, 13, soundIndex, update)
 
-    node := game.Model.CurrentMap().GetMagicNode(tileX, tileY)
-    if node != nil {
-        node.Warped = true
-        node.WarpedOwner = caster
-    }
+    game.Model.ApplyWarpNode(tileX, tileY, caster)
 }
 
 type GlobalEnchantmentFonts struct {
@@ -2768,9 +2647,7 @@ func (game *Game) doCastGlobalEnchantment(yield coroutine.YieldFunc, player *pla
 func (game *Game) doCastFloatingIsland(yield coroutine.YieldFunc, player *playerlib.Player, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 5 {
-            overworldUnit := units.MakeOverworldUnitFromUnit(units.FloatingIsland, tileX, tileY, game.Model.CurrentMap().Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
-            player.AddUnit(overworldUnit)
-            player.LiftFog(tileX, tileY, 1, game.Model.Plane)
+            game.Model.ApplyFloatingIsland(player, tileX, tileY)
             game.discoverWizards(nil)
         }
     }

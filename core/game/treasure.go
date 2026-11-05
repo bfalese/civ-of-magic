@@ -9,11 +9,9 @@ import (
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/data"
+    "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/core/maplib"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
-    "github.com/bfalese/civ-of-magic/lib/lbx"
-    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
-    gamecore "github.com/bfalese/civ-of-magic/core/game"
 )
 
 type TreasureItem interface {
@@ -140,7 +138,9 @@ func chooseValue[T comparable](choices map[T]int) T {
 }
 
 // given some budget, keep choosing a treasure type within the budget and add it to the treasure
-func makeTreasure(cache *lbx.LbxCache, encounterType maplib.EncounterType, budget int, point data.PlanePoint, wizard setup.WizardCustom, knownSpells spellbook.Spells, allSpells spellbook.Spells, heroes []*herolib.Hero, getPremadeArtifacts func() []*artifact.Artifact) Treasure {
+// getPowers returns the artifact power table (costs, compatibilities); it is only called when a
+// random artifact has to be generated
+func MakeTreasure(getPowers func() (map[artifact.Power]int, map[artifact.Power]set.Set[artifact.ArtifactType], error), encounterType maplib.EncounterType, budget int, point data.PlanePoint, wizard setup.WizardCustom, knownSpells spellbook.Spells, allSpells spellbook.Spells, heroes []*herolib.Hero, getPremadeArtifacts func() []*artifact.Artifact) Treasure {
     type TreasureType int
     const (
         TreasureTypeGold TreasureType = iota
@@ -300,7 +300,7 @@ func makeTreasure(cache *lbx.LbxCache, encounterType maplib.EncounterType, budge
 
                     for _, choice := range rand.Perm(len(artifacts)) {
                         use := artifacts[choice]
-                        if budget >= use.Cost && gamecore.CanUseArtifact(use, wizard) {
+                        if budget >= use.Cost && CanUseArtifact(use, wizard) {
                             magicItemRemaining -= 1
                             budget -= use.Cost
                             items = append(items, &TreasureMagicalItem{Artifact: use})
@@ -308,11 +308,11 @@ func makeTreasure(cache *lbx.LbxCache, encounterType maplib.EncounterType, budge
                     }
                 } else {
                     randomArtifact := artifact.Artifact{}
-                    _, costs, compatibilities, err := lbxdata.ReadPowers(cache)
+                    costs, compatibilities, err := getPowers()
                     if err == nil {
                         randomArtifact = artifact.MakeRandomArtifact(costs, compatibilities)
                     }
-                    if budget >= randomArtifact.Cost && gamecore.CanUseArtifact(&randomArtifact, wizard) {
+                    if budget >= randomArtifact.Cost && CanUseArtifact(&randomArtifact, wizard) {
                         magicItemRemaining -= 1
                         budget -= randomArtifact.Cost
                         items = append(items, &TreasureMagicalItem{Artifact: &randomArtifact})

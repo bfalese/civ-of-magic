@@ -54,7 +54,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/gamemenu"
-    "github.com/bfalese/civ-of-magic/game/magic/serialize"
+    "github.com/bfalese/civ-of-magic/core/serialize"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     mouselib "github.com/bfalese/civ-of-magic/lib/mouse"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
@@ -143,7 +143,7 @@ type GameEventPauseWatchMode struct {
 }
 
 type GameEventTreasure struct {
-    Treasure Treasure
+    Treasure gamecore.Treasure
     Player *playerlib.Player
 }
 
@@ -548,7 +548,7 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
     }
 
     return MakeGameWithModel(lbxCache, music, gameSettings, func (lbxCache *lbx.LbxCache, events chan GameEvent) *gamecore.GameModel {
-        return MakeModelFromSerialized(serializedGame, events, heroNames, allSpells, createArtifactPool(lbxCache), buildingInfo, terrainData)
+        return gamecore.MakeModelFromSerialized(&serializedGame.SerializedGame, events, heroNames, allSpells, createArtifactPool(lbxCache), buildingInfo, terrainData)
     })
 }
 
@@ -4677,7 +4677,11 @@ func (game *Game) createTreasure(encounterType maplib.EncounterType, budget int,
         // cannot find the last spell in treasure
         allSpells.RemoveSpell(allSpells.FindByName("Spell of Mastery"))
 
-        treasure := makeTreasure(game.Cache, encounterType, budget, point, player.Wizard, player.KnownSpells, allSpells, heroes, makeArtifacts)
+        getPowers := func() (map[artifact.Power]int, map[artifact.Power]set.Set[artifact.ArtifactType], error) {
+            _, costs, compatibilities, err := lbxdata.ReadPowers(game.Cache)
+            return costs, compatibilities, err
+        }
+        treasure := gamecore.MakeTreasure(getPowers, encounterType, budget, point, player.Wizard, player.KnownSpells, allSpells, heroes, makeArtifacts)
         // FIXME: show treasure ui for human, otherwise just apply treasure for AI
         select {
             case game.Events <- &GameEventTreasure{Treasure: treasure, Player: player}:
@@ -4702,7 +4706,7 @@ func MakeTreasureFonts(cache *lbx.LbxCache) *TreasureFonts {
     }
 }
 
-func (game *Game) doTreasurePopup(yield coroutine.YieldFunc, player *playerlib.Player, treasure Treasure){
+func (game *Game) doTreasurePopup(yield coroutine.YieldFunc, player *playerlib.Player, treasure gamecore.Treasure){
     uiDone := false
 
     fonts := MakeTreasureFonts(game.Cache)
@@ -4760,15 +4764,15 @@ func (game *Game) doTreasurePopup(yield coroutine.YieldFunc, player *playerlib.P
     game.HudUI.RemoveElement(element)
 }
 
-func (game *Game) ApplyTreasure(yield coroutine.YieldFunc, player *playerlib.Player, treasure Treasure) {
+func (game *Game) ApplyTreasure(yield coroutine.YieldFunc, player *playerlib.Player, treasure gamecore.Treasure) {
     // apply gold/mana first (#758)
     for _, item := range treasure.Treasures {
         switch item.(type) {
-            case *TreasureGold:
-                gold := item.(*TreasureGold)
+            case *gamecore.TreasureGold:
+                gold := item.(*gamecore.TreasureGold)
                 player.Gold += gold.Amount
-            case *TreasureMana:
-                mana := item.(*TreasureMana)
+            case *gamecore.TreasureMana:
+                mana := item.(*gamecore.TreasureMana)
                 player.Mana += mana.Amount
         }
     }
@@ -4776,8 +4780,8 @@ func (game *Game) ApplyTreasure(yield coroutine.YieldFunc, player *playerlib.Pla
     // then items/spells
     for _, item := range treasure.Treasures {
         switch item.(type) {
-            case *TreasureMagicalItem:
-                magicalItem := item.(*TreasureMagicalItem)
+            case *gamecore.TreasureMagicalItem:
+                magicalItem := item.(*gamecore.TreasureMagicalItem)
                 if player.IsHuman() {
                     game.doVault(yield, magicalItem.Artifact)
                 } else {
@@ -4789,8 +4793,8 @@ func (game *Game) ApplyTreasure(yield coroutine.YieldFunc, player *playerlib.Pla
                 }
                 // if the treasure was one of the premade artifacts, then remove it from the pool
                 game.Model.ArtifactPool.Award(magicalItem.Artifact)
-            case *TreasurePrisonerHero:
-                hero := item.(*TreasurePrisonerHero)
+            case *gamecore.TreasurePrisonerHero:
+                hero := item.(*gamecore.TreasurePrisonerHero)
                 if player.IsHuman() {
                     game.doHireHero(yield, 0, hero.Hero, player, false, treasure.Point)
                 } else {
@@ -4798,22 +4802,22 @@ func (game *Game) ApplyTreasure(yield coroutine.YieldFunc, player *playerlib.Pla
                         player.AIBehavior.HandleHireHero(player, hero.Hero, 0, false, treasure.Point)
                     }
                 }
-            case *TreasureSpell:
-                spell := item.(*TreasureSpell)
+            case *gamecore.TreasureSpell:
+                spell := item.(*gamecore.TreasureSpell)
                 // add the spell to the research pool in case so it shows up in the spell book
                 player.ResearchPoolSpells.AddSpell(spell.Spell)
                 if player.IsHuman() {
                     game.doLearnSpell(yield, player, spell.Spell)
                 }
                 player.LearnSpell(spell.Spell)
-            case *TreasureSpellbook:
-                spellbook := item.(*TreasureSpellbook)
+            case *gamecore.TreasureSpellbook:
+                spellbook := item.(*gamecore.TreasureSpellbook)
                 player.Wizard.AddMagicLevel(spellbook.Magic, spellbook.Count)
                 allSpells := game.AllSpells()
                 // add more researchable spells based on the new magic level
                 player.InitializeResearchableSpells(&allSpells)
-            case *TreasureRetort:
-                retort := item.(*TreasureRetort)
+            case *gamecore.TreasureRetort:
+                retort := item.(*gamecore.TreasureRetort)
                 player.Wizard.EnableRetort(retort.Retort)
         }
     }
@@ -7730,7 +7734,7 @@ func (game *Game) doChaosRift() {
                         continue
                     }
 
-                    wrapper := &UnitDamageWrapper{StackUnit: choice}
+                    wrapper := &gamecore.UnitDamageWrapper{StackUnit: choice}
 
                     combat.ApplyDamage(wrapper, []int{combat.ComputeRoll(8, 30)}, units.DamageRangedMagical, combat.DamageSourceSpell, combat.DamageModifiers{ArmorPiercing: true, Magic: data.ChaosMagic})
                 }
@@ -7763,7 +7767,7 @@ func (game *Game) doChaosRift() {
 
 func (game *Game) doMeteorStorm() {
     immolate := func (unit units.StackUnit) int {
-        damage, _ := combat.ApplyAreaDamage(&UnitDamageWrapper{StackUnit: unit}, 4, units.DamageImmolation, 0)
+        damage, _ := combat.ApplyAreaDamage(&gamecore.UnitDamageWrapper{StackUnit: unit}, 4, units.DamageImmolation, 0)
         return damage
     }
 
