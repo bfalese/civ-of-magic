@@ -33,14 +33,17 @@ make wasm                           # GOOS=js GOARCH=wasm build
 ## Layout
 
 - `core/` — rendering-free, LBX-free game logic (CI-enforced): `ai`, `artifact`, `building`, `city`,
-  `combat`, `data`, `hero`, `maplib`, `neural`, `pathfinding`, `player`, `setup`, `spellbook`, `terrain`,
-  `units`.
+  `combat`, `data`, `game` (the game model), `hero`, `maplib`, `neural`, `pathfinding`, `player`, `setup`,
+  `spellbook`, `terrain`, `units`.
+  - Import `core/game` as `gamecore`: `gamelib` is the established alias of the UI package `game/magic/game`.
   - LBX parsers live in `game/magic/lbxdata`; drawing/screens in `game/magic/*view`
     (`mapview`, `combatview`, `spellbookview`, `artifactview`, `unitview`, `setupview`, ...).
   - Frontend-owned state: `maplib.Map.RenderCache` (opaque to core, filled by `mapview`).
     `mapview.Renderer` wraps a `*maplib.Map` with draw methods for code that wants a map that draws itself.
 - `game/magic/` — the main game. `main.go` + one package per subsystem.
-  - `game/model.go` is rendering-free; `game/game.go` (~8.6k lines) is the main UI/state tangle.
+  - `game/game.go` (~8.6k lines) is the main UI/state tangle; the model it drives is `core/game`.
+    Events: core defines `GameEvent` and the events the model emits; the UI package aliases
+    `GameEvent` and adds its own (screen requests, UI commands) on the same channel.
   - `core/combat` (model, AI, networking, headless runner) vs `combatview` (screens) is the template
     for further splits.
   - Pure UI packages: `*view`, `ui`, `draw`, `mouse`, `inputmanager`, `shaders`, `camera`, etc.
