@@ -256,12 +256,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                return true
             }
             after := func (unit units.StackUnit) bool {
-                overworldUnit, ok := unit.(*units.OverworldUnit)
-                if ok {
-                    overworldUnit.Unit = units.WereWolf
-                    overworldUnit.Experience = 0
-                    // unit keeps weapon bonus and enchantments
-                }
+                game.Model.ApplyLycanthropy(unit)
                 return true
             }
             game.doCastOnUnit(player, spell, 4, before, after)
@@ -437,16 +432,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 if city != nil {
                     // FIXME: verify animation
                     game.doCastOnMap(yield, tileX, tileY, 44, spell.Sound, func (x int, y int, animationFrame int) {})
-                    player.Banished = false
-
-                    for _, check := range player.Cities {
-                        check.RemoveBuilding(building.BuildingSummoningCircle)
-                        check.RemoveBuilding(building.BuildingFortress)
-                    }
-
-                    city.Buildings.Insert(buildinglib.BuildingFortress)
-                    city.Buildings.Insert(buildinglib.BuildingSummoningCircle)
-                    player.Wizard.Race = city.Race
+                    game.Model.ApplySpellOfReturn(player, city)
                 }
             }
 

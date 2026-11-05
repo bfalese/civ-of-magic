@@ -5851,66 +5851,15 @@ func (game *Game) DoBuildAction(player *playerlib.Player){
 }
 
 func (game *Game) IsGlobalEnchantmentActive(enchantment data.Enchantment) bool {
-    return slices.ContainsFunc(game.Model.Players, func (player *playerlib.Player) bool {
-        return player.GlobalEnchantments.Contains(enchantment)
-    })
+    return game.Model.IsGlobalEnchantmentActive(enchantment)
 }
 
 func (game *Game) PlaneShift(stack *playerlib.UnitStack, player *playerlib.Player) error {
-    if game.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
-        return errors.New("Cannot plane shift while the Planar Seal is in effect")
-    }
-
-    canMove := false
-
-    cityOppositePlane := player.FindCity(stack.X(), stack.Y(), stack.Plane().Opposite())
-
-    mapPlane := game.GetMap(stack.Plane().Opposite())
-
-    tile := mapPlane.GetTile(stack.X(), stack.Y())
-    canMove = cityOppositePlane != nil || stack.AllFlyers() || tile.Tile.IsLand()
-
-    if cityOppositePlane != nil {
-        for _, unit := range stack.ActiveUnits() {
-            if !cityOppositePlane.CanEnter(unit) {
-                canMove = false
-                break
-            }
-        }
-    }
-
-    // cannot planar travel if there is an encounter node
-    if canMove && mapPlane.GetEncounter(stack.X(), stack.Y()) != nil {
-        canMove = false
-    }
-
-    if canMove && tile.Tile.IsWater() && stack.AllLandWalkers() {
-        canMove = false
-    }
-
-    cityStackInfo := game.Model.ComputeCityStackInfo()
-
-    if cityStackInfo.ContainsEnemy(stack.X(), stack.Y(), stack.Plane().Opposite(), player) {
-        canMove = false
-    }
-
-    // no matter what the reason, just emit a message that planar travel is not possible
-    if !canMove {
-        return errors.New("The selected units cannot planar travel at this location.")
-    }
-
-    if canMove {
-        // if there is a friendly stack at the new location then merge the stacks
-        mergeStack := cityStackInfo.FindFriendlyStack(stack.X(), stack.Y(), stack.Plane().Opposite(), player)
-        stack.SetPlane(stack.Plane().Opposite())
-        if mergeStack != nil {
-            player.MergeStacks(stack, mergeStack)
-        }
-        player.UpdateFogVisibility()
+    err := game.Model.PlaneShift(stack, player)
+    if err == nil {
         game.discoverWizards(nil)
     }
-
-    return nil
+    return err
 }
 
 func (game *Game) doPlanarTraval() {
