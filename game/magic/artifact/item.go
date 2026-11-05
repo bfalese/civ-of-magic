@@ -444,8 +444,8 @@ func MakeRandomArtifact(costs map[Power]int, compatibilities map[Power]set.Set[A
 
     artifact.Image = chooseImage(artifact.Type)
 
-    artifact.Cost = calculateCost(&artifact, costs)
-    artifact.Name = getName(&artifact, "")
+    artifact.Cost = CalculateCost(&artifact, costs)
+    artifact.Name = GetName(&artifact, "")
 
     return artifact
 }
@@ -742,7 +742,7 @@ func ReadArtifacts(cache *lbx.LbxCache) ([]Artifact, error) {
     return out, nil
 }
 
-func getName(artifact *Artifact, customName string) string {
+func GetName(artifact *Artifact, customName string) string {
     if customName != "" {
         return customName
     }
@@ -790,7 +790,7 @@ func getName(artifact *Artifact, customName string) string {
     return prefix + base + postfix
 }
 
-func calculateCost(artifact *Artifact, costs map[Power]int) int {
+func CalculateCost(artifact *Artifact, costs map[Power]int) int {
     base := 0
     switch artifact.Type {
         case ArtifactTypeSword: base = 100
