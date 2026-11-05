@@ -7,6 +7,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/lib/set"
 )
@@ -85,5 +86,33 @@ func TestAvailableSpellWards(test *testing.T) {
     choices := model.AvailableSpellWards(city)
     if choices.Size() != 4 || choices.Contains(data.CityEnchantmentChaosWard) {
         test.Errorf("chaos ward present: expected the other 4, got %v", choices.Values())
+    }
+}
+
+func TestApplySubversion(test *testing.T) {
+    caster, target := makeContactPlayers()
+    bystander := playerlib.MakePlayer(setup.WizardCustom{Name: "Sharee", Banner: data.BannerBlue}, false, 8, 8, make(map[herolib.HeroType]string), nil)
+    model := &GameModel{Players: []*playerlib.Player{caster, target, bystander}}
+    model.MakeWizardContact(bystander, target)
+    model.MakeWizardContact(caster, target)
+
+    relation, ok := bystander.GetDiplomaticRelation(target)
+    if !ok {
+        test.Fatalf("bystander should know the target")
+    }
+    before := relation.StartingRelation
+
+    if !model.ApplySubversion(caster, target) {
+        test.Fatalf("subversion should apply")
+    }
+
+    relation, _ = bystander.GetDiplomaticRelation(target)
+    if relation.StartingRelation != max(before - 25, -100) {
+        test.Errorf("bystander should like the target less: %v -> %v", before, relation.StartingRelation)
+    }
+
+    target.Banished = true
+    if model.ApplySubversion(caster, target) {
+        test.Errorf("a banished wizard can't be targeted")
     }
 }

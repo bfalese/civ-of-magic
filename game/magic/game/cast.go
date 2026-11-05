@@ -857,9 +857,7 @@ func (game *Game) MakeResurrectionUI(caster *playerlib.Player, heroes []*herolib
             },
             LeftClick: func(element *uilib.UIElement) {
                 cancel()
-                hero.SetStatus(herolib.StatusEmployed)
-                caster.AddHeroToSummoningCircle(hero)
-                game.Model.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
+                game.Model.ResurrectHero(caster, hero)
 
                 summoningCity := caster.FindSummoningCity()
                 if summoningCity != nil {
@@ -937,11 +935,8 @@ func (game *Game) MakeSpellBindingUI(caster *playerlib.Player, spell spellbook.S
         group.AddElement(createSparksElement(faceRect, fader))
         success := false
 
-        if spellbook.RollDispelChance(spellbook.ComputeDispelChance(dispelStrength, targetSpell.Cost(true), targetSpell.Magic, &owner.Wizard)) {
+        if game.Model.TrySpellBinding(caster, owner, enchantment, targetSpell, dispelStrength) {
             success = true
-            owner.RemoveEnchantment(enchantment)
-            caster.AddEnchantment(enchantment)
-
             game.ApplyGlobalEnchantment(enchantment, caster)
         }
 
@@ -1013,9 +1008,8 @@ func (game *Game) MakeDisjunctionUI(caster *playerlib.Player, spell spellbook.Sp
 
         success := false
 
-        if spellbook.RollDispelChance(spellbook.ComputeDispelChance(dispelStrength, targetSpell.Cost(true), targetSpell.Magic, &owner.Wizard)) {
+        if game.Model.TryDisjunction(owner, enchantment, targetSpell, dispelStrength) {
             // show an animation/play a sound?
-            owner.RemoveEnchantment(enchantment)
             success = true
         }
 
@@ -1267,17 +1261,8 @@ func (game *Game) makeGlobalEnchantmentSelectionUI(caster *playerlib.Player, spe
 
 func (game *Game) MakeSubversionUI(caster *playerlib.Player, spell spellbook.Spell) (*uilib.UIElementGroup, context.Context, error) {
     onTargetSelectCallback := func(targetPlayer *playerlib.Player) (bool, string) {
-        if targetPlayer.Defeated || targetPlayer.Banished {
+        if !game.Model.ApplySubversion(caster, targetPlayer) {
             return false, ""
-        }
-
-        for _, player := range game.Model.Players {
-            // ignore the wizard that cast subversion
-            if player == caster {
-                continue
-            }
-
-            player.AdjustDiplomaticRelation(targetPlayer, -25)
         }
 
         return true, fmt.Sprintf("%s has been subverted", targetPlayer.Wizard.Name)

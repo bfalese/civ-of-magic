@@ -236,3 +236,49 @@ func (model *GameModel) AvailableSpellWards(city *citylib.City) *set.Set[data.Ci
 
     return choices
 }
+
+// Subversion: every other wizard (except the caster) likes the target 25 less.
+// Returns false (no effect) if the target can't be chosen.
+func (model *GameModel) ApplySubversion(caster *playerlib.Player, targetPlayer *playerlib.Player) bool {
+    if targetPlayer.Defeated || targetPlayer.Banished {
+        return false
+    }
+
+    for _, player := range model.Players {
+        // ignore the wizard that cast subversion
+        if player == caster {
+            continue
+        }
+
+        player.AdjustDiplomaticRelation(targetPlayer, -25)
+    }
+
+    return true
+}
+
+// Spell Binding: on a successful dispel roll the caster takes over the owner's global enchantment.
+// The frontend then applies the enchantment's effects for the caster.
+func (model *GameModel) TrySpellBinding(caster *playerlib.Player, owner *playerlib.Player, enchantment data.Enchantment, targetSpell spellbook.Spell, dispelStrength int) bool {
+    if spellbook.RollDispelChance(spellbook.ComputeDispelChance(dispelStrength, targetSpell.Cost(true), targetSpell.Magic, &owner.Wizard)) {
+        owner.RemoveEnchantment(enchantment)
+        caster.AddEnchantment(enchantment)
+        return true
+    }
+    return false
+}
+
+// Disjunction: on a successful dispel roll the owner's global enchantment ends
+func (model *GameModel) TryDisjunction(owner *playerlib.Player, enchantment data.Enchantment, targetSpell spellbook.Spell, dispelStrength int) bool {
+    if spellbook.RollDispelChance(spellbook.ComputeDispelChance(dispelStrength, targetSpell.Cost(true), targetSpell.Magic, &owner.Wizard)) {
+        owner.RemoveEnchantment(enchantment)
+        return true
+    }
+    return false
+}
+
+// Resurrection: a dead hero returns to the caster's summoning circle
+func (model *GameModel) ResurrectHero(caster *playerlib.Player, hero *herolib.Hero) {
+    hero.SetStatus(herolib.StatusEmployed)
+    caster.AddHeroToSummoningCircle(hero)
+    model.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
+}
