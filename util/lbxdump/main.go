@@ -13,6 +13,8 @@ import (
     "archive/zip"
     "flag"
 
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
+
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
@@ -128,7 +130,7 @@ func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, 
         files := make(map[string]*lbx.LbxFile)
         files["itempow.lbx"] = &file
         cache := lbx.MakeCacheFromLbxFiles(files)
-        artifacts, costs, compatibilities, err := artifact.ReadPowers(cache)
+        artifacts, costs, compatibilities, err := artifactview.ReadPowers(cache)
 
         if err != nil {
             return err

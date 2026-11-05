@@ -1,4 +1,4 @@
-package artifact
+package artifactview
 
 import (
     "fmt"
@@ -25,6 +25,8 @@ import (
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"
     // "github.com/hajimehoshi/ebiten/v2/inpututil"
+    artifactlib "github.com/bfalese/civ-of-magic/game/magic/artifact"
+
 )
 
 // the screen can be invoked as either the 'Enchant Item' spell or 'Create Artifact'
@@ -42,7 +44,7 @@ type MagicLevel interface {
     MagicLevel(kind data.MagicType) int
 }
 
-func ReadPowers(cache *lbx.LbxCache) ([]Power, map[Power]int, map[Power]set.Set[ArtifactType], error) {
+func ReadPowers(cache *lbx.LbxCache) ([]artifactlib.Power, map[artifactlib.Power]int, map[artifactlib.Power]set.Set[artifactlib.ArtifactType], error) {
     itemData, err := cache.GetLbxFile("itempow.lbx")
     if err != nil {
         return nil, nil, nil, fmt.Errorf("unable to read itempow.lbx: %v", err)
@@ -66,30 +68,30 @@ func ReadPowers(cache *lbx.LbxCache) ([]Power, map[Power]int, map[Power]set.Set[
         return nil, nil, nil, fmt.Errorf("unsupported itempow.lbx")
     }
 
-    artifactTypeMap := map[uint16]ArtifactType{
-        1 << 0: ArtifactTypeSword,
-        1 << 1: ArtifactTypeMace,
-        1 << 2: ArtifactTypeAxe,
-        1 << 3: ArtifactTypeBow,
-        1 << 4: ArtifactTypeStaff,
-        1 << 5: ArtifactTypeWand,
-        1 << 6: ArtifactTypeMisc,
-        1 << 7: ArtifactTypeShield,
-        1 << 8: ArtifactTypeChain,
-        1 << 9: ArtifactTypePlate,
+    artifactTypeMap := map[uint16]artifactlib.ArtifactType{
+        1 << 0: artifactlib.ArtifactTypeSword,
+        1 << 1: artifactlib.ArtifactTypeMace,
+        1 << 2: artifactlib.ArtifactTypeAxe,
+        1 << 3: artifactlib.ArtifactTypeBow,
+        1 << 4: artifactlib.ArtifactTypeStaff,
+        1 << 5: artifactlib.ArtifactTypeWand,
+        1 << 6: artifactlib.ArtifactTypeMisc,
+        1 << 7: artifactlib.ArtifactTypeShield,
+        1 << 8: artifactlib.ArtifactTypeChain,
+        1 << 9: artifactlib.ArtifactTypePlate,
     }
 
-    powerTypeMap := map[byte]PowerType{
-        0: PowerTypeAttack,
-        1: PowerTypeToHit,
-        2: PowerTypeDefense,
-        3: PowerTypeSpellSkill,
-        4: PowerTypeSpellSave,
-        5: PowerTypeMovement,
-        6: PowerTypeResistance,
-        7: PowerTypeAbility1,
-        8: PowerTypeAbility2,
-        9: PowerTypeAbility3,
+    powerTypeMap := map[byte]artifactlib.PowerType{
+        0: artifactlib.PowerTypeAttack,
+        1: artifactlib.PowerTypeToHit,
+        2: artifactlib.PowerTypeDefense,
+        3: artifactlib.PowerTypeSpellSkill,
+        4: artifactlib.PowerTypeSpellSave,
+        5: artifactlib.PowerTypeMovement,
+        6: artifactlib.PowerTypeResistance,
+        7: artifactlib.PowerTypeAbility1,
+        8: artifactlib.PowerTypeAbility2,
+        9: artifactlib.PowerTypeAbility3,
     }
 
     magicTypeMap := map[byte]data.MagicType{
@@ -102,11 +104,11 @@ func ReadPowers(cache *lbx.LbxCache) ([]Power, map[Power]int, map[Power]set.Set[
 
     // Reuse the canonical conversion maps so artifact parsing doesn't drift
     // from item loading (both read the same itempow.lbx / itemdata.lbx).
-    _, _, abilityMap := GetItemConversionMaps()
+    _, _, abilityMap := artifactlib.GetItemConversionMaps()
 
-    var powers []Power
-    costs := make(map[Power]int)
-    compatibilities := make(map[Power]set.Set[ArtifactType])
+    var powers []artifactlib.Power
+    costs := make(map[artifactlib.Power]int)
+    compatibilities := make(map[artifactlib.Power]set.Set[artifactlib.ArtifactType])
 
     for i := 0; i < int(numEntries); i++ {
         // Name
@@ -126,7 +128,7 @@ func ReadPowers(cache *lbx.LbxCache) ([]Power, map[Power]int, map[Power]set.Set[
             continue  // there seems to be empty entries
         }
 
-        artifactTypes := set.MakeSet[ArtifactType]()
+        artifactTypes := set.MakeSet[artifactlib.ArtifactType]()
         for mask, artifactType := range artifactTypeMap {
             if artifactTypeValue & mask != 0 {
                 artifactTypes.Insert(artifactType)
@@ -186,8 +188,8 @@ func ReadPowers(cache *lbx.LbxCache) ([]Power, map[Power]int, map[Power]set.Set[
             continue // Spell Charges
         }
 
-        if powerType != PowerTypeNone {
-            power := Power{
+        if powerType != artifactlib.PowerTypeNone {
+            power := artifactlib.Power{
                 Type: powerType,
                 Name: string(name),
                 Amount: int(amount),
@@ -203,8 +205,8 @@ func ReadPowers(cache *lbx.LbxCache) ([]Power, map[Power]int, map[Power]set.Set[
     return powers, costs, compatibilities, nil
 }
 
-func groupPowers(powers []Power, costs map[Power]int, compatibilities map[Power]set.Set[ArtifactType], artifactType ArtifactType, creationType CreationScreen) [][]Power {
-    grouped := make(map[PowerType][]Power)
+func groupPowers(powers []artifactlib.Power, costs map[artifactlib.Power]int, compatibilities map[artifactlib.Power]set.Set[artifactlib.ArtifactType], artifactType artifactlib.ArtifactType, creationType CreationScreen) [][]artifactlib.Power {
+    grouped := make(map[artifactlib.PowerType][]artifactlib.Power)
     for _, power := range powers {
         artifactTypes := compatibilities[power]
         cost := costs[power]
@@ -218,17 +220,17 @@ func groupPowers(powers []Power, costs map[Power]int, compatibilities map[Power]
         }
     }
 
-    order := []PowerType{
-        PowerTypeAttack,
-        PowerTypeDefense,
-        PowerTypeToHit,
-        PowerTypeMovement,
-        PowerTypeResistance,
-        PowerTypeSpellSkill,
-        PowerTypeSpellSave,
+    order := []artifactlib.PowerType{
+        artifactlib.PowerTypeAttack,
+        artifactlib.PowerTypeDefense,
+        artifactlib.PowerTypeToHit,
+        artifactlib.PowerTypeMovement,
+        artifactlib.PowerTypeResistance,
+        artifactlib.PowerTypeSpellSkill,
+        artifactlib.PowerTypeSpellSave,
     }
 
-    var result [][]Power
+    var result [][]artifactlib.Power
     for _, powerType := range order {
         if grouped[powerType] != nil {
             result = append(result, grouped[powerType])
@@ -238,7 +240,7 @@ func groupPowers(powers []Power, costs map[Power]int, compatibilities map[Power]
     return result
 }
 
-func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCache, fonts ArtifactFonts, picLow int, picHigh int, powerGroups [][]Power, costs map[Power]int, artifact *Artifact, customName *string, selectCount *int) []*uilib.UIElement {
+func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCache, fonts ArtifactFonts, picLow int, picHigh int, powerGroups [][]artifactlib.Power, costs map[artifactlib.Power]int, artifact *artifactlib.Artifact, customName *string, selectCount *int) []*uilib.UIElement {
     var elements []*uilib.UIElement
 
     // image - keep a loaded catalog image if it is already in this type's range
@@ -275,7 +277,7 @@ func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCac
             if artifact.Image < picLow {
                 artifact.Image = picHigh
             }
-            artifact.Name = GetName(artifact, *customName)
+            artifact.Name = artifactlib.GetName(artifact, *customName)
         },
         Draw: func(element *uilib.UIElement, screen *ebiten.Image){
             var options ebiten.DrawImageOptions
@@ -300,7 +302,7 @@ func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCac
             if artifact.Image > picHigh {
                 artifact.Image = picLow
             }
-            artifact.Name = GetName(artifact, *customName)
+            artifact.Name = artifactlib.GetName(artifact, *customName)
         },
         Draw: func(element *uilib.UIElement, screen *ebiten.Image){
             var options ebiten.DrawImageOptions
@@ -313,7 +315,7 @@ func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCac
     // name field
     nameRect := image.Rect(30, 12, (30 + 130), (12 + fonts.NameFont.Height() + 2))
     nameFocused := false
-    artifact.Name = GetName(artifact, *customName)
+    artifact.Name = artifactlib.GetName(artifact, *customName)
     nameColorSource := ebiten.NewImage(1, 1)
     nameColorSource.Fill(color.RGBA{R: 0xf3, G: 0xb3, B: 0x47, A: 0xff})
 
@@ -406,7 +408,7 @@ func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCac
 
         groupRight := printRight
 
-        var lastPower *Power = nil
+        var lastPower *artifactlib.Power = nil
         for i, power := range group {
             if artifact.ContainsPower(power) {
                 groupSelect = i
@@ -430,16 +432,16 @@ func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCac
                             groupSelect = -1
                             *selectCount -= 1
                             artifact.RemovePower(power)
-                            artifact.Name = GetName(artifact, *customName)
-                            artifact.Cost = CalculateCost(artifact, costs)
+                            artifact.Name = artifactlib.GetName(artifact, *customName)
+                            artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                             lastPower = nil
                         } else {
                             // something was already selected in this group, so the count doesn't change
                             groupSelect = i
                             artifact.RemovePower(*lastPower)
                             artifact.AddPower(power)
-                            artifact.Name = GetName(artifact, *customName)
-                            artifact.Cost = CalculateCost(artifact, costs)
+                            artifact.Name = artifactlib.GetName(artifact, *customName)
+                            artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                             lastPower = &power
                         }
                     } else {
@@ -447,8 +449,8 @@ func makePowersFull(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCac
                             *selectCount += 1
                             groupSelect = i
                             artifact.AddPower(power)
-                            artifact.Name = GetName(artifact, *customName)
-                            artifact.Cost = CalculateCost(artifact, costs)
+                            artifact.Name = artifactlib.GetName(artifact, *customName)
+                            artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                             lastPower = &power
                         } else {
                             ui.AddElement(uilib.MakeErrorElement(ui, cache, imageCache, "Only four powers may be enchanted into an item", func(){}))
@@ -692,18 +694,18 @@ func makeSpellChoiceElements(ui *uilib.UI, imageCache *util.ImageCache, fonts Ar
     return elements
 }
 
-func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCache, artifact *Artifact, customName *string, fonts ArtifactFonts, powers []Power, compatibilities map[Power]set.Set[ArtifactType], costs map[Power]int, selectCount *int, wizard spellbook.Wizard, availableSpells spellbook.Spells) []*uilib.UIElement {
+func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.ImageCache, artifact *artifactlib.Artifact, customName *string, fonts ArtifactFonts, powers []artifactlib.Power, compatibilities map[artifactlib.Power]set.Set[artifactlib.ArtifactType], costs map[artifactlib.Power]int, selectCount *int, wizard spellbook.Wizard, availableSpells spellbook.Spells) []*uilib.UIElement {
     var elements []*uilib.UIElement
 
-    var group1 []Power
-    var group2 []Power
-    var group3 []Power
+    var group1 []artifactlib.Power
+    var group2 []artifactlib.Power
+    var group3 []artifactlib.Power
 
     for _, power := range powers {
         switch power.Type {
-            case PowerTypeAbility1: group1 = append(group1, power)
-            case PowerTypeAbility2: group2 = append(group2, power)
-            case PowerTypeAbility3: group3 = append(group3, power)
+            case artifactlib.PowerTypeAbility1: group1 = append(group1, power)
+            case artifactlib.PowerTypeAbility2: group2 = append(group2, power)
+            case artifactlib.PowerTypeAbility3: group3 = append(group3, power)
         }
     }
 
@@ -727,16 +729,16 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
 
     totalItems := 0
 
-    for groupNum, group := range [][]Power{group1, group2, group3} {
+    for groupNum, group := range [][]artifactlib.Power{group1, group2, group3} {
         groupSelect := -1
 
         mutuallyExclusive := groupNum == 0 || groupNum == 1
 
-        slices.SortFunc(group, func(a, b Power) int {
+        slices.SortFunc(group, func(a, b artifactlib.Power) int {
             return cmp.Compare(a.Index, b.Index)
         })
 
-        var lastPower *Power = nil
+        var lastPower *artifactlib.Power = nil
         selected := make([]bool, len(group))
         for i, power := range group {
             if artifact.ContainsPower(power) {
@@ -767,16 +769,16 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
                                     groupSelect = -1
                                     *selectCount -= 1
                                     artifact.RemovePower(power)
-                                    artifact.Name = GetName(artifact, *customName)
-                                    artifact.Cost = CalculateCost(artifact, costs)
+                                    artifact.Name = artifactlib.GetName(artifact, *customName)
+                                    artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                                     lastPower = nil
                                 } else {
                                     // something was already selected in this group, so the count doesn't change
                                     groupSelect = i
                                     artifact.RemovePower(*lastPower)
                                     artifact.AddPower(power)
-                                    artifact.Name = GetName(artifact, *customName)
-                                    artifact.Cost = CalculateCost(artifact, costs)
+                                    artifact.Name = artifactlib.GetName(artifact, *customName)
+                                    artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                                     lastPower = &power
                                 }
                             } else {
@@ -784,8 +786,8 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
                                     *selectCount += 1
                                     groupSelect = i
                                     artifact.AddPower(power)
-                                    artifact.Name = GetName(artifact, *customName)
-                                    artifact.Cost = CalculateCost(artifact, costs)
+                                    artifact.Name = artifactlib.GetName(artifact, *customName)
+                                    artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                                     lastPower = &power
                                 } else {
                                     ui.AddElement(uilib.MakeErrorElement(ui, cache, imageCache, "Only four powers may be enchanted into an item", func(){}))
@@ -796,8 +798,8 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
                             // can pick multiple
                             if selected[i] {
                                 artifact.RemovePower(power)
-                                artifact.Name = GetName(artifact, *customName)
-                                artifact.Cost = CalculateCost(artifact, costs)
+                                artifact.Name = artifactlib.GetName(artifact, *customName)
+                                artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                                 selected[i] = false
                                 *selectCount -= 1
                             } else if *selectCount < 4 {
@@ -805,8 +807,8 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
                                 selected[i] = true
 
                                 artifact.AddPower(power)
-                                artifact.Name = GetName(artifact, *customName)
-                                artifact.Cost = CalculateCost(artifact, costs)
+                                artifact.Name = artifactlib.GetName(artifact, *customName)
+                                artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                             } else {
                                 ui.AddElement(uilib.MakeErrorElement(ui, cache, imageCache, "Only four powers may be enchanted into an item", func(){}))
                             }
@@ -836,16 +838,16 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
     }
 
     // spell charges
-    if len(availableSpells.Spells) > 0 && (artifact.Type == ArtifactTypeWand || artifact.Type == ArtifactTypeStaff) {
+    if len(availableSpells.Spells) > 0 && (artifact.Type == artifactlib.ArtifactTypeWand || artifact.Type == artifactlib.ArtifactTypeStaff) {
         xRect := image.Rect(x, y, x + int(fonts.PowerFont.MeasureTextWidth("Spell Charges", 1)), y + fonts.PowerFont.Height())
         selected := artifact.HasSpellCharges()
         totalItems += 1
 
-        addedPower := Power{Type: PowerTypeNone}
+        addedPower := artifactlib.Power{Type: artifactlib.PowerTypeNone}
         if selected {
             spell, charges := artifact.GetSpellCharge()
-            addedPower = Power{
-                Type: PowerTypeSpellCharges,
+            addedPower = artifactlib.Power{
+                Type: artifactlib.PowerTypeSpellCharges,
                 Spell: spell,
                 Amount: charges,
                 Name: fmt.Sprintf("%v x%v", spell.Name, charges),
@@ -864,21 +866,21 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
 
                 if selected {
                     ui.AddElements(makeSpellChoiceElements(ui, imageCache, fonts, availableSpells, &selected, func (spell spellbook.Spell, charges int){
-                        addedPower = Power{
-                            Type: PowerTypeSpellCharges,
+                        addedPower = artifactlib.Power{
+                            Type: artifactlib.PowerTypeSpellCharges,
                             Spell: spell,
                             Amount: charges,
                             Name: fmt.Sprintf("%v x%v", spell.Name, charges),
                         }
                         artifact.AddPower(addedPower)
-                        artifact.Name = GetName(artifact, *customName)
-                        artifact.Cost = CalculateCost(artifact, costs)
+                        artifact.Name = artifactlib.GetName(artifact, *customName)
+                        artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                     }))
                 } else {
                     artifact.RemovePower(addedPower)
-                    addedPower = Power{Type: PowerTypeNone}
-                    artifact.Name = GetName(artifact, *customName)
-                    artifact.Cost = CalculateCost(artifact, costs)
+                    addedPower = artifactlib.Power{Type: artifactlib.PowerTypeNone}
+                    artifact.Name = artifactlib.GetName(artifact, *customName)
+                    artifact.Cost = artifactlib.CalculateCost(artifact, costs)
                 }
             },
             Draw: func(element *uilib.UIElement, screen *ebiten.Image){
@@ -893,7 +895,7 @@ func makeAbilityElements(ui *uilib.UI, cache *lbx.LbxCache, imageCache *util.Ima
                     options.ColorScale.SetG(3)
                 }
 
-                if addedPower.Type == PowerTypeSpellCharges {
+                if addedPower.Type == artifactlib.PowerTypeSpellCharges {
                     fonts.PowerFont.PrintOptions(screen, float64(element.Rect.Min.X), float64(element.Rect.Min.Y), font.FontOptions{Scale: scale.ScaleAmount, Options: &options}, addedPower.Name)
                 } else {
                     fonts.PowerFont.PrintOptions(screen, float64(element.Rect.Min.X), float64(element.Rect.Min.Y), font.FontOptions{Scale: scale.ScaleAmount, Options: &options}, "Spell Charges")
@@ -1039,7 +1041,7 @@ func makeFonts(cache *lbx.LbxCache) ArtifactFonts {
 /* returns the artifact that was created and true,
  * otherwise false for cancelled
  */
-func ShowCreateArtifactScreen(yield coroutine.YieldFunc, cache *lbx.LbxCache, creationType CreationScreen, wizard spellbook.Wizard, availableSpells spellbook.Spells, draw *func(*ebiten.Image)) (*Artifact, bool) {
+func ShowCreateArtifactScreen(yield coroutine.YieldFunc, cache *lbx.LbxCache, creationType CreationScreen, wizard spellbook.Wizard, availableSpells spellbook.Spells, draw *func(*ebiten.Image)) (*artifactlib.Artifact, bool) {
     fonts := makeFonts(cache)
 
     imageCache := util.MakeImageCache(cache)
@@ -1057,21 +1059,21 @@ func ShowCreateArtifactScreen(yield coroutine.YieldFunc, cache *lbx.LbxCache, cr
 
     ui.SetElementsFromArray(nil)
 
-    var currentArtifact *Artifact
+    var currentArtifact *artifactlib.Artifact
     var customName string
 
     type PowerArtifact struct {
         Elements []*uilib.UIElement
         AbilityElements []*uilib.UIElement
-        Artifact *Artifact
+        Artifact *artifactlib.Artifact
     }
 
     // ui elements for powers that can be selected, based on what item is selected
-    powers := make(map[ArtifactType]PowerArtifact)
+    powers := make(map[artifactlib.ArtifactType]PowerArtifact)
 
     // manually curry
-    makePowers := func(picLow int, picHigh int, artifactType ArtifactType, powers []Power, costs map[Power]int, compatibilities map[Power]set.Set[ArtifactType]) PowerArtifact {
-        var artifact Artifact
+    makePowers := func(picLow int, picHigh int, artifactType artifactlib.ArtifactType, powers []artifactlib.Power, costs map[artifactlib.Power]int, compatibilities map[artifactlib.Power]set.Set[artifactlib.ArtifactType]) PowerArtifact {
+        var artifact artifactlib.Artifact
         artifact.Type = artifactType
         groups := groupPowers(powers, costs, compatibilities, artifactType, creationType)
         selectCount := 0
@@ -1089,18 +1091,18 @@ func ShowCreateArtifactScreen(yield coroutine.YieldFunc, cache *lbx.LbxCache, cr
         return nil, true
     }
 
-    powers[ArtifactTypeSword] = makePowers(0, 8, ArtifactTypeSword, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeMace] = makePowers(9, 19, ArtifactTypeMace, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeAxe] = makePowers(20, 28, ArtifactTypeAxe, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeBow] = makePowers(29, 37, ArtifactTypeBow, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeStaff] = makePowers(38, 46, ArtifactTypeStaff, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeWand] = makePowers(107, 115, ArtifactTypeWand, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeMisc] = makePowers(72, 106, ArtifactTypeMisc, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeShield] = makePowers(62, 71, ArtifactTypeShield, powerEntries, costs, compatibilities)
-    powers[ArtifactTypeChain] = makePowers(47, 54, ArtifactTypeChain, powerEntries, costs, compatibilities)
-    powers[ArtifactTypePlate] = makePowers(55, 61, ArtifactTypePlate,  powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeSword] = makePowers(0, 8, artifactlib.ArtifactTypeSword, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeMace] = makePowers(9, 19, artifactlib.ArtifactTypeMace, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeAxe] = makePowers(20, 28, artifactlib.ArtifactTypeAxe, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeBow] = makePowers(29, 37, artifactlib.ArtifactTypeBow, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeStaff] = makePowers(38, 46, artifactlib.ArtifactTypeStaff, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeWand] = makePowers(107, 115, artifactlib.ArtifactTypeWand, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeMisc] = makePowers(72, 106, artifactlib.ArtifactTypeMisc, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeShield] = makePowers(62, 71, artifactlib.ArtifactTypeShield, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypeChain] = makePowers(47, 54, artifactlib.ArtifactTypeChain, powerEntries, costs, compatibilities)
+    powers[artifactlib.ArtifactTypePlate] = makePowers(55, 61, artifactlib.ArtifactTypePlate,  powerEntries, costs, compatibilities)
 
-    updatePowers := func(index ArtifactType){
+    updatePowers := func(index artifactlib.ArtifactType){
         for _, each := range powers {
             ui.RemoveElements(each.Elements)
             ui.RemoveElements(each.AbilityElements)
@@ -1109,13 +1111,13 @@ func ShowCreateArtifactScreen(yield coroutine.YieldFunc, cache *lbx.LbxCache, cr
         ui.AddElements(powers[index].Elements)
         ui.AddElements(powers[index].AbilityElements)
         currentArtifact = powers[index].Artifact
-        currentArtifact.Name = GetName(currentArtifact, customName)
-        currentArtifact.Cost = CalculateCost(currentArtifact, costs)
+        currentArtifact.Name = artifactlib.GetName(currentArtifact, customName)
+        currentArtifact.Cost = artifactlib.CalculateCost(currentArtifact, costs)
     }
 
     var selectedButton *uilib.UIElement
 
-    makeButton := func(x int, y int, unselected int, selected int, item ArtifactType) *uilib.UIElement {
+    makeButton := func(x int, y int, unselected int, selected int, item artifactlib.ArtifactType) *uilib.UIElement {
         index := 0
         imageRect, _ := imageCache.GetImage("spellscr.lbx", unselected, 0)
         rect := util.ImageRect(x, y, imageRect)
@@ -1154,10 +1156,10 @@ func ShowCreateArtifactScreen(yield coroutine.YieldFunc, cache *lbx.LbxCache, cr
         x := 156 + (i % 5) * (tmpImage.Bounds().Dx() + 2)
         y := 3 + (i / 5) * (tmpImage.Bounds().Dy() + 2)
 
-        button := makeButton(x, y, unselectedImageStart + i, selectedImageStart + i, ArtifactType(i+1))
+        button := makeButton(x, y, unselectedImageStart + i, selectedImageStart + i, artifactlib.ArtifactType(i+1))
         if selectedButton == nil {
             selectedButton = button
-            updatePowers(ArtifactType(i+1))
+            updatePowers(artifactlib.ArtifactType(i+1))
         }
 
         ui.AddElement(button)
@@ -1265,7 +1267,7 @@ func (unrestrictedWizard) RetortEnabled(retort data.Retort) bool {
 // ShowDefaultItemEditor is the in-game ITEMMAKE replacement. It edits the
 // premade catalog in place (availability is unchanged) and returns when
 // the player clicks OK. draw is set each frame like ShowCreateArtifactScreen.
-func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catalog *Catalog, availableSpells spellbook.Spells, draw *func(*ebiten.Image)) {
+func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catalog *artifactlib.Catalog, availableSpells spellbook.Spells, draw *func(*ebiten.Image)) {
     if catalog == nil || catalog.Len() == 0 {
         return
     }
@@ -1297,7 +1299,7 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
 
     currentIndex := 0
     customName := ""
-    var currentArtifact *Artifact
+    var currentArtifact *artifactlib.Artifact
     var powerElements []*uilib.UIElement
     var abilityElements []*uilib.UIElement
     selectCount := 0
@@ -1307,14 +1309,14 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
             return
         }
 
-        currentArtifact.Name = GetName(currentArtifact, customName)
-        currentArtifact.Cost = CalculateCost(currentArtifact, costs)
-        currentArtifact.Requirements = RequirementsFromPowers(currentArtifact.Powers)
+        currentArtifact.Name = artifactlib.GetName(currentArtifact, customName)
+        currentArtifact.Cost = artifactlib.CalculateCost(currentArtifact, costs)
+        currentArtifact.Requirements = artifactlib.RequirementsFromPowers(currentArtifact.Powers)
         catalog.Replace(currentIndex, currentArtifact)
     }
 
     var selectedButton *uilib.UIElement
-    typeButtons := make(map[ArtifactType]*uilib.UIElement)
+    typeButtons := make(map[artifactlib.ArtifactType]*uilib.UIElement)
 
     var refreshPowers func()
     refreshPowers = func(){
@@ -1327,8 +1329,8 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
             return
         }
 
-        picLow, picHigh := ImageRange(currentArtifact.Type)
-        ClampImageToType(currentArtifact)
+        picLow, picHigh := artifactlib.ImageRange(currentArtifact.Type)
+        artifactlib.ClampImageToType(currentArtifact)
         groups := groupPowers(powerEntries, costs, compatibilities, currentArtifact.Type, CreationCreateArtifact)
         selectCount = len(currentArtifact.Powers)
         powerElements = makePowersFull(ui, cache, &imageCache, fonts, picLow, picHigh, groups, costs, currentArtifact, &customName, &selectCount)
@@ -1350,17 +1352,17 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
         }
 
         currentIndex = index
-        currentArtifact = CloneArtifact(catalog.Slots[index])
+        currentArtifact = artifactlib.CloneArtifact(catalog.Slots[index])
         if currentArtifact == nil {
-            currentArtifact = &Artifact{Type: ArtifactTypeSword, CatalogIndex: index}
+            currentArtifact = &artifactlib.Artifact{Type: artifactlib.ArtifactTypeSword, CatalogIndex: index}
         }
-        NormalizePowers(currentArtifact, powerEntries)
+        artifactlib.NormalizePowers(currentArtifact, powerEntries)
         customName = currentArtifact.Name
         selectedButton = typeButtons[currentArtifact.Type]
         refreshPowers()
     }
 
-    makeButton := func(x int, y int, unselected int, selected int, item ArtifactType) *uilib.UIElement {
+    makeButton := func(x int, y int, unselected int, selected int, item artifactlib.ArtifactType) *uilib.UIElement {
         index := 0
         imageRect, _ := imageCache.GetImage("spellscr.lbx", unselected, 0)
         rect := util.ImageRect(x, y, imageRect)
@@ -1378,9 +1380,9 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
                     return
                 }
 
-                FilterPowersForType(currentArtifact, item, compatibilities)
-                ClampImageToType(currentArtifact)
-                currentArtifact.Name = GetName(currentArtifact, customName)
+                artifactlib.FilterPowersForType(currentArtifact, item, compatibilities)
+                artifactlib.ClampImageToType(currentArtifact)
+                currentArtifact.Name = artifactlib.GetName(currentArtifact, customName)
                 refreshPowers()
             },
             Draw: func(element *uilib.UIElement, screen *ebiten.Image){
@@ -1404,7 +1406,7 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
         x := 156 + (i % 5) * (tmpImage.Bounds().Dx() + 2)
         y := 3 + (i / 5) * (tmpImage.Bounds().Dy() + 2)
 
-        itemType := ArtifactType(i + 1)
+        itemType := artifactlib.ArtifactType(i + 1)
         button := makeButton(x, y, unselectedImageStart + i, selectedImageStart + i, itemType)
         typeButtons[itemType] = button
         ui.AddElement(button)
@@ -1414,7 +1416,7 @@ func ShowDefaultItemEditor(yield coroutine.YieldFunc, cache *lbx.LbxCache, catal
         Draw: func(element *uilib.UIElement, screen *ebiten.Image){
             cost := 0
             if currentArtifact != nil {
-                cost = CalculateCost(currentArtifact, costs)
+                cost = artifactlib.CalculateCost(currentArtifact, costs)
             }
             fonts.PowerFontWhite.PrintOptions(screen, 198, 185, font.FontOptions{Scale: scale.ScaleAmount}, fmt.Sprintf("Cost: %v", cost))
         },

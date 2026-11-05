@@ -4,6 +4,8 @@ import (
     "log"
     "fmt"
 
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
+
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/bfalese/civ-of-magic/game/magic/artifact"
@@ -80,7 +82,7 @@ func (engine *Engine) ArtifactRoutine() func (coroutine.YieldFunc) error {
     }
 
     return func(yield coroutine.YieldFunc) error {
-        create, cancel := artifact.ShowCreateArtifactScreen(yield, engine.Cache, artifact.CreationCreateArtifact, &engine.Books, spells.CombatSpells(false), &engine.Drawer)
+        create, cancel := artifactview.ShowCreateArtifactScreen(yield, engine.Cache, artifactview.CreationCreateArtifact, &engine.Books, spells.CombatSpells(false), &engine.Drawer)
         if !cancel {
             log.Printf("Create artifact: %+v", create)
         } else {
@@ -107,7 +109,7 @@ func (engine *Engine) EditorRoutine() func (coroutine.YieldFunc) error {
     catalog := artifact.MakeCatalog(items)
 
     return func(yield coroutine.YieldFunc) error {
-        artifact.ShowDefaultItemEditor(yield, engine.Cache, catalog, spells.CombatSpells(false), &engine.Drawer)
+        artifactview.ShowDefaultItemEditor(yield, engine.Cache, catalog, spells.CombatSpells(false), &engine.Drawer)
         log.Printf("Default item editor closed, %v slots", catalog.Len())
         if catalog.Len() > 0 {
             log.Printf("Slot 0: %+v", catalog.Slots[0])

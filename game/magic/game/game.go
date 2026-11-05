@@ -18,6 +18,8 @@ import (
     "bufio"
     "compress/gzip"
 
+    "github.com/bfalese/civ-of-magic/game/magic/artifactview"
+
     "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
 
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
@@ -5724,7 +5726,7 @@ func (game *Game) doDefaultItemEditor(yield coroutine.YieldFunc) {
     })
     defer game.PopDrawer()
 
-    artifact.ShowDefaultItemEditor(yield, game.Cache, game.Model.ArtifactPool, game.AllSpells().CombatSpells(false), &drawFunc)
+    artifactview.ShowDefaultItemEditor(yield, game.Cache, game.Model.ArtifactPool, game.AllSpells().CombatSpells(false), &drawFunc)
 }
 
 func (game *Game) ShowSpellBookCastUI(yield coroutine.YieldFunc, player *playerlib.Player){
@@ -5750,13 +5752,13 @@ func (game *Game) ShowSpellBookCastUI(yield coroutine.YieldFunc, player *playerl
                 })
                 defer game.PopDrawer()
 
-                creation := artifact.CreationCreateArtifact
+                creation := artifactview.CreationCreateArtifact
                 switch spell.Name {
-                    case "Create Artifact": creation = artifact.CreationCreateArtifact
-                    case "Enchant Item": creation = artifact.CreationEnchantItem
+                    case "Create Artifact": creation = artifactview.CreationCreateArtifact
+                    case "Enchant Item": creation = artifactview.CreationEnchantItem
                 }
 
-                created, cancel := artifact.ShowCreateArtifactScreen(yield, game.Cache, creation, &player.Wizard, player.KnownSpells.CombatSpells(false), &drawFunc)
+                created, cancel := artifactview.ShowCreateArtifactScreen(yield, game.Cache, creation, &player.Wizard, player.KnownSpells.CombatSpells(false), &drawFunc)
                 if cancel {
                     return
                 }
