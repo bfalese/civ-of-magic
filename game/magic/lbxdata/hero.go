@@ -1,67 +1,65 @@
-package hero
-
-// read the names of the heroes per wizard from names.lbx
-// there are 5 sets of names, one for each player. each player gives a unique name to their hero
+package lbxdata
 
 import (
-    "log"
     "fmt"
     "io"
+    "log"
 
+    herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
-func ReadNamesPerWizard(cache *lbx.LbxCache) map[int]map[HeroType]string {
+func ReadNamesPerWizard(cache *lbx.LbxCache) map[int]map[herolib.HeroType]string {
     names, err := ReadNames(cache)
 
     if err != nil {
         log.Printf("Unable to read hero names: %v", err)
-        return make(map[int]map[HeroType]string)
+        return make(map[int]map[herolib.HeroType]string)
     }
 
-    heroOrder := []HeroType{
-        HeroBrax,
-        HeroGunther,
-        HeroZaldron,
-        HeroBShan,
-        HeroRakir,
-        HeroValana,
-        HeroBahgtru,
-        HeroSerena,
-        HeroShuri,
-        HeroTheria,
-        HeroGreyfairer,
-        HeroTaki,
-        HeroReywind,
-        HeroMalleus,
-        HeroTumu,
-        HeroJaer,
-        HeroMarcus,
-        HeroFang,
-        HeroMorgana,
-        HeroAureus,
-        HeroShinBo,
-        HeroSpyder,
-        HeroShalla,
-        HeroYramrag,
-        HeroMysticX,
-        HeroAerie,
-        HeroDethStryke,
-        HeroElana,
-        HeroRoland,
-        HeroMortu,
-        HeroAlorra,
-        HeroSirHarold,
-        HeroRavashack,
-        HeroWarrax,
-        HeroTorin,
+    heroOrder := []herolib.HeroType{
+        herolib.HeroBrax,
+        herolib.HeroGunther,
+        herolib.HeroZaldron,
+        herolib.HeroBShan,
+        herolib.HeroRakir,
+        herolib.HeroValana,
+        herolib.HeroBahgtru,
+        herolib.HeroSerena,
+        herolib.HeroShuri,
+        herolib.HeroTheria,
+        herolib.HeroGreyfairer,
+        herolib.HeroTaki,
+        herolib.HeroReywind,
+        herolib.HeroMalleus,
+        herolib.HeroTumu,
+        herolib.HeroJaer,
+        herolib.HeroMarcus,
+        herolib.HeroFang,
+        herolib.HeroMorgana,
+        herolib.HeroAureus,
+        herolib.HeroShinBo,
+        herolib.HeroSpyder,
+        herolib.HeroShalla,
+        herolib.HeroYramrag,
+        herolib.HeroMysticX,
+        herolib.HeroAerie,
+        herolib.HeroDethStryke,
+        herolib.HeroElana,
+        herolib.HeroRoland,
+        herolib.HeroMortu,
+        herolib.HeroAlorra,
+        herolib.HeroSirHarold,
+        herolib.HeroRavashack,
+        herolib.HeroWarrax,
+        herolib.HeroTorin,
     }
 
-    choices := make(map[int]map[HeroType]string)
+    choices := make(map[int]map[herolib.HeroType]string)
 
     nameIndex := 0
     for i := range 5 {
-        choices[i] = make(map[HeroType]string)
+        choices[i] = make(map[herolib.HeroType]string)
         for _, hero := range heroOrder {
             if nameIndex >= len(names) {
                 break

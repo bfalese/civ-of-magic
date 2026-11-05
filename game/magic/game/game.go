@@ -555,7 +555,7 @@ func MakeGame(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *setti
         return nil
     }
 
-    heroNames := herolib.ReadNamesPerWizard(lbxCache)
+    heroNames := lbxdata.ReadNamesPerWizard(lbxCache)
 
     buildingInfo, err := lbxdata.ReadBuildingInfo(lbxCache)
     if err != nil {
@@ -573,7 +573,7 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
         serializedGame.Preferences.Apply(gameSettings)
     }
 
-    heroNames := herolib.ReadNamesPerWizard(lbxCache)
+    heroNames := lbxdata.ReadNamesPerWizard(lbxCache)
 
     buildingInfo, err := lbxdata.ReadBuildingInfo(lbxCache)
     if err != nil {

@@ -7,6 +7,7 @@ import (
     "math/rand/v2"
     "log"
 
+
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -788,7 +789,7 @@ func (saveGame *SaveGame) convertPlayer(playerIndex int, wizards []setup.WizardC
         GlobalEnchantments: globalEnchantments,
         GlobalEnchantmentsProvider: game.Model,
         PlayerRelations: playerRelations,
-        // FIXME: HeroPool createHeroes(herolib.ReadNamesPerWizard(game.Cache))
+        // FIXME: HeroPool createHeroes(lbxdata.ReadNamesPerWizard(game.Cache))
         // FIXME: Heroes
         VaultEquipment: vaultEquipment,
         // FIXME: CreateArtifact

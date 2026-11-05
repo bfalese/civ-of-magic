@@ -18,7 +18,6 @@ import (
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/game"
-    "github.com/bfalese/civ-of-magic/game/magic/hero"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 )
@@ -65,13 +64,13 @@ func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, 
         files["names.lbx"] = &file
         cache := lbx.MakeCacheFromLbxFiles(files)
 
-        names := hero.ReadNamesPerWizard(cache)
+        names := lbxdata.ReadNamesPerWizard(cache)
         for i, name := range names {
             log.Printf("Choice %v: %v\n", i, name)
         }
 
         /*
-        _, err := hero.ReadNames(cache)
+        _, err := lbxdata.ReadNames(cache)
         if err != nil {
             return err
         }
