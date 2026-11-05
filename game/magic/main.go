@@ -26,6 +26,8 @@ import (
     "os"
     */
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/system"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
@@ -38,7 +40,6 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
     "github.com/bfalese/civ-of-magic/game/magic/util"
@@ -655,7 +656,7 @@ func startAITrainMode(yield coroutine.YieldFunc, game *MagicGame) error {
             DisableRaiders: !game.Config.Raiders,
         }
 
-        spells, err := spellbook.ReadSpellsFromCache(game.Cache)
+        spells, err := lbxdata.ReadSpellsFromCache(game.Cache)
         if err != nil {
             return err
         }
@@ -781,7 +782,7 @@ func startWatchMode(yield coroutine.YieldFunc, game *MagicGame) error {
         DisableRaiders: !game.Config.Raiders,
     }
 
-    spells, err := spellbook.ReadSpellsFromCache(game.Cache)
+    spells, err := lbxdata.ReadSpellsFromCache(game.Cache)
     if err != nil {
         return err
     }
@@ -843,7 +844,7 @@ func startQuickGame(yield coroutine.YieldFunc, game *MagicGame, gameLoader *Orig
         LandSize: rand.N(3),
     }
 
-    spells, err := spellbook.ReadSpellsFromCache(game.Cache)
+    spells, err := lbxdata.ReadSpellsFromCache(game.Cache)
     if err != nil {
         return err
     }

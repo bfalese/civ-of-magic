@@ -9,6 +9,8 @@ import (
     "log"
     "slices"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/core/data"
@@ -990,7 +992,7 @@ func (screen *NewWizardScreen) Load(cache *lbx.LbxCache) error {
         return err
     }
 
-    screen.Spells, err = spellbook.ReadSpellsFromCache(cache)
+    screen.Spells, err = lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         return err
     }

@@ -486,7 +486,7 @@ func computeUnitBuildPowers(stack *playerlib.UnitStack) UnitBuildPowers {
 }
 
 func (game *Game) AllSpells() spellbook.Spells {
-    spells, err := spellbook.ReadSpellsFromCache(game.Cache)
+    spells, err := lbxdata.ReadSpellsFromCache(game.Cache)
     if err != nil {
         log.Printf("Could not read spells from cache: %v", err)
         return spellbook.Spells{}
@@ -550,7 +550,7 @@ func MakeGame(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *setti
         return nil
     }
 
-    allSpells, err := spellbook.ReadSpellsFromCache(lbxCache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(lbxCache)
     if err != nil {
         log.Printf("Could not read spells from cache: %v", err)
         return nil
@@ -582,7 +582,7 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
         return nil
     }
 
-    allSpells, err := spellbook.ReadSpellsFromCache(lbxCache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(lbxCache)
     if err != nil {
         log.Printf("Could not read spells from cache: %v", err)
         return nil
@@ -4711,7 +4711,7 @@ func (game *Game) doEncounter(yield coroutine.YieldFunc, player *playerlib.Playe
 }
 
 func (game *Game) createTreasure(encounterType maplib.EncounterType, budget int, point data.PlanePoint, player *playerlib.Player){
-    allSpells, err := spellbook.ReadSpellsFromCache(game.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(game.Cache)
     if err != nil {
         log.Printf("Error: unable to read spells: %v", err)
     } else {

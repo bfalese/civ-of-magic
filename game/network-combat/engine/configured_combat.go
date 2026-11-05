@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
 	buildinglib "github.com/bfalese/civ-of-magic/core/building"
 	citylib "github.com/bfalese/civ-of-magic/game/magic/city"
 	"github.com/bfalese/civ-of-magic/game/magic/combat"
@@ -132,7 +134,7 @@ func newConfiguredCombat(peer netlib.PacketConn, localID uint64, state protocol.
 	if cache == nil {
 		return nil, fmt.Errorf("game assets not found")
 	}
-	spells, err := spellbook.ReadSpellsFromCache(cache)
+	spells, err := lbxdata.ReadSpellsFromCache(cache)
 	if err != nil {
 		return nil, err
 	}

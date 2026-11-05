@@ -4,12 +4,13 @@ import (
     "log"
     "fmt"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/game/magic/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/inputmanager"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
 
@@ -73,7 +74,7 @@ func NewEngine() (*Engine, error) {
 }
 
 func (engine *Engine) ArtifactRoutine() func (coroutine.YieldFunc) error {
-    spells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    spells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
     }
@@ -90,7 +91,7 @@ func (engine *Engine) ArtifactRoutine() func (coroutine.YieldFunc) error {
 }
 
 func (engine *Engine) EditorRoutine() func (coroutine.YieldFunc) error {
-    spells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    spells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
     }

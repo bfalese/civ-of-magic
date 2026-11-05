@@ -9,6 +9,8 @@ import (
     "slices"
     "cmp"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
@@ -256,14 +258,14 @@ func ShowSpellBook(yield coroutine.YieldFunc, cache *lbx.LbxCache, allSpells spe
     fadeSpeed := uint64(7)
 
     /*
-    spells, err := spellbook.ReadSpellsFromCache(cache)
+    spells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         return
     }
     */
 
-    spellDescriptions, err := spellbook.ReadSpellDescriptionsFromCache(cache)
+    spellDescriptions, err := lbxdata.ReadSpellDescriptionsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spell descriptions: %v", err)
         return

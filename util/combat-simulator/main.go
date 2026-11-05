@@ -17,6 +17,8 @@ import (
     "time"
     "os"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/optional"
@@ -416,7 +418,7 @@ func (engine *Engine) EnterCombat(combatDescription CombatDescription) {
     engine.Mode = EngineModeCombat
     engine.CombatDescription = combatDescription
 
-    allSpells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Cannot load spells: %v", err)
     }
@@ -1769,7 +1771,7 @@ func (engine *Engine) MakeUI() *ebitenui.UI {
 
     face, _ := loadFont(19)
 
-    allSpells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Cannot load spells: %v", err)
         panic(err)

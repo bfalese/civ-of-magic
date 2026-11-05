@@ -9,6 +9,8 @@ import (
     "math/rand/v2"
     "runtime/pprof"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/fraction"
@@ -19,7 +21,6 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/units"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/hero"
     "github.com/bfalese/civ-of-magic/game/magic/settings"
@@ -172,7 +173,7 @@ func createScenario1(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 2600
     player.CastingSkillPower = 10000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Animate Dead"))
 
@@ -1038,7 +1039,7 @@ func createScenario13(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 100000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.ResearchPoolSpells = allSpells
 
@@ -1331,7 +1332,7 @@ func createScenario14(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 500
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     /*
     for _, name := range []string{"Earth Lore", "Giant Strength", "Ice Bolt", "Enchant Item", "Dark Rituals", "Spell Blast", "Time Stop", "Web", "Magic Spirit"} {
@@ -1586,7 +1587,7 @@ func createScenario17(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 6000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Earth Lore"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Giant Strength"))
@@ -2977,7 +2978,7 @@ func createScenario31(cache *lbx.LbxCache) *gamelib.Game {
 
     game.Camera.Center(stack.X(), stack.Y())
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     // when the vault opens the amount of mana the player should have should be 2850, because
     // base=2600 then +250 from treasure
@@ -3234,7 +3235,7 @@ func createScenario34(cache *lbx.LbxCache) *gamelib.Game {
 
     player1.LiftFog(x, y, 3, data.PlaneArcanus)
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player1.KnownSpells.AddSpell(allSpells.FindByName("Warp Node"))
 
@@ -3311,7 +3312,7 @@ func createScenario35(cache *lbx.LbxCache) *gamelib.Game {
 
     player1.LiftFog(x, y, 3, data.PlaneArcanus)
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
     for _, spell := range allSpells.Spells {
         player1.KnownSpells.AddSpell(spell)
     }
@@ -3413,7 +3414,7 @@ func createScenario36(cache *lbx.LbxCache) *gamelib.Game {
         },
     }
 
-    // allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    // allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     human.LiftFog(20, 20, 100, data.PlaneArcanus)
 
@@ -4135,7 +4136,7 @@ func createScenario46(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 500000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Guardian Spirit"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Altar of Battle"))
@@ -4206,7 +4207,7 @@ func createScenario47(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 500000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
     player.KnownSpells.AddSpell(allSpells.FindByName("Disenchant Area"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Disenchant True"))
 
@@ -4361,7 +4362,7 @@ func createScenario48(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 500000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     // summoning
     player.KnownSpells.AddSpell(allSpells.FindByName("Storm Giant"))
@@ -4540,7 +4541,7 @@ func createScenario49(cache *lbx.LbxCache) *gamelib.Game {
     })
     game.Model.Plane = data.PlaneArcanus
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player := game.AddPlayer(
         setup.WizardCustom{
@@ -4676,7 +4677,7 @@ func createScenario50(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 500000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Spell Blast"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Cruel Unminding"))
@@ -4808,7 +4809,7 @@ func createScenario51_52(cache *lbx.LbxCache, kill bool) *gamelib.Game {
     })
     game.Model.Plane = data.PlaneArcanus
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player := game.AddPlayer(wizard, true)
     player.CastingSkillPower += 500000
@@ -4922,7 +4923,7 @@ func createScenario53(cache *lbx.LbxCache) *gamelib.Game {
     })
     game.Model.Plane = data.PlaneArcanus
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player := game.AddPlayer(wizard, true)
     player.CastingSkillPower += 500000
@@ -4998,7 +4999,7 @@ func createScenario54(cache *lbx.LbxCache) *gamelib.Game {
     })
     game.Model.Plane = data.PlaneArcanus
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player := game.AddPlayer(wizard, true)
     player.CastingSkillPower += 500000
@@ -5081,7 +5082,7 @@ func createScenario55(cache *lbx.LbxCache) *gamelib.Game {
     })
     game.Model.Plane = data.PlaneArcanus
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player := game.AddPlayer(wizard, true)
     player.CastingSkillPower += 500000
@@ -5202,7 +5203,7 @@ func createScenario56(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 2600
     player.CastingSkillPower = 10000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Animate Dead"))
 
@@ -5298,7 +5299,7 @@ func createScenario57(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 2600
     player.CastingSkillPower = 10000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Animate Dead"))
 
@@ -5370,7 +5371,7 @@ func createScenario58(cache *lbx.LbxCache) *gamelib.Game {
 
     player.CastingSkillPower += 6000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Resurrection"))
 
@@ -5471,7 +5472,7 @@ func createScenario59(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 2600
     player.CastingSkillPower = 10000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Animate Dead"))
 
@@ -5563,7 +5564,7 @@ func createScenario60(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 2600
     player.CastingSkillPower = 10000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Animate Dead"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Corruption"))
@@ -5665,7 +5666,7 @@ func createScenario61(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 2600
     player.CastingSkillPower = 10000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Animate Dead"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Corruption"))
@@ -5842,7 +5843,7 @@ func createScenario63(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 5000
     player.CastingSkillPower = 20000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Chaos Rift"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Corruption"))
@@ -6260,7 +6261,7 @@ func createScenario67(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 2600
     player.CastingSkillPower = 10000
 
-    // allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    // allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     // game.Map.Map.Terrain[3][6] = terrain.TileNatureForest.Index
 
@@ -6397,7 +6398,7 @@ func createScenario68(cache *lbx.LbxCache) *gamelib.Game {
     player.Mana = 9600
     player.CastingSkillPower = 50000
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     player.KnownSpells.AddSpell(allSpells.FindByName("Animate Dead"))
     player.KnownSpells.AddSpell(allSpells.FindByName("Enchant Item"))

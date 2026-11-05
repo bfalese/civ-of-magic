@@ -10,7 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bfalese/civ-of-magic/game/magic/spellbook"
+	"github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
 	"github.com/bfalese/civ-of-magic/game/magic/units"
 	"github.com/bfalese/civ-of-magic/game/network-combat/protocol"
 	"github.com/bfalese/civ-of-magic/lib/lbx"
@@ -36,7 +37,7 @@ func main() {
 	if cache == nil {
 		log.Fatal("no LBX data")
 	}
-	spells, err := spellbook.ReadSpellsFromCache(cache)
+	spells, err := lbxdata.ReadSpellsFromCache(cache)
 	if err != nil {
 		log.Fatal(err)
 	}

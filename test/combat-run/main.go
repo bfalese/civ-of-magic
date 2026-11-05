@@ -13,6 +13,8 @@ import (
     "math/rand/v2"
     _ "embed"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/game/magic/combat"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/spellbook"
@@ -32,7 +34,7 @@ func LoadSpellData() (spellbook.Spells, error) {
     if err != nil {
         return spellbook.Spells{}, err
     }
-    return spellbook.ReadSpells(&spellLbx, 0)
+    return lbxdata.ReadSpells(&spellLbx, 0)
 }
 
 type noGlobalEnchantments struct {

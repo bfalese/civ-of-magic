@@ -3,6 +3,8 @@ package main
 import (
     "log"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
 
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
@@ -48,7 +50,7 @@ func (caster *Caster) ComputeTurnsToCast(cost int) int {
 }
 
 func (engine *Engine) MakeUI() *uilib.UI {
-    allSpells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}

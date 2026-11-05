@@ -8,6 +8,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
 	"github.com/bfalese/civ-of-magic/game/magic/audio"
 	buildinglib "github.com/bfalese/civ-of-magic/core/building"
 	citylib "github.com/bfalese/civ-of-magic/game/magic/city"
@@ -19,7 +21,6 @@ import (
 	"github.com/bfalese/civ-of-magic/game/magic/player"
 	"github.com/bfalese/civ-of-magic/game/magic/scale"
 	"github.com/bfalese/civ-of-magic/game/magic/setup"
-	"github.com/bfalese/civ-of-magic/game/magic/spellbook"
 	"github.com/bfalese/civ-of-magic/game/magic/units"
 	"github.com/bfalese/civ-of-magic/lib/coroutine"
 	"github.com/bfalese/civ-of-magic/lib/lbx"
@@ -160,7 +161,7 @@ func receiveArmy(remote *combat.Remote, player *player.Player) (*combat.Army, er
 func makeGenericScenario(isServer bool, remote *combat.Remote, defendingUnit units.Unit, defendingCount int, attackingUnit units.Unit, attackingCount int) (*combat.CombatModel, *combat.CombatScreen, error) {
 	cache := lbx.AutoCache()
 
-	allSpells, err := spellbook.ReadSpellsFromCache(cache)
+	allSpells, err := lbxdata.ReadSpellsFromCache(cache)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -126,7 +126,7 @@ func (engine *Engine) MakeUI() (*uilib.UI, context.Context, error) {
     return cityview.MakeEnchantmentView(engine.Cache, city, player, data.CityEnchantmentWallOfFire)
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}

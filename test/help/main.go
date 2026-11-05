@@ -7,7 +7,6 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/lib/lbx"
 )
@@ -37,7 +36,7 @@ func main() {
         return
     }
 
-    spells, err := spellbook.ReadSpells(lbxFile, 0)
+    spells, err := lbxdata.ReadSpells(lbxFile, 0)
     if err != nil {
         log.Printf("Unable to read help: %v", err)
         return
