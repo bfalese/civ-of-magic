@@ -1,10 +1,11 @@
 package game
 
 import (
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/mouse"
@@ -126,5 +127,5 @@ func (game *Game) doLearnSpell(yield coroutine.YieldFunc, player *playerlib.Play
 
     power := game.Model.ComputePower(player)
     // show new spell being learned
-    spellbook.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, spellbook.Spell{}, 0, player.SpellResearchPerTurn(power), player.ComputeCastingSkill(), learnedSpell, false, nil, player, &newDrawer)
+    spellbookview.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, spellbook.Spell{}, 0, player.SpellResearchPerTurn(power), player.ComputeCastingSkill(), learnedSpell, false, nil, player, &newDrawer)
 }

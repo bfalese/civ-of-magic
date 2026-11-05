@@ -5,10 +5,11 @@ import (
     "image"
     "image/color"
 
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/vector"
@@ -165,25 +166,25 @@ func RightSideFlipLeftDistortions1(page *ebiten.Image) util.Distortion {
 
 func (engine *Engine) DrawPage1(screen *ebiten.Image, page *ebiten.Image, options ebiten.DrawImageOptions){
     screen.DrawImage(page, &options)
-    distortions := spellbook.LeftSideDistortions1(page)
+    distortions := spellbookview.LeftSideDistortions1(page)
     util.DrawDistortion(screen, page, engine.PageImage, distortions, options.GeoM)
 }
 
 func (engine *Engine) DrawPage2(screen *ebiten.Image, page *ebiten.Image, options ebiten.DrawImageOptions){
     screen.DrawImage(page, &options)
-    distortions := spellbook.LeftSideDistortions2(page)
+    distortions := spellbookview.LeftSideDistortions2(page)
     util.DrawDistortion(screen, page, engine.PageImage, distortions, options.GeoM)
 }
 
 func (engine *Engine) DrawPage3(screen *ebiten.Image, page *ebiten.Image, options ebiten.DrawImageOptions){
     screen.DrawImage(page, &options)
-    distortions := spellbook.RightSideDistortions1(page)
+    distortions := spellbookview.RightSideDistortions1(page)
     util.DrawDistortion(screen, page, engine.PageImage, distortions, options.GeoM)
 }
 
 func (engine *Engine) DrawPage4(screen *ebiten.Image, page *ebiten.Image, options ebiten.DrawImageOptions){
     screen.DrawImage(page, &options)
-    distortions := spellbook.RightSideDistortions2(page)
+    distortions := spellbookview.RightSideDistortions2(page)
     util.DrawDistortion(screen, page, engine.PageImage, distortions, options.GeoM)
 }
 

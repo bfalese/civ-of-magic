@@ -11,6 +11,8 @@ import (
     "slices"
     "cmp"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/optional"
@@ -23,7 +25,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/game/magic/console"
     "github.com/bfalese/civ-of-magic/game/magic/util"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     musiclib "github.com/bfalese/civ-of-magic/game/magic/music"
 
     "github.com/bfalese/civ-of-magic/game/arena/player"
@@ -197,7 +199,7 @@ func (engine *Engine) PopDrawer() {
 func setupAISpells(enemyPlayer *player.Player, lbxCache *lbx.LbxCache, budget uint64) uint64 {
     var totalCosts uint64
 
-    allSpells, err := spellbook.ReadSpellsFromCache(lbxCache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(lbxCache)
     if err != nil {
         return 0
     }
@@ -444,7 +446,7 @@ func (engine *Engine) MakeBattleFunc() coroutine.AcceptYieldFunc {
 
     landscape := randomChoose(combat.CombatLandscapeGrass, combat.CombatLandscapeDesert, combat.CombatLandscapeMountain, combat.CombatLandscapeTundra)
 
-    allSpells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Warning: unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -1190,7 +1192,7 @@ func makeMagicShop(face *text.Face, imageCache *util.ImageCache, lbxCache *lbx.L
         Position: widget.RowLayoutPositionCenter,
     })
 
-    allSpells, err := spellbook.ReadSpellsFromCache(lbxCache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(lbxCache)
     if err != nil {
         log.Printf("Error reading spells from cache: %v", err)
         return shop
@@ -2899,7 +2901,7 @@ func RunWithTestScenario(scenario int) {
 
     cache := lbx.AutoCache()
     if scenario != 0 {
-        allSpells, err := spellbook.ReadSpellsFromCache(cache)
+        allSpells, err := lbxdata.ReadSpellsFromCache(cache)
         if err != nil {
             log.Printf("Error loading test spells: %v", err)
             return

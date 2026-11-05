@@ -3,8 +3,12 @@ package main
 import (
     "log"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/lib/lbx"
@@ -46,7 +50,7 @@ func (caster *Caster) ComputeTurnsToCast(cost int) int {
 }
 
 func (engine *Engine) MakeUI() *uilib.UI {
-    allSpells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -84,7 +88,7 @@ func (engine *Engine) MakeUI() *uilib.UI {
     ui.SetElementsFromArray(nil)
 
     page := 0
-    more := spellbook.MakeSpellBookCastUI(ui, engine.Cache, spells, make(map[spellbook.Spell]int), 60, spellbook.Spell{}, 0, true, &Caster{}, &page, func (result spellbook.Spell, picked bool){
+    more := spellbookview.MakeSpellBookCastUI(ui, engine.Cache, spells, make(map[spellbook.Spell]int), 60, spellbook.Spell{}, 0, true, &Caster{}, &page, func (result spellbook.Spell, picked bool){
         if picked {
             log.Printf("Picked spell %+v", result)
         }

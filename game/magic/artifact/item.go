@@ -9,9 +9,11 @@ import (
     "math/rand/v2"
     _ "log"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/core/data"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
 )
 
 type ArtifactType int
@@ -517,7 +519,7 @@ func ReadArtifacts(cache *lbx.LbxCache) ([]Artifact, error) {
         return nil, fmt.Errorf("unable to read itemdata.lbx: %v", err)
     }
 
-    spells, err := spellbook.ReadSpellsFromCache(cache)
+    spells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         // return nil, fmt.Errorf("unable to read spells: %v", err)
         log.Printf("Warning: could not load spells: %v", err)

@@ -9,6 +9,8 @@ import (
     // "image/color"
     "runtime/pprof"
 
+    "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
@@ -28,7 +30,7 @@ import (
     herolib "github.com/bfalese/civ-of-magic/game/magic/hero"
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -213,7 +215,7 @@ func createHeroArmy(player *player.Player, cache *lbx.LbxCache) *combat.Army {
 
     army.AddUnit(rakir)
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     item := artifact.Artifact{
         Type: artifact.ArtifactTypeStaff,
@@ -302,7 +304,7 @@ func makeScenario1(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy.CounterMagic = 50
     */
 
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -442,7 +444,7 @@ func makeScenario2(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy := createSettlerArmy(defendingPlayer, 3)
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -464,7 +466,7 @@ func makeScenario2(cache *lbx.LbxCache) *combat.CombatScreen {
 }
 
 func makeScenario3(cache *lbx.LbxCache) *combat.CombatScreen {
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -532,7 +534,7 @@ func makeScenario4(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingPlayer.CastingSkillPower = 10000
     defendingPlayer.Mana = 10000
 
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -587,7 +589,7 @@ func makeScenario5(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy := createSettlerArmy(defendingPlayer, 3)
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -629,7 +631,7 @@ func makeScenario6(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy := createSettlerArmy(defendingPlayer, 3)
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -672,7 +674,7 @@ func makeScenario7(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy := createSettlerArmy(defendingPlayer, 3)
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -709,14 +711,14 @@ func makeScenario8(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy := createDeathCreatureArmy(defendingPlayer)
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
     }
     */
 
-    allSpells, _ := spellbook.ReadSpellsFromCache(cache)
+    allSpells, _ := lbxdata.ReadSpellsFromCache(cache)
 
     attackingPlayer := player.MakePlayer(setup.WizardCustom{
             Name: "Merlin",
@@ -784,7 +786,7 @@ func makeScenario9(cache *lbx.LbxCache) *combat.CombatScreen {
     // defendingArmy := createWarlockArmy(&defendingPlayer)
     defendingArmy := createSettlerArmy(defendingPlayer, 20)
 
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -872,7 +874,7 @@ func makeScenario11(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingPlayer.CastingSkillPower = 10000
     defendingPlayer.Mana = 10000
 
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -927,7 +929,7 @@ func makeScenario12(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy.AddUnit(units.MakeOverworldUnitFromUnit(units.GreatWyrm, 1, 1, data.PlaneArcanus, defendingPlayer.Wizard.Banner, defendingPlayer.MakeExperienceInfo(), defendingPlayer.MakeUnitEnchantmentProvider()))
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -1009,7 +1011,7 @@ func makeScenario13(cache *lbx.LbxCache) *combat.CombatScreen {
 
 // weak enemy attacks city with walls
 func makeScenario14(cache *lbx.LbxCache) *combat.CombatScreen {
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -1065,7 +1067,7 @@ func makeScenario15(cache *lbx.LbxCache) *combat.CombatScreen {
     defendingArmy.CounterMagic = 50
     */
 
-    allSpells, err := spellbook.ReadSpellsFromCache(cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}

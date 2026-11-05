@@ -12,6 +12,8 @@ import (
     "slices"
     "context"
 
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/optional"
     "github.com/bfalese/civ-of-magic/lib/fraction"
@@ -29,7 +31,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
     uilib "github.com/bfalese/civ-of-magic/game/magic/ui"
     "github.com/hajimehoshi/ebiten/v2"
@@ -1699,7 +1701,7 @@ func (combat *CombatScreen) MakeUI(player ArmyPlayer) *uilib.UI {
             // the lower of the mana pool (casting skill) or the wizard's mana divided by the range
             minimumMana := min(army.ManaPool, int(float64(army.Player.GetMana()) / army.Range.ToFloat()))
 
-            spellUI := spellbook.MakeSpellBookCastUI(ui, combat.Cache, player.GetKnownSpells().CombatSpells(defendingCity), make(map[spellbook.Spell]int), minimumMana, spellbook.Spell{}, 0, false, player, &spellPage, func (spell spellbook.Spell, picked bool){
+            spellUI := spellbookview.MakeSpellBookCastUI(ui, combat.Cache, player.GetKnownSpells().CombatSpells(defendingCity), make(map[spellbook.Spell]int), minimumMana, spellbook.Spell{}, 0, false, player, &spellPage, func (spell spellbook.Spell, picked bool){
                 if picked {
                     // player mana and skill should go down accordingly
                     combat.Model.InvokeSpell(combat, army, nil, spell, func(success bool){
@@ -1776,7 +1778,7 @@ func (combat *CombatScreen) MakeUI(player ArmyPlayer) *uilib.UI {
                             }
 
                             // what is casting skill based on for a unit?
-                            spellUI := spellbook.MakeSpellBookCastUI(ui, combat.Cache, unitSpells.CombatSpells(defendingCity), caster.SpellCharges, int(caster.CastingSkill), spellbook.Spell{}, 0, false, &UnitCaster{}, &spellPage, func (spell spellbook.Spell, picked bool){
+                            spellUI := spellbookview.MakeSpellBookCastUI(ui, combat.Cache, unitSpells.CombatSpells(defendingCity), caster.SpellCharges, int(caster.CastingSkill), spellbook.Spell{}, 0, false, &UnitCaster{}, &spellPage, func (spell spellbook.Spell, picked bool){
                                 if picked {
                                     doCast(spell)
                                 }

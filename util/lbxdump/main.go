@@ -18,7 +18,6 @@ import (
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/set"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/game"
@@ -90,7 +89,7 @@ func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, 
             fmt.Printf("  font %v glyphs %v\n", i, font.GlyphCount())
         }
     } else if lbxName == "spelldat.lbx" && !rawDump {
-        spells, err := spellbook.ReadSpells(&file, 0)
+        spells, err := lbxdata.ReadSpells(&file, 0)
         if err != nil {
             return err
         }

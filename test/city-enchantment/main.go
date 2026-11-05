@@ -13,12 +13,12 @@ import (
     citylib "github.com/bfalese/civ-of-magic/game/magic/city"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
     "github.com/bfalese/civ-of-magic/game/magic/maplib"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/game/magic/setup"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
     "github.com/bfalese/civ-of-magic/core/terrain"
-    // "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    // "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/cityview"
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -126,7 +126,7 @@ func (engine *Engine) MakeUI() (*uilib.UI, context.Context, error) {
     return cityview.MakeEnchantmentView(engine.Cache, city, player, data.CityEnchantmentWallOfFire)
 
     /*
-    allSpells, err := spellbook.ReadSpellsFromCache(engine.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(engine.Cache)
     if err != nil {
         log.Printf("Unable to read spells: %v", err)
         allSpells = spellbook.Spells{}
@@ -156,7 +156,7 @@ func (engine *Engine) MakeUI() (*uilib.UI, context.Context, error) {
     }
     ui.SetElementsFromArray(nil)
 
-    more := spellbook.MakeSpellBookCastUI(ui, engine.Cache, spells, 60, spellbook.Spell{}, 0, true, func (result spellbook.Spell, picked bool){
+    more := spellbookview.MakeSpellBookCastUI(ui, engine.Cache, spells, 60, spellbook.Spell{}, 0, true, func (result spellbook.Spell, picked bool){
         if picked {
             log.Printf("Picked spell %v", result)
         }

@@ -9,7 +9,7 @@ import (
 
     "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/game/magic/scale"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
 
     "github.com/hajimehoshi/ebiten/v2/text/v2"

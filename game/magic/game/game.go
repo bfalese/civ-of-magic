@@ -18,6 +18,8 @@ import (
     "bufio"
     "compress/gzip"
 
+    "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
+
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 
     "github.com/bfalese/civ-of-magic/game/magic/scale"
@@ -26,7 +28,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/mastery"
     "github.com/bfalese/civ-of-magic/game/magic/units"
     "github.com/bfalese/civ-of-magic/core/terrain"
-    "github.com/bfalese/civ-of-magic/game/magic/spellbook"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/game/magic/artifact"
     "github.com/bfalese/civ-of-magic/game/magic/mirror"
     "github.com/bfalese/civ-of-magic/game/magic/camera"
@@ -484,7 +486,7 @@ func computeUnitBuildPowers(stack *playerlib.UnitStack) UnitBuildPowers {
 }
 
 func (game *Game) AllSpells() spellbook.Spells {
-    spells, err := spellbook.ReadSpellsFromCache(game.Cache)
+    spells, err := lbxdata.ReadSpellsFromCache(game.Cache)
     if err != nil {
         log.Printf("Could not read spells from cache: %v", err)
         return spellbook.Spells{}
@@ -548,7 +550,7 @@ func MakeGame(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *setti
         return nil
     }
 
-    allSpells, err := spellbook.ReadSpellsFromCache(lbxCache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(lbxCache)
     if err != nil {
         log.Printf("Could not read spells from cache: %v", err)
         return nil
@@ -580,7 +582,7 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
         return nil
     }
 
-    allSpells, err := spellbook.ReadSpellsFromCache(lbxCache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(lbxCache)
     if err != nil {
         log.Printf("Could not read spells from cache: %v", err)
         return nil
@@ -4709,7 +4711,7 @@ func (game *Game) doEncounter(yield coroutine.YieldFunc, player *playerlib.Playe
 }
 
 func (game *Game) createTreasure(encounterType maplib.EncounterType, budget int, point data.PlanePoint, player *playerlib.Player){
-    allSpells, err := spellbook.ReadSpellsFromCache(game.Cache)
+    allSpells, err := lbxdata.ReadSpellsFromCache(game.Cache)
     if err != nil {
         log.Printf("Error: unable to read spells: %v", err)
     } else {
@@ -5584,7 +5586,7 @@ func (game *Game) ShowApprenticeUI(yield coroutine.YieldFunc, player *playerlib.
     defer game.PopDrawer()
 
     power := game.Model.ComputePower(player)
-    spellbook.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, player.ResearchingSpell, player.ResearchProgress, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, false, nil, player, &newDrawer)
+    spellbookview.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, player.ResearchingSpell, player.ResearchProgress, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, false, nil, player, &newDrawer)
 }
 
 func (game *Game) ResearchNewSpell(yield coroutine.YieldFunc, player *playerlib.Player){
@@ -5598,7 +5600,7 @@ func (game *Game) ResearchNewSpell(yield coroutine.YieldFunc, player *playerlib.
 
     if len(player.ResearchCandidateSpells.Spells) > 0 {
         power := game.Model.ComputePower(player)
-        spellbook.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, spellbook.Spell{}, 0, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, true, &player.ResearchingSpell, player, &newDrawer)
+        spellbookview.ShowSpellBook(yield, game.Cache, player.ResearchPoolSpells, player.KnownSpells, player.ResearchCandidateSpells, spellbook.Spell{}, 0, player.SpellResearchPerTurn(power), player.ComputeOverworldCastingSkill(), spellbook.Spell{}, true, &player.ResearchingSpell, player, &newDrawer)
     }
 }
 
@@ -5738,7 +5740,7 @@ func (game *Game) ShowSpellBookCastUI(yield coroutine.YieldFunc, player *playerl
         mana: player.Mana,
     }
 
-    game.HudUI.AddElements(spellbook.MakeSpellBookCastUI(game.HudUI, game.Cache, overlandSpells, make(map[spellbook.Spell]int), player.ComputeOverworldCastingSkill(), player.CastingSpell, player.CastingSpellProgress, true, &castPlayer, &player.CastingSpellPage, func (spell spellbook.Spell, picked bool){
+    game.HudUI.AddElements(spellbookview.MakeSpellBookCastUI(game.HudUI, game.Cache, overlandSpells, make(map[spellbook.Spell]int), player.ComputeOverworldCastingSkill(), player.CastingSpell, player.CastingSpellProgress, true, &castPlayer, &player.CastingSpellPage, func (spell spellbook.Spell, picked bool){
         if picked {
             if spell.Name == "Create Artifact" || spell.Name == "Enchant Item" {
 
