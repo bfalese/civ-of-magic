@@ -9,6 +9,8 @@ import (
     "math/rand/v2"
     "runtime/pprof"
 
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/coroutine"
     "github.com/bfalese/civ-of-magic/lib/fraction"
@@ -479,7 +481,7 @@ func createScenario5(cache *lbx.LbxCache) *gamelib.Game {
 
     game.Camera.Center(x, y)
 
-    game.Events <- &gamelib.GameEventScroll{
+    game.Events <- &gamecore.GameEventScroll{
         Title: "CITY GROWTH",
         Text: "New Haven has grown to a population of 8",
         // Text: "this is a really long piece of text that has something to do with city growth. what will it look like on the screen? lets keep going until this runs out of space",
@@ -1729,7 +1731,7 @@ func createScenario17(cache *lbx.LbxCache) *gamelib.Game {
         Cost: 1000,
     }
 
-    game.Events <- &gamelib.GameEventVault{
+    game.Events <- &gamecore.GameEventVault{
         CreatedArtifact: &testArtifact,
         Player: player,
     }
@@ -3887,25 +3889,25 @@ func createScenario43(cache *lbx.LbxCache) *gamelib.Game {
 
     game.Model.TurnNumber = 300
 
-    game.Events <- &gamelib.GameEventShowRandomEvent{
-        // Event: gamelib.MakeDisjunctionEvent(0),
-        // Event: gamelib.MakeBadMoonEvent(0),
-        // Event: gamelib.MakeConjunctionChaosEvent(0),
-        // Event: gamelib.MakeConjunctionNatureEvent(0),
-        // Event: gamelib.MakeConjunctionSorceryEvent(0),
-        // Event: gamelib.MakeDepletionEvent(0, data.BonusMithrilOre, "nyc"),
-        // Event: gamelib.MakeDiplomaticMarriageEvent(0, city),
-        // Event: gamelib.MakeDonationEvent(0, 123),
-        // Event: gamelib.MakeEarthquakeEvent(0, "nyc", 4, 8, 12),
-        // Event: gamelib.MakeGiftEvent(0, "frisbee"),
-        // Event: gamelib.MakeGoodMoonEvent(0),
-        // Event: gamelib.MakeGreatMeteorEvent(0, "nyc", 2, 4, 6),
-        // Event: gamelib.MakeManaShortEvent(0),
-        // Event: gamelib.MakeNewMineralsEvent(0, data.BonusMithrilOre, city),
-        // Event: gamelib.MakePiracyEvent(0, 456),
-        // Event: gamelib.MakePlagueEvent(0, city),
-        // Event: gamelib.MakePopulationBoomEvent(0, city),
-        Event: gamelib.MakeRebellionEvent(0, city),
+    game.Events <- &gamecore.GameEventShowRandomEvent{
+        // Event: gamecore.MakeDisjunctionEvent(0),
+        // Event: gamecore.MakeBadMoonEvent(0),
+        // Event: gamecore.MakeConjunctionChaosEvent(0),
+        // Event: gamecore.MakeConjunctionNatureEvent(0),
+        // Event: gamecore.MakeConjunctionSorceryEvent(0),
+        // Event: gamecore.MakeDepletionEvent(0, data.BonusMithrilOre, "nyc"),
+        // Event: gamecore.MakeDiplomaticMarriageEvent(0, city),
+        // Event: gamecore.MakeDonationEvent(0, 123),
+        // Event: gamecore.MakeEarthquakeEvent(0, "nyc", 4, 8, 12),
+        // Event: gamecore.MakeGiftEvent(0, "frisbee"),
+        // Event: gamecore.MakeGoodMoonEvent(0),
+        // Event: gamecore.MakeGreatMeteorEvent(0, "nyc", 2, 4, 6),
+        // Event: gamecore.MakeManaShortEvent(0),
+        // Event: gamecore.MakeNewMineralsEvent(0, data.BonusMithrilOre, city),
+        // Event: gamecore.MakePiracyEvent(0, 456),
+        // Event: gamecore.MakePlagueEvent(0, city),
+        // Event: gamecore.MakePopulationBoomEvent(0, city),
+        Event: gamecore.MakeRebellionEvent(0, city),
         Starting: true,
     }
 

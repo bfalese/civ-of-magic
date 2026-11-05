@@ -12,6 +12,8 @@ import (
     // "runtime"
     "context"
 
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
+
     "github.com/bfalese/civ-of-magic/lib/lbx"
     "github.com/bfalese/civ-of-magic/lib/fraction"
     gamelib "github.com/bfalese/civ-of-magic/game/magic/game"
@@ -101,8 +103,8 @@ func main() {
 
     player.AddCity(city)
 
-    game.Model.RandomEvents = append(game.Model.RandomEvents, gamelib.MakeDisjunctionEvent(18))
-    game.Model.RandomEvents = append(game.Model.RandomEvents, gamelib.MakePopulationBoomEvent(17, city))
+    game.Model.RandomEvents = append(game.Model.RandomEvents, gamecore.MakeDisjunctionEvent(18))
+    game.Model.RandomEvents = append(game.Model.RandomEvents, gamecore.MakePopulationBoomEvent(17, city))
 
     player.AddUnit(units.MakeOverworldUnitFromUnit(units.GreatDrake, x + 1, y + 1, data.PlaneArcanus, wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider()))
 

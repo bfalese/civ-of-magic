@@ -70,6 +70,7 @@ import (
     "github.com/bfalese/civ-of-magic/game/magic/artifactview"
     "github.com/bfalese/civ-of-magic/game/magic/spellbookview"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
 
     "github.com/hajimehoshi/ebiten/v2"
     "github.com/hajimehoshi/ebiten/v2/colorm"
@@ -97,21 +98,10 @@ func MakeGameFonts(cache *lbx.LbxCache) *GameFonts {
     }
 }
 
-type GameEvent interface {
-}
-
 type GameEventMagicView struct {
 }
 
-type GameEventDiplomacy struct {
-    Player *playerlib.Player
-    Enemy *playerlib.Player
-}
-
 type GameEventArmyView struct {
-}
-
-type GameEventRefreshUI struct {
 }
 
 type GameEventSurveyor struct {
@@ -152,10 +142,6 @@ type GameEventBuildRoad struct {
 type GameEventPauseWatchMode struct {
 }
 
-type GameEventNotice struct {
-    Message string
-}
-
 type GameEventTreasure struct {
     Treasure Treasure
     Player *playerlib.Player
@@ -177,11 +163,6 @@ type GameEventMerchant struct {
     Artifact *artifact.Artifact
     Player *playerlib.Player
     Cost int
-}
-
-type GameEventVault struct {
-    CreatedArtifact *artifact.Artifact
-    Player *playerlib.Player
 }
 
 // invoke an arbitrary routine
@@ -259,12 +240,6 @@ type GameEventNewBuilding struct {
     Player *playerlib.Player
 }
 
-type GameEventScroll struct {
-    Title string
-    Text string
-    Old bool // a replayed event, don't add it again
-}
-
 type GameEventCityName struct {
     Title string
     City *citylib.City
@@ -284,13 +259,6 @@ type GameEventMoveCamera struct {
     Instant bool // set to true to have the camera move instantly, rather than smoothly scroll
 }
 
-// https://masterofmagic.fandom.com/wiki/Event
-type GameEventShowRandomEvent struct {
-    Event *RandomEvent
-    // true if the event is just starting, or false if it is ending
-    Starting bool
-}
-
 type GameEventMoveUnit struct {
     Player *playerlib.Player
 }
@@ -304,12 +272,9 @@ func StartingCityEvent(city *citylib.City) *GameEventCityName {
     }
 }
 
-type ChangeCityEnchantments int
-const (
-    ChangeCityKeepEnchantments ChangeCityEnchantments = iota
-    ChangeCityRemoveOwnerEnchantments
-    ChangeCityRemoveAllEnchantments
-)
+
+// the UI shares the model's event channel; its own events (screen requests, UI commands) live here
+type GameEvent = gamecore.GameEvent
 
 type CastPlayer struct {
     player *playerlib.Player
@@ -387,7 +352,7 @@ type Game struct {
 
     Fonts *GameFonts
 
-    Model *GameModel
+    Model *gamecore.GameModel
 
     Counter uint64
     Fog *ebiten.Image
@@ -441,27 +406,6 @@ type UnitBuildPowers struct {
     Meld bool
     BuildRoad bool
     Purify bool
-}
-
-// to be able to use the artifact, the wizard must have enough magic books to satisfy the artifact's requirements
-func CanUseArtifact(check *artifact.Artifact, wizard setup.WizardCustom) bool {
-    // all artifact requirements must be satisfied
-    for _, requirement := range check.Requirements {
-        if wizard.MagicLevel(requirement.MagicType) < requirement.Amount {
-            return false
-        }
-    }
-
-    // and all ability requirements must be satisfied
-    for _, power := range check.Powers {
-        if power.Type == artifact.PowerTypeAbility1 || power.Type == artifact.PowerTypeAbility2 || power.Type == artifact.PowerTypeAbility3 {
-            if wizard.MagicLevel(power.Magic) < power.Amount {
-                return false
-            }
-        }
-    }
-
-    return true
 }
 
 func computeUnitBuildPowers(stack *playerlib.UnitStack) UnitBuildPowers {
@@ -567,8 +511,8 @@ func MakeGame(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *setti
         return nil
     }
 
-    return MakeGameWithModel(lbxCache, music, gameSettings, func (lbxCache *lbx.LbxCache, events chan GameEvent) *GameModel {
-        return MakeGameModel(terrainData, settings, data.PlaneArcanus, events, heroNames, allSpells, createArtifactPool(lbxCache), buildingInfo)
+    return MakeGameWithModel(lbxCache, music, gameSettings, func (lbxCache *lbx.LbxCache, events chan GameEvent) *gamecore.GameModel {
+        return gamecore.MakeGameModel(terrainData, settings, data.PlaneArcanus, events, heroNames, allSpells, createArtifactPool(lbxCache), buildingInfo)
     })
 }
 
@@ -603,12 +547,12 @@ func MakeGameFromSerialized(lbxCache *lbx.LbxCache, music *musiclib.Music, gameS
         return nil
     }
 
-    return MakeGameWithModel(lbxCache, music, gameSettings, func (lbxCache *lbx.LbxCache, events chan GameEvent) *GameModel {
+    return MakeGameWithModel(lbxCache, music, gameSettings, func (lbxCache *lbx.LbxCache, events chan GameEvent) *gamecore.GameModel {
         return MakeModelFromSerialized(serializedGame, events, heroNames, allSpells, createArtifactPool(lbxCache), buildingInfo, terrainData)
     })
 }
 
-func MakeGameWithModel(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *settingslib.Settings, makeModel func (*lbx.LbxCache, chan GameEvent) *GameModel) *Game {
+func MakeGameWithModel(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettings *settingslib.Settings, makeModel func (*lbx.LbxCache, chan GameEvent) *gamecore.GameModel) *Game {
     help, err := helplib.ReadHelpFromCache(lbxCache)
     if err != nil {
         return nil
@@ -1036,7 +980,7 @@ func (game *Game) GetEnemyWizards() []*playerlib.Player {
 }
 
 func (game *Game) EnterDiplomacy(player *playerlib.Player, enemy *playerlib.Player) {
-    game.Events <- &GameEventDiplomacy{
+    game.Events <- &gamecore.GameEventDiplomacy{
         Player: player,
         Enemy: enemy,
     }
@@ -2153,7 +2097,7 @@ func (game *Game) maybeBuyFromMerchant(player *playerlib.Player) {
 // FIXME: add a "reason" of fizzling, like "Spell X was fizzled because of Y"
 func (game *Game) ShowFizzleSpell(spell spellbook.Spell, caster *playerlib.Player) {
     if caster.IsHuman() {
-        game.Events <- &GameEventNotice{
+        game.Events <- &gamecore.GameEventNotice{
             // FIXME: align this message with how dos mom does it
             Message: fmt.Sprintf("The spell %v has fizzled.", spell.Name),
         }
@@ -2275,7 +2219,7 @@ func MakeRandomEventFonts(cache *lbx.LbxCache) *RandomEventFonts {
     }
 }
 
-func (game *Game) doRandomEvent(yield coroutine.YieldFunc, event *RandomEvent, start bool, wizard setup.WizardCustom) {
+func (game *Game) doRandomEvent(yield coroutine.YieldFunc, event *gamecore.RandomEvent, start bool, wizard setup.WizardCustom) {
     fonts := MakeRandomEventFonts(game.Cache)
 
     background, _ := game.ImageCache.GetImage("resource.lbx", 40, 0)
@@ -2593,13 +2537,13 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                 switch event.(type) {
                     case *GameEventMagicView:
                         game.doMagicView(yield)
-                    case *GameEventDiplomacy:
-                        diplomacy := event.(*GameEventDiplomacy)
+                    case *gamecore.GameEventDiplomacy:
+                        diplomacy := event.(*gamecore.GameEventDiplomacy)
                         game.doDiplomacy(yield, diplomacy.Player, diplomacy.Enemy)
-                    case *GameEventRefreshUI:
+                    case *gamecore.GameEventRefreshUI:
                         // compress ui refreshes
                         switch lastEvent.(type) {
-                            case *GameEventRefreshUI: // nothing, since we just did a refresh
+                            case *gamecore.GameEventRefreshUI: // nothing, since we just did a refresh
                             default:
                                 game.HudUI = game.MakeHudUI()
                                 if game.WatchMode {
@@ -2699,8 +2643,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                     case *GameEventShowBanish:
                         banishEvent := event.(*GameEventShowBanish)
                         game.doBanish(yield, banishEvent.Attacker, banishEvent.Defender)
-                    case *GameEventNotice:
-                        notice := event.(*GameEventNotice)
+                    case *gamecore.GameEventNotice:
+                        notice := event.(*gamecore.GameEventNotice)
                         game.doNotice(yield, game.HudUI, notice.Message)
                     case *GameEventCastSpellBook:
                         game.ShowSpellBookCastUI(yield, game.Model.GetHumanPlayer())
@@ -2711,21 +2655,21 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         if outpost.Player.IsHuman() {
                             game.showOutpost(yield, outpost.City, outpost.Stack, outpost.Player, true)
                         }
-                    case *GameEventVault:
-                        vaultEvent := event.(*GameEventVault)
+                    case *gamecore.GameEventVault:
+                        vaultEvent := event.(*gamecore.GameEventVault)
                         if vaultEvent.Player.IsHuman() {
                             game.doVault(yield, vaultEvent.CreatedArtifact)
                         } else {
                             // FIXME: give item to AI
                         }
-                    case *GameEventShowRandomEvent:
-                        randomEvent := event.(*GameEventShowRandomEvent)
+                    case *gamecore.GameEventShowRandomEvent:
+                        randomEvent := event.(*gamecore.GameEventShowRandomEvent)
                         target := randomEvent.Event.TargetPlayer
                         if !game.WatchMode && (target == nil || target == game.Model.GetHumanPlayer()) {
                             game.doRandomEvent(yield, randomEvent.Event, randomEvent.Starting, game.Model.GetHumanPlayer().Wizard)
                         }
-                    case *GameEventScroll:
-                        scroll := event.(*GameEventScroll)
+                    case *gamecore.GameEventScroll:
+                        scroll := event.(*gamecore.GameEventScroll)
                         game.showScroll(yield, scroll.Title, scroll.Text)
                         if !scroll.Old {
                             game.Model.ScrollEvents = append(game.Model.ScrollEvents, scroll)
@@ -3327,7 +3271,7 @@ func (game *Game) ChooseWizard() (setup.WizardCustom, bool) {
 
 func (game *Game) RefreshUI() {
     select {
-        case game.Events <- &GameEventRefreshUI{}:
+        case game.Events <- &gamecore.GameEventRefreshUI{}:
         default:
     }
 }
@@ -3593,7 +3537,7 @@ func (game *Game) defeatCity(yield coroutine.YieldFunc, attacker *playerlib.Play
     if raze {
         defender.RemoveCity(city)
     } else {
-        ChangeCityOwner(city, defender, attacker, ChangeCityRemoveOwnerEnchantments)
+        gamecore.ChangeCityOwner(city, defender, attacker, gamecore.ChangeCityRemoveOwnerEnchantments)
     }
 
     attacker.DidConquerCity(city, raze)
@@ -3706,7 +3650,7 @@ func (game *Game) doMoveSelectedUnit(yield coroutine.YieldFunc, player *playerli
             for _, unit := range stack.ActiveUnits() {
                 if !city.CanEnter(unit) {
                     stopMoving = true
-                    game.Events <- &GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, city.Name)}
+                    game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, city.Name)}
                     break quitMoving
                 }
             }
@@ -3938,7 +3882,7 @@ func (game *Game) doPlayerUpdate(yield coroutine.YieldFunc, player *playerlib.Pl
                             for _, unit := range stack.ActiveUnits() {
                                 if !newCity.CanEnter(unit) {
                                     canMove = false
-                                    game.Events <- &GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, newCity.Name)}
+                                    game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, newCity.Name)}
                                     break
                                 }
                             }
@@ -4184,7 +4128,7 @@ func (handlers *GameMoveHandlers) DiscoverWizards() {
     handlers.Game.discoverWizards(handlers.Yield)
 }
 
-func MakeMoveHandlers(game *Game, yield coroutine.YieldFunc) MovementHandler {
+func MakeMoveHandlers(game *Game, yield coroutine.YieldFunc) gamecore.MovementHandler {
     return &GameMoveHandlers{
         Game: game,
         Yield: yield,
@@ -5610,7 +5554,7 @@ func (game *Game) ResearchNewSpell(yield coroutine.YieldFunc, player *playerlib.
 // show all scroll events for this turn, or a message that no events occurred
 func (game *Game) DoChancellor(){
     if len(game.Model.ScrollEvents) == 0 {
-        event := &GameEventScroll{
+        event := &gamecore.GameEventScroll{
             Title: "NO EVENTS THIS MONTH",
         }
         select {
@@ -6080,7 +6024,7 @@ func (game *Game) doPlanarTraval() {
                 err := game.PlaneShift(activeStack, player)
                 if err != nil {
                     select {
-                        case game.Events<- &GameEventNotice{Message: fmt.Sprintf("The selected units cannot planar travel at this location.")}:
+                        case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The selected units cannot planar travel at this location.")}:
                         default:
                     }
                 } else {
@@ -7004,7 +6948,7 @@ func (game *Game) MakeHudUI() *uilib.UI {
 
                             ui.AddElements(uilib.MakeConfirmDialogWithLayer(ui, game.Cache, &game.ImageCache, 1, "Do you wish to rebalance food production?", true, yes, no))
                         } else {
-                            message := GameEventNotice{
+                            message := gamecore.GameEventNotice{
                                 Message: "There are no free workers to rebalance food production.",
                             }
                             select {
@@ -7402,7 +7346,7 @@ func (game *Game) StartPlayerTurn(player *playerlib.Player) {
 
     if player.IsHuman() && len(disbandedMessages) > 0 {
         select {
-            case game.Events<- &GameEventScroll{Title: "", Text: strings.Join(disbandedMessages, "\n")}:
+            case game.Events<- &gamecore.GameEventScroll{Title: "", Text: strings.Join(disbandedMessages, "\n")}:
             default:
         }
     }
@@ -7506,7 +7450,7 @@ func (game *Game) StartPlayerTurn(player *playerlib.Player) {
                             verb = "shrunk"
                         }
 
-                        scrollEvent := GameEventScroll{
+                        scrollEvent := gamecore.GameEventScroll{
                             Title: "CITY GROWTH",
                             Text: fmt.Sprintf("%v has %v to a population of %v.", city.Name, verb, city.Citizens()),
                         }
@@ -7520,7 +7464,7 @@ func (game *Game) StartPlayerTurn(player *playerlib.Player) {
                     removeCities = append(removeCities, city)
                     if player.IsHuman() {
                         select {
-                            case game.Events<- &GameEventNotice{Message: fmt.Sprintf("The city of %v has been abandoned.", city.Name)}:
+                            case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The city of %v has been abandoned.", city.Name)}:
                             default:
                         }
                     }
@@ -7539,14 +7483,14 @@ func (game *Game) StartPlayerTurn(player *playerlib.Player) {
                     removeCities = append(removeCities, city)
                     if player.IsHuman() {
                         select {
-                            case game.Events<- &GameEventNotice{Message: fmt.Sprintf("The outpost of %v has been deserted.", city.Name)}:
+                            case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The outpost of %v has been deserted.", city.Name)}:
                             default:
                         }
                     }
                 case *citylib.CityEventOutpostHamlet:
                     if player.IsHuman() {
                         select {
-                            case game.Events<- &GameEventNotice{Message: fmt.Sprintf("The outpost of %v has grown into a hamlet.", city.Name)}:
+                            case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The outpost of %v has grown into a hamlet.", city.Name)}:
                             default:
                         }
                     }
@@ -7754,37 +7698,16 @@ func (game *Game) doGreatWasting() {
     }
 }
 
-// city is controlled by the newOwner instead of owner
-func ChangeCityOwner(city *citylib.City, owner *playerlib.Player, newOwner *playerlib.Player, enchantmentChange ChangeCityEnchantments) {
-    owner.RemoveCity(city)
-    newOwner.AddCity(city)
-    city.ReignProvider = newOwner
-
-    city.Buildings.Remove(buildinglib.BuildingFortress)
-    city.Buildings.Remove(buildinglib.BuildingSummoningCircle)
-
-    switch enchantmentChange {
-        case ChangeCityKeepEnchantments:
-        case ChangeCityRemoveOwnerEnchantments:
-            city.RemoveAllEnchantmentsByOwner(owner.GetBanner())
-        case ChangeCityRemoveAllEnchantments:
-            city.Enchantments.Clear()
-    }
-
-    city.UpdateUnrest()
-}
-
-
 func (game *Game) ActiveConjunctionName() (string, color.Color) {
 
     for _, event := range game.Model.RandomEvents {
         switch event.Type {
-            case RandomEventConjunctionChaos: return "Conjunction", color.RGBA{R: 255, G: 0, B: 0, A: 255}
-            case RandomEventConjunctionNature: return "Conjunction", color.RGBA{R: 0, G: 255, B: 0, A: 255}
-            case RandomEventConjunctionSorcery: return "Conjunction", color.RGBA{R: 0, G: 0, B: 255, A: 255}
-            case RandomEventManaShort: return "Mana Short", color.RGBA{R: 0, G: 255, B: 0, A: 255}
-            case RandomEventGoodMoon: return "Good Moon", color.RGBA{R: 255, G: 255, B: 255, A: 255}
-            case RandomEventBadMoon: return "Bad Moon", color.RGBA{R: 0, G: 0, B: 0, A: 255}
+            case gamecore.RandomEventConjunctionChaos: return "Conjunction", color.RGBA{R: 255, G: 0, B: 0, A: 255}
+            case gamecore.RandomEventConjunctionNature: return "Conjunction", color.RGBA{R: 0, G: 255, B: 0, A: 255}
+            case gamecore.RandomEventConjunctionSorcery: return "Conjunction", color.RGBA{R: 0, G: 0, B: 255, A: 255}
+            case gamecore.RandomEventManaShort: return "Mana Short", color.RGBA{R: 0, G: 255, B: 0, A: 255}
+            case gamecore.RandomEventGoodMoon: return "Good Moon", color.RGBA{R: 255, G: 255, B: 255, A: 255}
+            case gamecore.RandomEventBadMoon: return "Bad Moon", color.RGBA{R: 0, G: 0, B: 0, A: 255}
         }
     }
 

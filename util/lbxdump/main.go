@@ -17,7 +17,6 @@ import (
     "github.com/bfalese/civ-of-magic/lib/font"
     "github.com/bfalese/civ-of-magic/lib/set"
     "github.com/bfalese/civ-of-magic/game/magic/audio"
-    "github.com/bfalese/civ-of-magic/game/magic/game"
     helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
 )
@@ -98,7 +97,7 @@ func dumpLbx(reader io.ReadSeeker, lbxName string, onlyIndex int, rawDump bool, 
         files := make(map[string]*lbx.LbxFile)
         files["eventmsg.lbx"] = &file
         cache := lbx.MakeCacheFromLbxFiles(files)
-        events, err := game.ReadEventData(cache)
+        events, err := lbxdata.ReadEventData(cache)
         if err != nil {
             return err
         }

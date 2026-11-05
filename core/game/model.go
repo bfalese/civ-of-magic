@@ -43,8 +43,8 @@ type GameModel struct {
 
     AIMode ai.Mode
 
-    heroNames map[int]map[herolib.HeroType]string
-    allSpells spellbook.Spells
+    HeroNames map[int]map[herolib.HeroType]string
+    AllSpells spellbook.Spells
 
     // water bodies holds all the points that are part of the same body of water.
     // a plane can have mulitple bodies of water if some bodies are landlocked (enclosed entirely by a continent)
@@ -80,8 +80,8 @@ func MakeGameModel(terrainData *terrain.TerrainData, settings setup.NewGameSetti
     model := GameModel{
         ArtifactPool: artifactPool,
         Settings: settings,
-        heroNames: heroNames,
-        allSpells: allSpells,
+        HeroNames: heroNames,
+        AllSpells: allSpells,
         Plane: startingPlane,
         CurrentPlayer: -1,
         Events: events,
@@ -130,7 +130,7 @@ func computeInitialCastingSkillPower(books []data.WizardBook) int {
 }
 
 func (model *GameModel) AddPlayer(wizard setup.WizardCustom, human bool) *playerlib.Player {
-    useNames := model.heroNames[len(model.Players)]
+    useNames := model.HeroNames[len(model.Players)]
     if useNames == nil {
         useNames = make(map[herolib.HeroType]string)
     }
@@ -157,19 +157,19 @@ func (model *GameModel) AddPlayer(wizard setup.WizardCustom, human bool) *player
 
     // not sure its necessary to add the starting spells to the research pool
     for _, spell := range startingSpells {
-        newPlayer.ResearchPoolSpells.AddSpell(model.allSpells.FindByName(spell))
+        newPlayer.ResearchPoolSpells.AddSpell(model.AllSpells.FindByName(spell))
     }
 
     // every wizard gets all arcane spells by default
-    newPlayer.ResearchPoolSpells.AddAllSpells(model.allSpells.GetSpellsByMagic(data.ArcaneMagic))
+    newPlayer.ResearchPoolSpells.AddAllSpells(model.AllSpells.GetSpellsByMagic(data.ArcaneMagic))
 
     newPlayer.KnownSpells = wizard.StartingSpells.Copy()
     for _, spell := range startingSpells {
-        newPlayer.KnownSpells.AddSpell(model.allSpells.FindByName(spell))
+        newPlayer.KnownSpells.AddSpell(model.AllSpells.FindByName(spell))
     }
     newPlayer.CastingSkillPower = computeInitialCastingSkillPower(newPlayer.Wizard.Books)
 
-    newPlayer.InitializeResearchableSpells(&model.allSpells)
+    newPlayer.InitializeResearchableSpells(&model.AllSpells)
     newPlayer.UpdateResearchCandidates()
 
     // log.Printf("Research spells: %v", newPlayer.ResearchPoolSpells)
@@ -1529,7 +1529,7 @@ func (model *GameModel) GetAllGlobalEnchantments() map[data.BannerType]*set.Set[
 
 
 func (model *GameModel) GetSpellByName(name string) spellbook.Spell {
-    return model.allSpells.FindByName(name)
+    return model.AllSpells.FindByName(name)
 }
 
 func (model *GameModel) RefreshUI() {
