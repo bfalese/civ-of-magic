@@ -555,47 +555,12 @@ func randomChoose[T any](choices... T) T {
 
 
 func (game *Game) SuggestCityName(race data.Race) (string) {
-    allCities := game.Model.AllCities()
-    fallback := fmt.Sprintf("City %d", len(allCities)+1)
-
     predefinedNames, err := lbxdata.ReadCityNames(game.Cache)
     if err != nil {
         log.Printf("Unable to read predefined city names: %v", err)
-        return fallback
     }
 
-    if len(predefinedNames) % 14 != 0 {
-        log.Printf("Predefined city names not dividable by number of races")
-        return fallback
-    }
-
-    raceIndex := 0
-    switch race {
-        case data.RaceBarbarian: raceIndex = 0
-        case data.RaceBeastmen: raceIndex = 1
-        case data.RaceDarkElf: raceIndex = 2
-        case data.RaceDraconian: raceIndex = 3
-        case data.RaceDwarf: raceIndex = 4
-        case data.RaceGnoll: raceIndex = 5
-        case data.RaceHalfling: raceIndex = 6
-        case data.RaceHighElf: raceIndex = 7
-        case data.RaceHighMen: raceIndex = 8
-        case data.RaceKlackon: raceIndex = 9
-        case data.RaceLizard: raceIndex = 10
-        case data.RaceNomad: raceIndex = 11
-        case data.RaceOrc: raceIndex = 12
-        case data.RaceTroll: raceIndex = 13
-    }
-
-    var existingNames []string
-    for _, city := range allCities {
-        existingNames = append(existingNames, city.Name)
-    }
-
-    entriesPerRace := len(predefinedNames) / 14
-    choices := predefinedNames[raceIndex * entriesPerRace: (raceIndex + 1) * entriesPerRace]
-
-    return gamecore.ChooseCityName(existingNames, choices)
+    return game.Model.SuggestCityName(predefinedNames, race)
 }
 
 func (game *Game) AllUnits() []units.StackUnit {

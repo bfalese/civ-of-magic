@@ -1,6 +1,8 @@
 package lbxdata
 
 import (
+    "maps"
+    "slices"
     "bytes"
     "fmt"
     "log"
@@ -173,7 +175,9 @@ func ReadArtifacts(cache *lbx.LbxCache) ([]artifactlib.Artifact, error) {
             return nil, fmt.Errorf("read error: %v", err)
         }
 
-        for mask, ability := range abilityMap {
+        // in mask order, so an item lists its abilities the same way every time
+        for _, mask := range slices.Sorted(maps.Keys(abilityMap)) {
+            ability := abilityMap[mask]
             if abilitiesValue&mask != 0 {
                 name := ability.Name()
                 // note: the "Spell as spell X" is rendered in the view code, not here

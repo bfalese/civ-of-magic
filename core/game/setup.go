@@ -2,6 +2,8 @@ package game
 
 import (
     "cmp"
+    "fmt"
+    "log"
     "image"
     "math"
     "math/rand/v2"
@@ -232,4 +234,48 @@ func (model *GameModel) InitializeNeutralPlayer(arcanusCityArea CityValidArea, m
     }
 
     return player
+}
+
+// a name for a new city of the given race, from the predefined names (the 14 races' lists one
+// after the other, as in cityname.lbx), skipping names already in use. Falls back to "City N".
+func (model *GameModel) SuggestCityName(predefinedNames []string, race data.Race) string {
+    allCities := model.AllCities()
+    fallback := fmt.Sprintf("City %d", len(allCities)+1)
+
+    if len(predefinedNames) == 0 {
+        return fallback
+    }
+
+    if len(predefinedNames) % 14 != 0 {
+        log.Printf("Predefined city names not dividable by number of races")
+        return fallback
+    }
+
+    raceIndex := 0
+    switch race {
+        case data.RaceBarbarian: raceIndex = 0
+        case data.RaceBeastmen: raceIndex = 1
+        case data.RaceDarkElf: raceIndex = 2
+        case data.RaceDraconian: raceIndex = 3
+        case data.RaceDwarf: raceIndex = 4
+        case data.RaceGnoll: raceIndex = 5
+        case data.RaceHalfling: raceIndex = 6
+        case data.RaceHighElf: raceIndex = 7
+        case data.RaceHighMen: raceIndex = 8
+        case data.RaceKlackon: raceIndex = 9
+        case data.RaceLizard: raceIndex = 10
+        case data.RaceNomad: raceIndex = 11
+        case data.RaceOrc: raceIndex = 12
+        case data.RaceTroll: raceIndex = 13
+    }
+
+    var existingNames []string
+    for _, city := range allCities {
+        existingNames = append(existingNames, city.Name)
+    }
+
+    entriesPerRace := len(predefinedNames) / 14
+    choices := predefinedNames[raceIndex * entriesPerRace: (raceIndex + 1) * entriesPerRace]
+
+    return ChooseCityName(existingNames, choices)
 }
