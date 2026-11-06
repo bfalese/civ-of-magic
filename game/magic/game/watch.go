@@ -27,7 +27,7 @@ func (game *Game) skipInWatchMode(event GameEvent) bool {
         case *gamecore.GameEventVault: return true
         case *GameEventCityName: return true
         case *GameEventNewOutpost: return true
-        case *GameEventShowBanish: return true
+        case *gamecore.GameEventShowBanish: return true
         // offers to the human; AI players handle these without a screen
         case *gamecore.GameEventHireHero:
             return event.(*gamecore.GameEventHireHero).Player.IsHuman()

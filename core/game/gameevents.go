@@ -79,3 +79,9 @@ type GameEventNewBuilding struct {
     Building buildinglib.Building
     Player *playerlib.Player
 }
+
+// the attacker captured or razed the city holding the defender's fortress
+type GameEventShowBanish struct {
+    Attacker *playerlib.Player
+    Defender *playerlib.Player
+}

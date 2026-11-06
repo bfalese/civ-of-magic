@@ -201,11 +201,6 @@ type GameEventSummonHero struct {
     Female bool
 }
 
-type GameEventShowBanish struct {
-    Attacker *playerlib.Player
-    Defender *playerlib.Player
-}
-
 type GameEventCityName struct {
     Title string
     City *citylib.City
@@ -2172,8 +2167,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         game.ShowApprenticeUI(yield, game.Model.GetHumanPlayer())
                     case *GameEventArmyView:
                         game.doArmyView(yield)
-                    case *GameEventShowBanish:
-                        banishEvent := event.(*GameEventShowBanish)
+                    case *gamecore.GameEventShowBanish:
+                        banishEvent := event.(*gamecore.GameEventShowBanish)
                         game.doBanish(yield, banishEvent.Attacker, banishEvent.Defender)
                     case *gamecore.GameEventNotice:
                         notice := event.(*gamecore.GameEventNotice)
@@ -2857,7 +2852,6 @@ func (game *Game) doMoveCamera(yield coroutine.YieldFunc, x int, y int) {
 // returns true if the city was razed, and the amount of gold plundered from the city
 func (game *Game) defeatCity(yield coroutine.YieldFunc, attacker *playerlib.Player, attackerStack *playerlib.UnitStack, defender *playerlib.Player, city *citylib.City) (bool, int) {
     raze := false
-    gold := defender.ComputePlunderedGold(city)
 
     if attacker.IsHuman() {
         raze = game.confirmRazeTown(yield, city)
@@ -2865,38 +2859,7 @@ func (game *Game) defeatCity(yield coroutine.YieldFunc, attacker *playerlib.Play
         raze = attacker.AIBehavior.ConfirmRazeTown(city)
     }
 
-    containedFortress := city.Buildings.Contains(buildinglib.BuildingFortress)
-
-    if raze {
-        defender.RemoveCity(city)
-    } else {
-        gamecore.ChangeCityOwner(city, defender, attacker, gamecore.ChangeCityRemoveOwnerEnchantments)
-    }
-
-    attacker.DidConquerCity(city, raze)
-    defender.DidLoseCity(city)
-
-    // player is defeated if they have no cities left
-    defeated := len(defender.Cities) == 0
-
-    if defeated {
-        defender.Defeated = true
-        attacker.DidDefeat(defender)
-    }
-
-    if containedFortress {
-        defender.Banished = true
-
-        attacker.DidBanish(defender)
-
-        if attacker.IsHuman() || defender.IsHuman() {
-            game.Events <- &GameEventShowBanish{Attacker: attacker, Defender: defender}
-        }
-
-        if !defeated {
-            defender.CastSpellOfReturn()
-        }
-    }
+    gold := game.Model.DefeatCity(attacker, defender, city, raze)
 
     return raze, gold
 }
@@ -4157,8 +4120,6 @@ func (game *Game) GetInfluenceMagic(x int, y int, plane data.Plane) data.MagicTy
  * this also shows the raze city ui so that fame can be incorporated based on whether the city is razed or not
  */
 func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player, attackerStack *playerlib.UnitStack, defender *playerlib.Player, defenderStack *playerlib.UnitStack, zone combat.ZoneType) combat.CombatState {
-    landscape := game.GetCombatLandscape(defenderStack.X(), defenderStack.Y(), defenderStack.Plane())
-
     // do graphic combat only if a human is involved
     useHuman := attacker.IsHuman() || defender.IsHuman()
 
@@ -4174,63 +4135,19 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
     // skip the battle screen entirely and auto-resolve if the human has enabled 'Strategic Combat Only'
     useStrategicCombat := useHuman && !game.WatchMode && wantsStrategicCombat(attacker) && wantsStrategicCombat(defender)
 
-    createArmy := func (player *playerlib.Player, stack *playerlib.UnitStack) *combat.Army {
-        army := combat.Army{
-            Player: player,
-        }
-
-        for _, unit := range stack.Units() {
-            // flying units always get added to battle
-            if !unit.IsFlying() {
-                if landscape == combat.CombatLandscapeWater && unit.IsLandWalker() {
-                    continue
-                }
-
-                // dont add sailing units to non-water combat
-                if landscape != combat.CombatLandscapeWater && unit.IsSailing() {
-                    continue
-                }
-            }
-
-            army.AddUnit(unit)
-        }
-
-        return &army
-    }
-
-    attackingArmy := createArmy(attacker, attackerStack)
-    defendingArmy := createArmy(defender, defenderStack)
-
-    var state combat.CombatState
-    var defeatedDefenders int
-    var defeatedAttackers int
-    var recalledAttackers []units.StackUnit
-    var recalledDefenders []units.StackUnit
-
     events := make(chan combat.CombatEvent, 1000)
 
-    combatModel := combat.MakeCombatModel(game.AllSpells(), defendingArmy, attackingArmy, landscape, defenderStack.Plane(), zone, game.GetInfluenceMagic(attackerStack.X(), attackerStack.Y(), attackerStack.Plane()), attackerStack.X(), attackerStack.Y(), events, nil)
-
-    if zone.City != nil && zone.City.HasEnchantment(data.CityEnchantmentHeavenlyLight) {
-        combatModel.AddGlobalEnchantment(data.CombatEnchantmentTrueLight)
-    }
-    if zone.City != nil && zone.City.HasEnchantment(data.CityEnchantmentCloudOfShadow) {
-        combatModel.AddGlobalEnchantment(data.CombatEnchantmentDarkness)
-    } else {
-        for _, enchantments := range game.Model.GetAllGlobalEnchantments() {
-            if enchantments.Contains(data.EnchantmentEternalNight) {
-                combatModel.AddGlobalEnchantment(data.CombatEnchantmentDarkness)
-                break
-            }
-        }
-    }
+    battle := game.Model.MakeBattle(game.AllSpells(), attacker, attackerStack, defender, defenderStack, zone, events)
+    combatModel := battle.Combat
 
     // ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
     popCombatScreen := false
 
+    var result gamecore.BattleResult
+
     if useStrategicCombat {
-        state, defeatedAttackers, defeatedDefenders = combat.DoStrategicCombat(attackingArmy, defendingArmy)
+        result = battle.Run(true)
     } else if useHuman || game.WatchMode {
         defer mouse.Mouse.SetImage(game.MouseData.Normal)
 
@@ -4239,7 +4156,7 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
             controllingPlayer = optional.Empty[combat.ArmyPlayer]()
         }
 
-        combatScreen := combatview.MakeCombatScreen(game.Cache, defendingArmy, attackingArmy, controllingPlayer, landscape, attackerStack.Plane(), zone, combatModel)
+        combatScreen := combatview.MakeCombatScreen(game.Cache, combatModel.DefendingArmy, combatModel.AttackingArmy, controllingPlayer, battle.Landscape, attackerStack.Plane(), zone, combatModel)
 
         game.PushDrawer(func (screen *ebiten.Image){
             combatScreen.Draw(screen)
@@ -4248,7 +4165,7 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
 
         game.Music.PushSong(randomChoose(musiclib.SongCombat1, musiclib.SongCombat2))
 
-        state = combat.CombatStateRunning
+        state := combat.CombatStateRunning
         for state == combat.CombatStateRunning {
             state = combatScreen.Update(yield)
             if yield() != nil {
@@ -4258,155 +4175,41 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
 
         game.Music.PopSong()
         combatScreen.MouseState = combatview.CombatClickHud
+
+        result = battle.Result(state)
     } else {
         // do non-graphical combat (ai vs ai)
-        state = combat.Run(combatModel)
+        result = battle.Run(false)
     }
 
-    if !useStrategicCombat {
-        defeatedDefenders = combatModel.DefeatedDefenders
-        defeatedAttackers = combatModel.DefeatedAttackers
+    defeatCity := func(attacker *playerlib.Player, attackerStack *playerlib.UnitStack, defender *playerlib.Player, city *citylib.City) (bool, int) {
+        return game.defeatCity(yield, attacker, attackerStack, defender, city)
     }
 
-    // FIXME: resolve the attacker/defender stack at the end of combat?
-    for _, unit := range combatModel.AttackingArmy.RecalledUnits {
-        recalledAttackers = append(recalledAttackers, unit.Unit.(units.StackUnit))
-    }
-    for _, unit := range combatModel.DefendingArmy.RecalledUnits {
-        recalledDefenders = append(recalledDefenders, unit.Unit.(units.StackUnit))
-    }
-
-    // returns the fame that should be added to the winner and loser. the loser fame is negative
-    distributeFame := func(winner *playerlib.Player, loser *playerlib.Player, loserStack *playerlib.UnitStack, defeatedUnits int) (int, int) {
-        winnerFame := 0
-        loserFame := 0
-
-        if defeatedUnits >= 4 {
-            winnerFame += 1
-            loserFame -= 1
-        }
-
-        for _, unit := range loserStack.Units() {
-            if unit.GetRawUnit().CastingCost >= 600 {
-                winnerFame += 1
-                loserFame -= 1
-                break
-            }
-            if unit.IsHero() {
-                hero := unit.(*herolib.Hero)
-                loserFame -= (int(hero.GetExperienceLevel()) + 1) / 2
-            }
-        }
-
-        return winnerFame, loserFame
-    }
-
-    // fame
-    var attackerFame, defenderFame int
-
-    if state == combat.CombatStateAttackerWin || state == combat.CombatStateDefenderFlee {
-        if zone.City != nil {
-            razeCity, gold := game.defeatCity(yield, attacker, attackerStack, defender, zone.City)
-            // if razeCity is true then we pass in false to get the fame for capturing the city
-            attackerFame += zone.City.FameForCaptureOrRaze(!razeCity)
-            defenderFame += zone.City.FameForCaptureOrRaze(false)
-
-            attacker.Gold += gold
-            defender.Gold -= gold
-        }
-
-        winner, loser := distributeFame(attacker, defender, defenderStack, defeatedDefenders)
-        attackerFame += winner
-        defenderFame += loser
-
-        // some units might have been raised from the dead but been owned by the opposite side
-        for _, unit := range attackingArmy.GetUnits() {
-            if unit.Unit.GetHealth() > 0 {
-                attackerStack.AddUnit(unit.Unit)
-                // FIXME: its annoying to have to set all 3 of these fields. maybe consolidate them into just
-                // SetOwner(player)
-                unit.Unit.SetBanner(attacker.GetBanner())
-                unit.Unit.SetGlobalEnchantmentProvider(attacker.MakeUnitEnchantmentProvider())
-                unit.Unit.SetExperienceInfo(attacker.MakeExperienceInfo())
-                defender.RemoveUnit(unit.Unit)
-            }
-        }
-
-    } else if state == combat.CombatStateDefenderWin || state == combat.CombatStateAttackerFlee {
-        winner, loser := distributeFame(defender, attacker, attackerStack, defeatedAttackers)
-        defenderFame += winner
-        attackerFame += loser
-
-        for _, unit := range defendingArmy.GetUnits() {
-            if unit.Unit.GetHealth() > 0 {
-                defenderStack.AddUnit(unit.Unit)
-                unit.Unit.SetBanner(defender.GetBanner())
-                unit.Unit.SetGlobalEnchantmentProvider(defender.MakeUnitEnchantmentProvider())
-                unit.Unit.SetExperienceInfo(defender.MakeExperienceInfo())
-                attacker.RemoveUnit(unit.Unit)
-            }
-        }
-    }
-
-    attacker.Fame = max(0, attacker.Fame + attackerFame)
-    defender.Fame = max(0, defender.Fame + defenderFame)
-
-    cityPopulationLoss := 0
-    var cityBuildingLoss []buildinglib.Building
-
-    if zone.City != nil && state == combat.CombatStateAttackerWin {
-        // maximum chance is 50%, minimum is 10%
-        chance := min(50, 10 + combatModel.CollateralDamage * 2)
-        for range zone.City.Citizens() - 1 {
-            if rand.N(100) < chance {
-                cityPopulationLoss += 1
-            }
-        }
-
-        minBuildingChance := 10
-        if attacker.GetBanner() == data.BannerBrown {
-            minBuildingChance = 50
-        }
-
-        chance = min(75, minBuildingChance + combatModel.CollateralDamage)
-        for _, building := range zone.City.Buildings.Values() {
-            if building == buildinglib.BuildingFortress || building == buildinglib.BuildingSummoningCircle {
-                continue
-            }
-
-            if rand.N(100) < chance {
-                cityBuildingLoss = append(cityBuildingLoss, building)
-            }
-        }
-
-        zone.City.Population -= cityPopulationLoss * 1000
-        for _, building := range cityBuildingLoss {
-            zone.City.Buildings.Remove(building)
-        }
-        zone.City.ResetCitizens()
-    }
+    outcome := game.Model.ApplyBattleOutcome(battle, result, defeatCity)
 
     // Show end screen
     if useHuman {
-        result := combatview.CombatEndScreenResultLose
+        state := result.State
+        endResult := combatview.CombatEndScreenResultLose
         humanAttacker := attacker.IsHuman()
-        fame := defenderFame
+        fame := outcome.DefenderFame
 
-        if state == combat.CombatStateAttackerWin || state == combat.CombatStateDefenderFlee {
-            fame = attackerFame
+        if result.AttackerWon() {
+            fame = outcome.AttackerFame
         }
 
         switch {
             case state == combat.CombatStateAttackerWin && humanAttacker,
                  state == combat.CombatStateDefenderWin && !humanAttacker:
-                result = combatview.CombatEndScreenResultWin
+                endResult = combatview.CombatEndScreenResultWin
             case state == combat.CombatStateAttackerFlee && humanAttacker,
                  state == combat.CombatStateDefenderFlee && !humanAttacker:
-                result = combatview.CombatEndScreenResultRetreat
+                endResult = combatview.CombatEndScreenResultRetreat
         }
 
         // FIXME: show how much gold was plundered (or lost)
-        endScreen := combatview.MakeCombatEndScreen(game.Cache, result, combatModel.DiedWhileFleeing, fame, cityPopulationLoss, len(cityBuildingLoss))
+        endScreen := combatview.MakeCombatEndScreen(game.Cache, endResult, combatModel.DiedWhileFleeing, fame, outcome.CityPopulationLoss, len(outcome.CityBuildingLoss))
 
         lastDrawer := game.LastDrawer()
         game.PushDrawer(func (screen *ebiten.Image){
@@ -4427,131 +4230,20 @@ func (game *Game) doCombat(yield coroutine.YieldFunc, attacker *playerlib.Player
         game.PopDrawer()
     }
 
-    // Redistribute equipment of died heros
-    showHeroNotice := false
-
-    // recall units
-    relocateUnits := func(player *playerlib.Player, units []units.StackUnit) {
-        for _, unit := range units {
-            game.Model.RelocateUnit(player, unit)
-        }
-    }
-
-    relocateUnits(attacker, recalledAttackers)
-    relocateUnits(defender, recalledDefenders)
-
-    // remove dead units
-    killUnits := func (player *playerlib.Player, stack *playerlib.UnitStack, landscape combat.CombatLandscape){
-        // first remove sailing units
-        for _, unit := range stack.Units() {
-            if unit.IsSailing() && unit.GetHealth() <= 0 {
-                player.LoseUnit(unit)
-            }
-        }
-
-        transport := stack.HasSailingUnits(false)
-
-        for _, unit := range stack.Units() {
-            dead := unit.GetHealth() <= 0
-
-            // if combat was on water and there are no sailing ships left then all units should die
-            // FIXME: handle the case that there were originally two ships and one died, thus not being able to transport some units
-            if landscape == combat.CombatLandscapeWater && unit.IsLandWalker() && !transport {
-                dead = true
-            }
-
-            if dead {
-                player.RemoveUnit(unit)
-
-                if unit.IsHero() {
-                    hero := unit.(*herolib.Hero)
-                    vaultEvents := game.Model.DistributeEquipment(player, hero)
-                    if player.IsHuman() {
-                        showHeroNotice = showHeroNotice || len(vaultEvents) > 0
-                    }
-
-                    for _, event := range vaultEvents {
-                        select {
-                            case game.Events <- event:
-                            default:
-                        }
-                    }
-
-                }
-            }
-        }
-    }
-
-    killUnits(attacker, attackerStack, landscape)
-    killUnits(defender, defenderStack, landscape)
-
-    var undeadUnits int
-
-    switch state {
-        case combat.CombatStateAttackerWin, combat.CombatStateDefenderFlee:
-            undeadUnits = len(combatModel.UndeadUnits)
-
-            for _, unit := range combatModel.UndeadUnits {
-                defender.RemoveUnit(unit.Unit)
-                if len(attackerStack.Units()) < data.MaxUnitsInStack {
-                    attacker.AddUnit(attacker.UpdateUnit(unit.Unit))
-                }
-            }
-
-            if attacker.HasEnchantment(data.EnchantmentZombieMastery) {
-                for _, unit := range append(slices.Clone(defendingArmy.KilledUnits), attackingArmy.KilledUnits...) {
-                    if unit.GetRace() != data.RaceFantastic && unit.GetRace() != data.RaceHero && len(attackerStack.Units()) < data.MaxUnitsInStack {
-                        attacker.AddUnit(units.MakeOverworldUnitFromUnit(units.Zombie, attackerStack.X(), attackerStack.Y(), attackerStack.Plane(), attacker.GetBanner(), attacker.MakeExperienceInfo(), attacker.MakeUnitEnchantmentProvider()))
-                    }
-                }
-            }
-
-        case combat.CombatStateDefenderWin, combat.CombatStateAttackerFlee:
-            undeadUnits = len(combatModel.UndeadUnits)
-
-            for _, unit := range combatModel.UndeadUnits {
-                attacker.RemoveUnit(unit.Unit)
-                if len(defenderStack.Units()) < data.MaxUnitsInStack {
-                    defender.AddUnit(defender.UpdateUnit(unit.Unit))
-                }
-            }
-
-            if defender.HasEnchantment(data.EnchantmentZombieMastery) {
-                for _, unit := range append(slices.Clone(defendingArmy.KilledUnits), attackingArmy.KilledUnits...) {
-                    if unit.GetRace() != data.RaceFantastic && unit.GetRace() != data.RaceHero && len(defenderStack.Units()) < data.MaxUnitsInStack {
-                        defender.AddUnit(units.MakeOverworldUnitFromUnit(units.Zombie, defenderStack.X(), defenderStack.Y(), defenderStack.Plane(), defender.GetBanner(), defender.MakeExperienceInfo(), defender.MakeUnitEnchantmentProvider()))
-                    }
-                }
-            }
-    }
+    aftermath := game.Model.ApplyBattleAftermath(battle, result)
 
     // show the undead animation if there were undead units raised
-    if undeadUnits > 0 && useHuman {
-        undeadUI, undeadQuit := MakeUndeadUI(game.Cache, &game.ImageCache, true, undeadUnits)
+    if aftermath.UndeadUnits > 0 && useHuman {
+        undeadUI, undeadQuit := MakeUndeadUI(game.Cache, &game.ImageCache, true, aftermath.UndeadUnits)
         game.doRunUI(yield, undeadUI, undeadQuit)
     }
 
-    // experience
-    if state == combat.CombatStateAttackerWin || state == combat.CombatStateDefenderFlee {
-        for _, unit := range attackerStack.Units() {
-            if unit.GetRace() != data.RaceFantastic {
-                game.AddExperience(attacker, unit, defeatedDefenders * 2)
-            }
-        }
-    } else if state == combat.CombatStateDefenderWin || state == combat.CombatStateAttackerFlee {
-        for _, unit := range defenderStack.Units() {
-            if unit.GetRace() != data.RaceFantastic {
-                game.AddExperience(defender, unit, defeatedAttackers * 2)
-            }
-        }
-    }
-
     // this notice has to appear before the vault events are processed
-    if showHeroNotice {
+    if aftermath.HumanHeroDied {
         game.doNotice(yield, game.HudUI, "One or more heroes died in combat. You must redistribute their equipment.")
     }
 
-    return state
+    return result.State
 }
 
 // FIXME: maybe this should be generalized so it can handle any enchantment that cuases a spell to fizzle?
