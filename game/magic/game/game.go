@@ -151,12 +151,6 @@ type GameEventInvokeRoutine struct {
     Routine func (yield coroutine.YieldFunc)
 }
 
-type GameEventNewOutpost struct {
-    City *citylib.City
-    Stack *playerlib.UnitStack
-    Player *playerlib.Player
-}
-
 // add the group to the ui and continue executing the main coroutine until the quit context is cancelled
 type GameEventRunUI struct {
     Group *uilib.UIElementGroup
@@ -2177,8 +2171,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         game.ShowSpellBookCastUI(yield, game.Model.GetHumanPlayer())
                     case *GameEventCityListView:
                         game.doCityListView(yield)
-                    case *GameEventNewOutpost:
-                        outpost := event.(*GameEventNewOutpost)
+                    case *gamecore.GameEventNewOutpost:
+                        outpost := event.(*gamecore.GameEventNewOutpost)
                         if outpost.Player.IsHuman() {
                             game.showOutpost(yield, outpost.City, outpost.Stack, outpost.Player, true)
                         }
@@ -3293,113 +3287,8 @@ func (game *Game) doAiUpdate(yield coroutine.YieldFunc, player *playerlib.Player
 
         // log.Printf("AI %v Decisions: %v", player.Wizard.Name, decisions)
 
-        for _, decision := range decisions {
-            switch decision.(type) {
-                case *playerlib.AIMoveStackDecision:
-                    moveDecision := decision.(*playerlib.AIMoveStackDecision)
-                    useStack := moveDecision.Stack
-
-                    if len(moveDecision.Units) > 0 && len(moveDecision.Units) != len(moveDecision.Stack.Units()) {
-                        useStack = player.SplitStack(moveDecision.Stack, moveDecision.Units)
-                    }
-
-                    useStack.CurrentPath = moveDecision.Path
-
-                // mainly for the raider ai
-                case *playerlib.AICreateUnitDecision:
-                    create := decision.(*playerlib.AICreateUnitDecision)
-                    log.Printf("ai %v creating %+v", player.Wizard.Name, create)
-
-                    overworldUnit := units.MakeOverworldUnitFromUnit(create.Unit, create.X, create.Y, create.Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
-                    if create.Patrol {
-                        overworldUnit.SetBusy(units.BusyStatusPatrol)
-                    }
-                    player.CreateUnit(overworldUnit)
-                    game.Model.ResolveStackAt(create.X, create.Y, create.Plane)
-                case *playerlib.AIUpdateCityDecision:
-                    update := decision.(*playerlib.AIUpdateCityDecision)
-
-                    update.City.Farmers = update.Farmers
-                    update.City.Workers = update.Workers
-                    update.City.ResetCitizens()
-
-                case *playerlib.AIBuildOutpostDecision:
-                    build := decision.(*playerlib.AIBuildOutpostDecision)
-
-                    stack := build.Stack.GetActiveUnitWithAbility(data.AbilityCreateOutpost)
-                    if stack != nil {
-                        game.CreateOutpost(stack, player)
-                    }
-                case *playerlib.AIBuildRoadDecision:
-                    build := decision.(*playerlib.AIBuildRoadDecision)
-                    roadStack := build.Stack
-                    path := game.FindRoadPath(roadStack.X(), roadStack.Y(), build.X, build.Y, player, roadStack, player.GetFog(roadStack.Plane()))
-                    if len(path) > 0 {
-                        for _, unit := range roadStack.Units() {
-                            if unit.HasAbility(data.AbilityConstruction) {
-                                unit.SetBuildRoadPath(path)
-                            }
-                        }
-                        game.MaybeBuildRoads(roadStack, player)
-                    }
-                case *playerlib.AIMeldNodeDecision:
-                    meld := decision.(*playerlib.AIMeldNodeDecision)
-                    game.Model.TryMeldNode(meld.Stack, player)
-                case *playerlib.AIPlaneShiftDecision:
-                    shift := decision.(*playerlib.AIPlaneShiftDecision)
-                    if err := game.PlaneShift(shift.Stack, player); err == nil {
-                        shift.Stack.CurrentPath = nil
-                    }
-                case *playerlib.AIProduceDecision:
-                    produce := decision.(*playerlib.AIProduceDecision)
-                    log.Printf("Year=%v AI %v(%v) city %v producing %v %v", game.Model.TurnNumber, player.Wizard.Name, player.GetBanner(), produce.City.Name, game.Model.BuildingInfo.Name(produce.Building), produce.Unit.Name)
-                    produce.City.ProducingBuilding = produce.Building
-                    produce.City.ProducingUnit = produce.Unit
-                case *playerlib.AIResearchSpellDecision:
-                    research := decision.(*playerlib.AIResearchSpellDecision)
-                    if player.ResearchingSpell.Invalid() {
-                        player.ResearchingSpell = research.Spell
-                    }
-
-                case *playerlib.AICastSpellDecision:
-                    cast := decision.(*playerlib.AICastSpellDecision)
-
-                    if player.CastingSpell.Invalid() {
-                        player.CastingSpell = cast.Spell
-                    }
-                case *playerlib.AICastUnitSpellDecision:
-                    cast := decision.(*playerlib.AICastUnitSpellDecision)
-                    if player.CastingSpell.Invalid() {
-                        player.CastingSpell = cast.Spell
-                        player.CastingSpellTarget = cast.Target
-                    }
-            }
-        }
-
-        moveHandlers := MakeMoveHandlers(game, yield)
-
-        for _, stack := range slices.Clone(player.Stacks) {
-            // stop moving once any unit in the stack has no moves left
-            for !stack.AnyOutOfMoves() && len(stack.CurrentPath) > 0 {
-                stack.CurrentPath = game.Model.DoAiMoveUnit(moveHandlers, player, stack)
-            }
-        }
-
-        // continue any in-progress road building and attempt to meld any node
-        // a stack is now standing on (engineers/melders may have just arrived).
-        for _, stack := range slices.Clone(player.Stacks) {
-            for _, unit := range stack.Units() {
-                if unit.GetBusy() == units.BusyStatusBuildRoad && len(unit.GetBuildRoadPath()) > 0 {
-                    game.MaybeBuildRoads(stack, player)
-                    break
-                }
-            }
-        }
-        for _, stack := range slices.Clone(player.Stacks) {
-            game.Model.TryMeldNode(stack, player)
-        }
-
-        player.AIBehavior.PostUpdate(player, game.Model)
+        game.Model.ApplyAiDecisions(player, decisions, game.SuggestCityName)
+        game.Model.MoveAiStacks(MakeMoveHandlers(game, yield), player)
     }
 
     game.discoverWizards(yield)
@@ -4539,30 +4428,7 @@ func (game *Game) CityProductionBonus(x int, y int, plane data.Plane) int {
 }
 
 func (game *Game) CreateOutpost(settlers units.StackUnit, player *playerlib.Player) *citylib.City {
-    cityName := game.SuggestCityName(settlers.GetRace())
-
-    newCity := citylib.MakeCity(cityName, settlers.GetX(), settlers.GetY(), settlers.GetRace(), game.Model.BuildingInfo, game.GetMap(settlers.GetPlane()), game.Model, player)
-    newCity.Plane = settlers.GetPlane()
-    newCity.Population = 300
-    newCity.Outpost = true
-    newCity.ProducingBuilding = buildinglib.BuildingHousing
-    newCity.ProducingUnit = units.UnitNone
-
-    game.GetMap(settlers.GetPlane()).SetRoad(settlers.GetX(), settlers.GetY(), settlers.GetPlane() == data.PlaneMyrror)
-
-    player.RemoveUnit(settlers)
-    player.SelectedStack = nil
-    game.RefreshUI()
-    player.AddCity(newCity)
-
-    stack := player.FindStack(newCity.X, newCity.Y, newCity.Plane)
-
-    select {
-        case game.Events<- &GameEventNewOutpost{City: newCity, Stack: stack, Player: player}:
-        default:
-    }
-
-    return newCity
+    return game.Model.CreateOutpost(settlers, player, game.SuggestCityName(settlers.GetRace()))
 }
 
 func (game *Game) DoMeld(unit units.StackUnit, player *playerlib.Player, node *maplib.ExtraMagicNode) bool {

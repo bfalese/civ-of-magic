@@ -85,3 +85,9 @@ type GameEventShowBanish struct {
     Attacker *playerlib.Player
     Defender *playerlib.Player
 }
+
+type GameEventNewOutpost struct {
+    City *citylib.City
+    Stack *playerlib.UnitStack
+    Player *playerlib.Player
+}
