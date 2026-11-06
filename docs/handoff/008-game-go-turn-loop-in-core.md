@@ -54,6 +54,14 @@ Then the nine smaller UI files and `cityview/city-screen.go`.
 
 ## Smoke test
 
-Still not launched (no MoM data). Besides 007's list: play several turns (income, research
+MoM data is now available locally (`-data "/home/bernardo/ROMs/ms-dos/Master of Magic"`, a DOS
+install, lowercase names are fine). Done on this branch:
+- headless `-start` under xvfb: data loads, maps and neutral cities generate, no errors;
+- by hand: started a game, moved units, ended a turn, opened a city, picked a research spell. All OK.
+
+`-watch` (AI vs AI) gets stuck on the first wizard-contact diplomacy dialog; pre-refactor upstream
+(`0239a0c1`) does the same, so not a regression. Fixing it would make `-watch` a hands-off test.
+
+Still untested: besides 007's list, play several turns (income, research
 completing, a spell finishing casting, city growth/new buildings, hero for hire / merchant offers),
 with random events on and off, and end-of-turn global spells (Armageddon, Meteor Storm).
