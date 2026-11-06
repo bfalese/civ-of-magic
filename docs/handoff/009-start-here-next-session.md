@@ -3,7 +3,7 @@
 Date: 2026-11-05
 Previous: [008](008-game-go-turn-loop-in-core.md) (read it next: it has the details of the last round)
 
-This is the entry point for a fresh session. Read in this order: `CLAUDE.md`, this file, 008, then the latest handoff (017 at the time of writing). Smoke tests to do by hand: `docs/smoke-test.md`.
+This is the entry point for a fresh session. Read in this order: `CLAUDE.md`, this file, 008, then the latest handoff (018 at the time of writing). Smoke tests to do by hand: `docs/smoke-test.md`.
 
 ## Where things stand
 

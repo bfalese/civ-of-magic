@@ -816,6 +816,13 @@ var commandTypes = map[string]func() Command{
     "propose-treaty": func() Command { return &ProposeTreatyCommand{} },
     "offer-tribute": func() Command { return &OfferTributeCommand{} },
     "trade-spells": func() Command { return &TradeSpellsCommand{} },
+    "battle-act": func() Command { return &BattleActCommand{} },
+    "battle-done": func() Command { return &BattleDoneCommand{} },
+    "battle-wait": func() Command { return &BattleWaitCommand{} },
+    "battle-flee": func() Command { return &BattleFleeCommand{} },
+    "battle-auto": func() Command { return &BattleAutoCommand{} },
+    "confirm-encounter": func() Command { return &ConfirmEncounterCommand{} },
+    "raze-city": func() Command { return &RazeCityCommand{} },
 }
 
 type commandEnvelope struct {
