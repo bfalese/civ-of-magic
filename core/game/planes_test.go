@@ -41,3 +41,22 @@ func TestIsGlobalEnchantmentActive(test *testing.T) {
         test.Errorf("enemy's Planar Seal should count")
     }
 }
+
+// Nature Awareness reveals both planes and introduces the wizards that become visible
+func TestNatureAwarenessRevealsMap(test *testing.T) {
+    human, enemy := makeContactPlayers()
+    model := makeSpellTestModel(10, 10)
+    model.MyrrorMap = model.ArcanusMap
+    model.Players = []*playerlib.Player{human, enemy}
+    model.Events = make(chan GameEvent, 10)
+
+    if human.IsExplored(7, 7, data.PlaneMyrror) {
+        test.Fatalf("map should start unexplored")
+    }
+
+    model.ApplyGlobalEnchantment(data.EnchantmentNatureAwareness, human)
+
+    if !human.IsExplored(7, 7, data.PlaneMyrror) || !human.IsExplored(0, 0, data.PlaneArcanus) {
+        test.Errorf("Nature Awareness should reveal both planes")
+    }
+}

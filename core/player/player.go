@@ -1904,3 +1904,32 @@ func (player *Player) TransportUnits(plane data.Plane) int {
 
     return count
 }
+
+// sell a building in one of the player's cities for gold
+func (player *Player) SellBuilding(city *citylib.City, building buildinglib.Building) {
+    player.Gold += city.SellBuilding(building)
+}
+
+// buy the rest of what the city is producing. returns false if there is nothing to buy or not enough gold
+func (player *Player) BuyProduction(city *citylib.City) bool {
+    gold, production := city.BuyCost()
+    if production <= 0 || gold > player.Gold {
+        return false
+    }
+
+    city.Production += production
+    player.Gold -= gold
+    return true
+}
+
+// mana crystals it costs to move an item from the vault to a hero somewhere else
+const VaultTeleportCost = 20
+
+// mana crystals gained by destroying an item (half its cost, the full cost with Artificer)
+func (player *Player) ArtifactManaValue(item *artifact.Artifact) int {
+    gainedMana := item.Cost
+    if !player.Wizard.RetortEnabled(data.RetortArtificer) {
+        gainedMana /= 2
+    }
+    return gainedMana
+}

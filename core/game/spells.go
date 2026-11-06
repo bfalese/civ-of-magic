@@ -77,6 +77,11 @@ func (model *GameModel) ChooseSummonHero(player *playerlib.Player, champion bool
 // which the frontend handles (meeting dialogs).
 func (model *GameModel) ApplyGlobalEnchantment(enchantment data.Enchantment, player *playerlib.Player) {
     switch enchantment {
+        case data.EnchantmentAwareness: model.ExploreFogForAwareness(player)
+        case data.EnchantmentNatureAwareness:
+            player.LiftFogAll(data.PlaneArcanus)
+            player.LiftFogAll(data.PlaneMyrror)
+            model.AnnounceVisibleWizards()
         case data.EnchantmentGreatWasting:
             for _, player := range model.Players {
                 player.UpdateUnrest()
