@@ -303,3 +303,28 @@ type EventData struct {
     // these strings contain bytes that indicate a placeholder to insert some other value, such as the wizard's name or a city name
     Events []string
 }
+
+// a stable name for the event type, used in JSON
+func (event RandomEventType) Name() string {
+    switch event {
+        case RandomEventBadMoon: return "bad-moon"
+        case RandomEventConjunctionChaos: return "conjunction-chaos"
+        case RandomEventConjunctionNature: return "conjunction-nature"
+        case RandomEventConjunctionSorcery: return "conjunction-sorcery"
+        case RandomEventDepletion: return "depletion"
+        case RandomEventDiplomaticMarriage: return "diplomatic-marriage"
+        case RandomEventDisjunction: return "disjunction"
+        case RandomEventDonation: return "donation"
+        case RandomEventEarthquake: return "earthquake"
+        case RandomEventGift: return "gift"
+        case RandomEventGoodMoon: return "good-moon"
+        case RandomEventGreatMeteor: return "great-meteor"
+        case RandomEventManaShort: return "mana-short"
+        case RandomEventNewMinerals: return "new-minerals"
+        case RandomEventPiracy: return "piracy"
+        case RandomEventPlague: return "plague"
+        case RandomEventPopulationBoom: return "population-boom"
+        case RandomEventRebellion: return "rebellion"
+    }
+    return "unknown"
+}

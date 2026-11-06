@@ -34,6 +34,8 @@ func main() {
     var raiders bool
     var verbose bool
     var every int
+    var printEvents bool
+    var printView bool
 
     flag.StringVar(&dataPath, "gamedata", defaultDataPath(), "directory with gamedata.json (from util/export-gamedata)")
     flag.IntVar(&years, "years", 100, "years (game turns) to play at most")
@@ -42,6 +44,8 @@ func main() {
     flag.BoolVar(&raiders, "raiders", true, "add the raiders (neutral towns)")
     flag.BoolVar(&verbose, "v", false, "show the game's log")
     flag.IntVar(&every, "every", 25, "print a summary every N years")
+    flag.BoolVar(&printEvents, "events", false, "print every model event as JSON")
+    flag.BoolVar(&printView, "view", false, "print the first remaining wizard's view (JSON) at the end")
     flag.Parse()
 
     if !verbose {
@@ -66,6 +70,12 @@ func main() {
         os.Exit(1)
     }
 
+    if printEvents {
+        game.OnEventJSON = func(encoded []byte) {
+            fmt.Println(string(encoded))
+        }
+    }
+
     start := time.Now()
     played := 0
     for played < years && len(game.WizardsLeft()) > 1 {
@@ -78,4 +88,17 @@ func main() {
     }
 
     fmt.Printf("%v years in %v\n", played, time.Since(start).Round(time.Millisecond))
+
+    for _, err := range game.EventErrors {
+        fmt.Fprintf(os.Stderr, "event error: %v\n", err)
+    }
+
+    if printView && len(game.WizardsLeft()) > 0 {
+        encoded, err := game.Model.EncodePlayerView(game.WizardsLeft()[0])
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+        } else {
+            fmt.Println(string(encoded))
+        }
+    }
 }
