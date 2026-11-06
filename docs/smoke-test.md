@@ -33,6 +33,11 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 
 ## 3. Units and the map
 
+- [ ] **Move your stacks** by clicking the map and with the keys (this order now goes through the
+      model): the stack walks; with some units deselected in the stack panel, only the selected ones
+      go and the rest stay; a blocked destination blinks red; Earth Gate between two of your cities
+      moves instantly
+
 - [ ] Walk a path that takes several turns (the stack continues on the next turns)
 - [ ] Build a road with engineers (build button, pick the destination, road grows over turns)
 - [ ] Meld a node with a magic spirit (build button on the node)
@@ -57,6 +62,8 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 - [ ] Hero for hire offer: hire (name prompt, hero appears at the fortress) and decline
 - [ ] Mercenaries offer: hire (units appear, gold taken)
 - [ ] Merchant offer: buy (gold taken, item goes to the vault)
+- [ ] Alchemy in the magic screen: gold to mana and mana to gold (amounts as shown)
+- [ ] Diplomacy: propose a pact, offer a gold tribute and a spell tribute, exchange spells
 - [ ] Vault: destroy an item for mana (amount shown, mana received)
 - [ ] Vault: give an item to a hero somewhere else (20 mana transfer prompt)
 - [ ] Hero gains a level: level-up popup

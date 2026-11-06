@@ -186,10 +186,7 @@ func (model *GameModel) CastSpell(player *playerlib.Player, spell spellbook.Spel
             if player.CreateArtifact == nil {
                 return ErrSpellNotSupported
             }
-            select {
-                case model.Events <- &GameEventVault{CreatedArtifact: player.CreateArtifact, Player: player}:
-                default:
-            }
+            model.SendVaultItem(&GameEventVault{CreatedArtifact: player.CreateArtifact, Player: player})
             player.CreateArtifact = nil
             return nil
     }

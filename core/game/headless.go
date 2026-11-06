@@ -69,6 +69,7 @@ func MakeHeadlessGame(gameData *gamedata.GameData, settings HeadlessSettings) (*
     model.IsAggressiveAI = func() bool {
         return false
     }
+    model.ArtifactPowers = gameData.ArtifactPowers
 
     headless := &HeadlessGame{
         Model: model,

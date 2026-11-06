@@ -35,7 +35,8 @@ const (
     CreationCreateArtifact
 )
 
-const CreationScreenCostThreshold = 200  // TODO: validate this again with abilities
+// the rule lives in core (artifact.BuildDesign)
+const CreationScreenCostThreshold = artifactlib.EnchantItemCostThreshold
 
 // a way to know how many books of magic the wizard has
 type MagicLevel interface {

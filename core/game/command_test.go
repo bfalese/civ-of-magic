@@ -14,6 +14,7 @@ import (
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/lib/fraction"
+    "github.com/bfalese/civ-of-magic/lib/set"
 )
 
 // the battle test model, with building infos and a city for the first player at 5,5
@@ -60,6 +61,17 @@ func TestCommandJSONRoundTrip(test *testing.T) {
         &PlanarTravelCommand{Stack: Location{X: 3, Y: 3}},
         &PatrolCommand{Stack: Location{X: 3, Y: 3}},
         &DisbandUnitCommand{Stack: Location{X: 3, Y: 3}, Unit: 1},
+        &SetPowerDistributionCommand{Mana: 0.5, Research: 0.25, Skill: 0.25},
+        &AlchemyCommand{Direction: "gold-to-mana", Amount: 10},
+        &SetUnitActiveCommand{Stack: Location{X: 3, Y: 3}, Unit: 0, Active: true},
+        &RenameCityCommand{City: Location{X: 5, Y: 5}, Name: "Newtown"},
+        &RenameHeroCommand{Hero: 1, Name: "Bob"},
+        &MoveItemCommand{From: ItemSlot{Vault: new(int)}, To: ItemSlot{Hero: new(int), Slot: 2}},
+        &DestroyItemCommand{Item: ItemSlot{New: new(int)}},
+        &ProposeTreatyCommand{Wizard: "green", Treaty: "alliance"},
+        &OfferTributeCommand{Wizard: "green", Gold: true},
+        &TradeSpellsCommand{Wizard: "green", Spell: "Fireball"},
+        &CastSpellCommand{Spell: "Create Artifact", Artifact: &artifact.Design{Type: "Staff", Powers: []string{"+1 Attack"}, Spell: "Fire Bolt", Charges: 2}},
     }
 
     for _, command := range commands {
@@ -318,5 +330,170 @@ func TestUnitOrderCommands(test *testing.T) {
     }
     if model.Plane != data.PlaneArcanus {
         test.Errorf("the viewed plane should be restored")
+    }
+}
+
+func TestMagicCommands(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    context := &CommandContext{Player: player}
+
+    if err := model.Execute(context, &SetPowerDistributionCommand{Mana: 0.5, Research: 0.3, Skill: 0.2}); err != nil {
+        test.Fatalf("power distribution: %v", err)
+    }
+    if player.PowerDistribution.Research != 0.3 {
+        test.Errorf("research share not set: %+v", player.PowerDistribution)
+    }
+    if err := model.Execute(context, &SetPowerDistributionCommand{Mana: 0.5, Research: 0.5, Skill: 0.5}); err == nil {
+        test.Errorf("shares over 1 should be refused")
+    }
+
+    player.Gold = 100
+    player.Mana = 0
+    if err := model.Execute(context, &AlchemyCommand{Direction: "gold-to-mana", Amount: 40}); err != nil {
+        test.Fatalf("alchemy: %v", err)
+    }
+    if player.Gold != 60 || player.Mana != 20 {
+        test.Errorf("40 gold should become 20 mana: gold %v mana %v", player.Gold, player.Mana)
+    }
+    if err := model.Execute(context, &AlchemyCommand{Direction: "mana-to-gold", Amount: 500}); err == nil {
+        test.Errorf("converting more mana than you have should fail")
+    }
+}
+
+func TestSetUnitActiveAndSplitMove(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    player.LiftFogSquare(3, 3, 4, data.PlaneArcanus)
+    here := Location{Plane: data.PlaneArcanus, X: 3, Y: 3}
+    context := &CommandContext{Player: player, Handlers: &fakeMoveHandlers{}}
+    stack := player.FindStack(3, 3, data.PlaneArcanus)
+    for _, unit := range stack.Units() {
+        stack.SetActive(unit, true)
+    }
+
+    // the first two drakes stay home
+    for index := range 2 {
+        if err := model.Execute(context, &SetUnitActiveCommand{Stack: here, Unit: index, Active: false}); err != nil {
+            test.Fatalf("set inactive: %v", err)
+        }
+    }
+
+    if err := model.Execute(context, &MoveStackCommand{From: here, To: Location{Plane: data.PlaneArcanus, X: 3, Y: 5}}); err != nil {
+        test.Fatalf("move: %v", err)
+    }
+
+    home := player.FindStack(3, 3, data.PlaneArcanus)
+    if home == nil || len(home.Units()) != 2 {
+        test.Errorf("two inactive drakes should stay at 3,3")
+    }
+    if len(player.Stacks) != 2 {
+        test.Errorf("the stack should have split in two, has %v stacks", len(player.Stacks))
+    }
+}
+
+func TestRenameCommands(test *testing.T) {
+    model, player, city := makeCommandTestModel()
+    context := &CommandContext{Player: player}
+
+    if err := model.Execute(context, &RenameCityCommand{City: Location{Plane: data.PlaneArcanus, X: 5, Y: 5}, Name: "Newtown"}); err != nil || city.Name != "Newtown" {
+        test.Errorf("rename city: %v (%v)", err, city.Name)
+    }
+    if err := model.Execute(context, &RenameHeroCommand{Hero: 0, Name: "Bob"}); err == nil {
+        test.Errorf("renaming a hero you don't have should fail")
+    }
+}
+
+func TestItemCommands(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    context := &CommandContext{Player: player}
+    sword := &artifact.Artifact{Name: "Sword", Type: artifact.ArtifactTypeSword, Cost: 200}
+
+    model.SendVaultItem(&GameEventVault{CreatedArtifact: sword, Player: player})
+    if len(model.PendingItems[player]) != 1 {
+        test.Fatalf("the new item should be pending: %v", model.PendingItems[player])
+    }
+
+    zero := 0
+    slot2 := 2
+    if err := model.Execute(context, &MoveItemCommand{From: ItemSlot{New: &zero}, To: ItemSlot{Vault: &slot2}}); err != nil {
+        test.Fatalf("place the new item: %v", err)
+    }
+    if player.VaultEquipment[2] != sword || len(model.PendingItems[player]) != 0 {
+        test.Errorf("the sword should be in vault slot 2")
+    }
+
+    player.Mana = 0
+    if err := model.Execute(context, &DestroyItemCommand{Item: ItemSlot{Vault: &slot2}}); err != nil {
+        test.Fatalf("destroy: %v", err)
+    }
+    if player.VaultEquipment[2] != nil || player.Mana != 100 {
+        test.Errorf("destroying a 200 cost item should give 100 mana, mana %v", player.Mana)
+    }
+
+    if err := model.Execute(context, &DestroyItemCommand{Item: ItemSlot{Vault: &slot2}}); err == nil {
+        test.Errorf("destroying an empty slot should fail")
+    }
+}
+
+func TestDiplomacyCommands(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    enemy := model.Players[1]
+    context := &CommandContext{Player: player}
+    banner := enemy.GetBanner().String()
+
+    if err := model.Execute(context, &ProposeTreatyCommand{Wizard: banner, Treaty: "pact"}); err == nil {
+        test.Errorf("a wizard you haven't met can't be talked to")
+    }
+
+    player.AwarePlayer(enemy)
+    enemy.AwarePlayer(player)
+    if err := model.Execute(context, &ProposeTreatyCommand{Wizard: banner, Treaty: "pact"}); err != nil {
+        test.Fatalf("pact: %v", err)
+    }
+    relation, _ := player.GetDiplomaticRelation(enemy)
+    if relation.Treaty != data.TreatyPact {
+        test.Errorf("the treaty should be a pact, got %v", relation.Treaty)
+    }
+
+    player.Gold = 1000
+    enemyGold := enemy.Gold
+    if err := model.Execute(context, &OfferTributeCommand{Wizard: banner, Gold: true}); err != nil {
+        test.Fatalf("tribute: %v", err)
+    }
+    if player.Gold != 900 || enemy.Gold != enemyGold + 100 {
+        test.Errorf("a tribute should be a tenth of the treasury: %v %v", player.Gold, enemy.Gold)
+    }
+
+    fireball := spellbook.Spell{Name: "Fireball"}
+    player.KnownSpells.AddSpell(fireball)
+    if err := model.Execute(context, &OfferTributeCommand{Wizard: banner, Spell: "Fireball"}); err != nil || !enemy.KnownSpells.Contains(fireball) {
+        test.Errorf("spell tribute: %v", err)
+    }
+}
+
+func TestCreateArtifactCommand(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    attack := artifact.Power{Type: artifact.PowerTypeAttack, Amount: 1, Name: "+1 Attack"}
+    model.ArtifactPowers = func() (map[artifact.Power]int, map[artifact.Power]set.Set[artifact.ArtifactType], error) {
+        return map[artifact.Power]int{attack: 20}, map[artifact.Power]set.Set[artifact.ArtifactType]{attack: *set.NewSet(artifact.ArtifactTypeSword)}, nil
+    }
+    player.KnownSpells.AddSpell(spellbook.Spell{Name: "Enchant Item", Magic: data.ArcaneMagic, CastCost: 0})
+    player.Mana = 1000
+    player.RemainingCastingSkill = 1000
+    context := &CommandContext{Player: player}
+
+    design := &artifact.Design{Type: "Sword", Powers: []string{"+1 Attack"}}
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Enchant Item", Artifact: design}); err != nil {
+        test.Fatalf("enchant item: %v", err)
+    }
+    pending := model.PendingItems[player]
+    if len(pending) != 1 || pending[0].Type != artifact.ArtifactTypeSword {
+        test.Fatalf("the sword should arrive at the vault: %v", pending)
+    }
+    if player.Mana >= 1000 {
+        test.Errorf("the item should cost mana")
+    }
+
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Enchant Item"}); err == nil {
+        test.Errorf("enchant item without a design should fail")
     }
 }

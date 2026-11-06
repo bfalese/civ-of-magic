@@ -116,10 +116,7 @@ func (model *GameModel) AnswerOffer(player *playerlib.Player, accept bool) error
                 return errors.New("not enough gold")
             }
             model.BuyMerchantItem(player, merchant.Artifact, merchant.Cost)
-            select {
-                case model.Events <- &GameEventVault{CreatedArtifact: merchant.Artifact, Player: player}:
-                default:
-            }
+            model.SendVaultItem(&GameEventVault{CreatedArtifact: merchant.Artifact, Player: player})
     }
 
     delete(model.PendingOffers, player)

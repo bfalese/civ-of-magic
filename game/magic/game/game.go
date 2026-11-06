@@ -492,6 +492,10 @@ func MakeGameWithModel(lbxCache *lbx.LbxCache, music *musiclib.Music, gameSettin
 
     // game.Model = MakeGameModel(terrainData, settings, data.PlaneArcanus, game.Events, heroNames, game.AllSpells(), createArtifactPool(lbxCache), buildingInfo)
     game.Model = makeModel(lbxCache, game.Events)
+    game.Model.ArtifactPowers = func() (map[artifact.Power]int, map[artifact.Power]set.Set[artifact.ArtifactType], error) {
+        _, costs, compatibilities, err := lbxdata.ReadPowers(lbxCache)
+        return costs, compatibilities, err
+    }
     game.Model.IsAggressiveAI = func() bool {
         if gameSettings == nil {
             return false
@@ -1438,6 +1442,11 @@ func (game *Game) doGameMenu(yield coroutine.YieldFunc) {
 }
 
 func (game *Game) doVault(yield coroutine.YieldFunc, newArtifact *artifact.Artifact) {
+    // the vault screen places the new item itself
+    if newArtifact != nil {
+        game.Model.ClearPendingItem(game.Model.GetHumanPlayer(), newArtifact)
+    }
+
     vaultLogic, vaultDrawer := game.showVaultScreen(newArtifact, game.Model.GetHumanPlayer())
 
     drawer := game.LastDrawer()
@@ -2840,7 +2849,6 @@ func (game *Game) doPlayerUpdate(yield coroutine.YieldFunc, player *playerlib.Pl
 
     if player.SelectedStack != nil && player.SelectedStack.Plane() == game.Model.Plane {
         stack := player.SelectedStack
-        mapUse := game.GetMap(stack.Plane())
         oldX := stack.X()
         oldY := stack.Y()
 
@@ -2867,80 +2875,14 @@ func (game *Game) doPlayerUpdate(yield coroutine.YieldFunc, player *playerlib.Pl
             }
 
             if newX != oldX || newY != oldY {
-                activeUnits := stack.ActiveUnits()
-                if len(activeUnits) > 0 {
-                    if newY >= 0 && newY < mapUse.Height() {
-
-                        var inactiveStack *playerlib.UnitStack
-
-                        if stack.HasSailingUnits(true) {
-                            stack.DisableNonTransport()
-                        } else {
-                            inactiveUnits := stack.InactiveUnits()
-                            if len(inactiveUnits) > 0 {
-                                stack.RemoveUnits(inactiveUnits)
-                                inactiveStack = player.AddStack(playerlib.MakeUnitStackFromUnits(inactiveUnits))
-                                game.RefreshUI()
-                            }
-                        }
-
-                        oldCity := player.FindCity(oldX, oldY, stack.Plane())
-                        newCity := player.FindCity(newX, newY, stack.Plane())
-
-                        // unit can move instantly to the new city if they are standing on a city with earth gate
-                        // and the new city also has earth gate
-                        if oldCity != nil && newCity != nil && oldCity.HasEnchantment(data.CityEnchantmentEarthGate) && newCity.HasEnchantment(data.CityEnchantmentEarthGate) && stack.GetRemainingMoves().GreaterThan(fraction.Zero()) {
-                            // the other city might be protected by spell ward
-                            canMove := true
-                            for _, unit := range stack.ActiveUnits() {
-                                if !newCity.CanEnter(unit) {
-                                    canMove = false
-                                    game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, newCity.Name)}
-                                    break
-                                }
-                            }
-
-                            if canMove {
-                                stack.UseMovement(fraction.FromInt(1))
-                                newCityStack := player.FindStack(newX, newY, stack.Plane())
-                                if newCityStack != nil {
-                                    player.MergeStacks(newCityStack, stack)
-                                } else {
-                                    stack.SetX(newX)
-                                    stack.SetY(newY)
-                                }
-                                game.RefreshUI()
-                            }
-                        } else {
-                            path, ok := game.Model.FindPath(oldX, oldY, newX, newY, player, stack, player.GetFog(game.Model.Plane))
-                            if !ok {
-                                game.blinkRed(yield)
-                                if inactiveStack != nil {
-                                    player.MergeStacks(stack, inactiveStack)
-                                }
-                            } else {
-                                // FIXME: i'm not sure this can ever occur in practice
-                                if inactiveStack != nil {
-                                    inactiveStack.CurrentPath = stack.CurrentPath
-                                }
-                                stack.CurrentPath = path
-                                stack.SetBuildRoadPath(nil)
-
-                                select {
-                                    case game.Events <- &GameEventMoveUnit{Player: player}:
-                                    default:
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // make a copy of the unit stack to activate all units, because path finding only checks active units for terrain constraints
-                    path, ok := game.Model.FindPath(oldX, oldY, newX, newY, player, playerlib.MakeUnitStackFromUnits(stack.Units()), player.GetFog(game.Model.Plane))
-                    if !ok {
-                        game.blinkRed(yield)
-                    } else {
-                        stack.CurrentPath = path
-                        stack.SetBuildRoadPath(nil)
+                // the rules of the order are in the model (GameModel.OrderStackMove)
+                walking, err := game.Model.OrderStackMove(player, stack, newX, newY)
+                if err != nil {
+                    game.blinkRed(yield)
+                } else if walking != nil {
+                    select {
+                        case game.Events <- &GameEventMoveUnit{Player: player}:
+                        default:
                     }
                 }
             } else if leftClick && game.InOverworldArea(mouseX, mouseY) {
@@ -4672,7 +4614,9 @@ func (game *Game) MakeHudUI() *uilib.UI {
                             return
                         }
 
-                        stack.ToggleActive(unit)
+                        if index := slices.Index(stack.Units(), unit); index >= 0 {
+                            game.execute(player, &gamecore.SetUnitActiveCommand{Stack: gamecore.Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()}, Unit: index, Active: !stack.IsActive(unit)})
+                        }
 
                         // FIXME: explain why this is here. Commenting it out doesn't seem to hurt
                         select {

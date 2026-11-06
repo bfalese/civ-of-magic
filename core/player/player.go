@@ -2,6 +2,7 @@ package player
 
 import (
     "slices"
+    "errors"
     "math"
     "math/rand/v2"
     "iter"
@@ -1932,4 +1933,48 @@ func (player *Player) ArtifactManaValue(item *artifact.Artifact) int {
         gainedMana /= 2
     }
     return gainedMana
+}
+
+// how much of the other resource one gold or mana point converts to (Alchemy retort: no loss)
+func (player *Player) AlchemyRate() float64 {
+    if player.Wizard.RetortEnabled(data.RetortAlchemy) {
+        return 1
+    }
+    return 0.5
+}
+
+// convert amount mana into gold (manaToGold) or amount gold into mana; returns what was gained
+func (player *Player) Alchemy(manaToGold bool, amount int) (int, error) {
+    if amount < 0 {
+        return 0, errors.New("negative amount")
+    }
+    gained := int(float64(amount) * player.AlchemyRate())
+    if manaToGold {
+        if amount > player.Mana {
+            return 0, errors.New("not enough mana")
+        }
+        player.Mana -= amount
+        player.Gold += gained
+    } else {
+        if amount > player.Gold {
+            return 0, errors.New("not enough gold")
+        }
+        player.Gold -= amount
+        player.Mana += gained
+    }
+    return gained, nil
+}
+
+// split power between mana, research and casting skill; each share 0-1, adding up to 1
+func (player *Player) SetPowerDistribution(mana float64, research float64, skill float64) error {
+    for _, share := range []float64{mana, research, skill} {
+        if share < 0 || share > 1 {
+            return errors.New("each share must be between 0 and 1")
+        }
+    }
+    if math.Abs(mana + research + skill - 1) > 0.001 {
+        return errors.New("the shares must add up to 1")
+    }
+    player.PowerDistribution = PowerDistribution{Mana: mana, Research: research, Skill: skill}
+    return nil
 }

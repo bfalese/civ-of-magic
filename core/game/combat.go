@@ -336,10 +336,7 @@ func (model *GameModel) ApplyBattleAftermath(battle *Battle, result BattleResult
                     }
 
                     for _, event := range vaultEvents {
-                        select {
-                            case model.Events <- event:
-                            default:
-                        }
+                        model.SendVaultItem(event)
                     }
 
                 }
