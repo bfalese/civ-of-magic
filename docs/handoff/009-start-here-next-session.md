@@ -1,5 +1,7 @@
 # Handoff 009: start here (state at end of 2026-11-05)
 
+> **Superseded by [020](020-start-here.md)**, the current start-here doc. Kept for history.
+
 Date: 2026-11-05
 Previous: [008](008-game-go-turn-loop-in-core.md) (read it next: it has the details of the last round)
 
