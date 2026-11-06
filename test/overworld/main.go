@@ -2987,7 +2987,7 @@ func createScenario31(cache *lbx.LbxCache) *gamelib.Game {
     useSpell := allSpells.FindByName("Fireball")
     player.ResearchPoolSpells.AddSpell(useSpell)
 
-    game.Events <- &gamelib.GameEventTreasure{
+    game.Events <- &gamecore.GameEventTreasure{
         Player: player,
         Treasure: gamecore.Treasure{
             Point: data.PlanePoint{X: x + 1, Y: y + 1, Plane: data.PlaneArcanus},

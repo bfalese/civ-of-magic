@@ -79,3 +79,21 @@ type GameEventNewBuilding struct {
     Building buildinglib.Building
     Player *playerlib.Player
 }
+
+// the attacker captured or razed the city holding the defender's fortress
+type GameEventShowBanish struct {
+    Attacker *playerlib.Player
+    Defender *playerlib.Player
+}
+
+type GameEventNewOutpost struct {
+    City *citylib.City
+    Stack *playerlib.UnitStack
+    Player *playerlib.Player
+}
+
+// treasure found in a cleared encounter (see CreateTreasure)
+type GameEventTreasure struct {
+    Treasure Treasure
+    Player *playerlib.Player
+}

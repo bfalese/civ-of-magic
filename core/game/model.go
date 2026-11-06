@@ -1794,7 +1794,8 @@ type MovementHandler interface {
     DoEncounter(player *playerlib.Player, stack *playerlib.UnitStack, encounter *maplib.ExtraEncounter, map_ *maplib.Map, x int, y int) combat.CombatState
     DoCombat(player *playerlib.Player, stack *playerlib.UnitStack, enemy *playerlib.Player, enemyStack *playerlib.UnitStack, zone combat.ZoneType) combat.CombatState
     DefeatCity(player *playerlib.Player, stack *playerlib.UnitStack, enemy *playerlib.Player, city *citylib.City) (bool, int)
-    DiscoverWizards()
+    // returns true if a wizard was met for the first time
+    DiscoverWizards() bool
 }
 
 // FIXME: can this just use doMoveSelectedUnit?
