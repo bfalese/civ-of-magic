@@ -199,10 +199,7 @@ func (game *Game) showVaultScreen(createdArtifact *artifact.Artifact, player *pl
 
                     group := uilib.MakeGroup()
 
-                    gainedMana := selectedItem.Item.Cost
-                    if !player.Wizard.RetortEnabled(data.RetortArtificer) {
-                        gainedMana /= 2
-                    }
+                    gainedMana := player.ArtifactManaValue(selectedItem.Item)
 
                     yes := func(){
                         player.Mana += gainedMana
@@ -327,7 +324,7 @@ func (game *Game) showVaultScreen(createdArtifact *artifact.Artifact, player *pl
                         if isSameLocation() || selectedItem.Item == nil {
                             doSwap()
                         } else {
-                            teleportCost := 20
+                            teleportCost := playerlib.VaultTeleportCost
 
                             if player.Mana < teleportCost {
                                 ui.AddElement(uilib.MakeErrorElement(ui, game.Cache, &imageCache, "Not enough mana to teleport item", func(){}))

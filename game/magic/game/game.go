@@ -1516,30 +1516,12 @@ func (game *Game) doHireHero(yield coroutine.YieldFunc, cost int, hero *herolib.
 
     result := func(hired bool) {
         if hired {
-            added := false
-            if atFortress {
-                added = player.AddHeroToFortress(hero)
-            } else {
-                added = player.AddHero(hero, point.X, point.Y, point.Plane)
-            }
-
-            if added {
-                player.Gold -= cost
-                hero.SetStatus(herolib.StatusEmployed)
-
+            if game.Model.HireHero(player, hero, cost, atFortress, point) {
                 name := game.doInput(yield, "Hero Name", hero.GetName(), 70, 50)
                 hero.SetName(name)
-
-                game.Model.ResolveStackAt(hero.GetX(), hero.GetY(), hero.GetPlane())
-
-                if player.SelectedStack == nil {
-                    player.SelectedStack = player.FindStack(hero.GetX(), hero.GetY(), hero.GetPlane())
-                }
-
-                game.RefreshUI()
             }
         } else {
-            hero.GainLevel(units.ExperienceChampionHero)
+            game.Model.DeclineHero(hero)
         }
     }
 
@@ -1579,12 +1561,7 @@ func (game *Game) doHireMercenaries(yield coroutine.YieldFunc, cost int, units [
     result := func(hired bool) {
         quit = true
         if hired {
-            for _, unit := range units {
-                player.AddUnit(unit)
-                game.Model.ResolveStackAt(unit.GetX(), unit.GetY(), unit.GetPlane())
-            }
-            player.Gold -= cost
-            game.RefreshUI()
+            game.Model.HireMercenaries(player, units, cost)
         }
     }
 
@@ -1612,8 +1589,7 @@ func (game *Game) doHireMercenaries(yield coroutine.YieldFunc, cost int, units [
     result := func(bought bool) {
         quit = true
         if bought {
-            game.Model.ArtifactPool.Award(artifact)
-            player.Gold -= cost
+            game.Model.BuyMerchantItem(player, artifact, cost)
             game.doVault(yield, artifact)
         }
     }
