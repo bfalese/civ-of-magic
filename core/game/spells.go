@@ -165,7 +165,7 @@ func (model *GameModel) SummonUnit(player *playerlib.Player, unit units.Unit) bo
 
 // Disenchant Area / Disenchant True on a tile (after the animation): tries to dispel enemy city
 // enchantments, enemy unit enchantments and an enemy Warp Node there.
-func (model *GameModel) ApplyDisenchantArea(player *playerlib.Player, spell spellbook.Spell, disenchantTrue bool, tileX int, tileY int) {
+func (model *GameModel) ApplyDisenchantArea(plane data.Plane, player *playerlib.Player, spell spellbook.Spell, disenchantTrue bool, tileX int, tileY int) {
     disenchantStrength := spell.Cost(true)
     if disenchantTrue {
         // strength is 3x mana cost
@@ -178,7 +178,7 @@ func (model *GameModel) ApplyDisenchantArea(player *playerlib.Player, spell spel
 
     allSpells := model.AllSpells
 
-    city, _ := model.FindCity(tileX, tileY, model.Plane)
+    city, _ := model.FindCity(tileX, tileY, plane)
     if city != nil {
         for _, enchantment := range city.Enchantments.Values() {
             if enchantment.Owner != player.GetBanner() {
@@ -192,7 +192,7 @@ func (model *GameModel) ApplyDisenchantArea(player *playerlib.Player, spell spel
         }
     }
 
-    stack, owner := model.FindStack(tileX, tileY, model.Plane)
+    stack, owner := model.FindStack(tileX, tileY, plane)
     if stack != nil && owner != player {
         for _, unit := range stack.Units() {
             var toRemove []data.UnitEnchantment
@@ -211,7 +211,7 @@ func (model *GameModel) ApplyDisenchantArea(player *playerlib.Player, spell spel
         }
     }
 
-    mapUse := model.GetMap(model.Plane)
+    mapUse := model.GetMap(plane)
     magicNode := mapUse.GetMagicNode(tileX, tileY)
     if magicNode != nil && magicNode.Warped && magicNode.WarpedOwner != player {
         warpNode := allSpells.FindByName("Warp Node")

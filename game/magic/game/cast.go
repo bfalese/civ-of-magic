@@ -1118,7 +1118,7 @@ func (game *Game) doCastSpellWard(player *playerlib.Player, spell spellbook.Spel
 func (game *Game) doDisenchantArea(yield coroutine.YieldFunc, player *playerlib.Player, spell spellbook.Spell, disenchantTrue bool, tileX int, tileY int) {
     game.doCastOnMap(yield, tileX, tileY, 9, spell.Sound, func (x int, y int, animationFrame int){})
 
-    game.Model.ApplyDisenchantArea(player, spell, disenchantTrue, tileX, tileY)
+    game.Model.ApplyDisenchantArea(game.Model.Plane, player, spell, disenchantTrue, tileX, tileY)
 }
 
 func (game *Game) doCastOnUnit(player *playerlib.Player, spell spellbook.Spell, animationIndex int, before UnitEnchantmentCallback, after UnitEnchantmentCallback) {
@@ -1559,7 +1559,7 @@ func (game *Game) selectLocationForSpell(yield coroutine.YieldFunc, spell spellb
             }
 
             if inputmanager.LeftClick() {
-                useX, ok, reason := game.Model.CheckSpellTarget(player, spell, locationType, entityInfo, tileX, tileY)
+                useX, ok, reason := game.Model.CheckSpellTarget(player, spell, locationType, entityInfo, game.Model.Plane, tileX, tileY)
                 if ok {
                     return useX, tileY, false
                 }
@@ -1709,7 +1709,7 @@ func (game *Game) doCastEnchantRoad(yield coroutine.YieldFunc, tileX int, tileY 
 
     game.doCastOnMap(yield, tileX, tileY, 46, 86, update)
 
-    game.Model.ApplyEnchantRoad(tileX, tileY)
+    game.Model.ApplyEnchantRoad(game.Model.Plane, tileX, tileY)
 }
 
 func (game *Game) doCastEarthLore(yield coroutine.YieldFunc, tileX int, tileY int, player *playerlib.Player, soundIndex int) {
@@ -1724,7 +1724,7 @@ func (game *Game) doCastEarthLore(yield coroutine.YieldFunc, tileX int, tileY in
 func (game *Game) doCastChangeTerrain(yield coroutine.YieldFunc, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 7 {
-            game.Model.ApplyChangeTerrain(x, y)
+            game.Model.ApplyChangeTerrain(game.Model.Plane, x, y)
         }
     }
 
@@ -1735,7 +1735,7 @@ func (game *Game) doCastChangeTerrain(yield coroutine.YieldFunc, tileX int, tile
 func (game *Game) doCastTransmute(yield coroutine.YieldFunc, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 6 {
-            game.Model.ApplyTransmute(x, y)
+            game.Model.ApplyTransmute(game.Model.Plane, x, y)
         }
     }
 
@@ -1746,13 +1746,13 @@ func (game *Game) doCastTransmute(yield coroutine.YieldFunc, tileX int, tileY in
 func (game *Game) doCastRaiseVolcano(yield coroutine.YieldFunc, tileX int, tileY int, player *playerlib.Player) {
     update := func (x int, y int, frame int) {
         if frame == 8 {
-            game.Model.ApplyRaiseVolcanoTerrain(x, y, tileX, tileY)
+            game.Model.ApplyRaiseVolcanoTerrain(game.Model.Plane, x, y, tileX, tileY)
         }
     }
 
     game.doCastOnMap(yield, tileX, tileY, 11, 98, update)
 
-    game.Model.ApplyRaiseVolcano(tileX, tileY, player)
+    game.Model.ApplyRaiseVolcano(game.Model.Plane, tileX, tileY, player)
 
     game.RefreshUI()
 }
@@ -1760,7 +1760,7 @@ func (game *Game) doCastRaiseVolcano(yield coroutine.YieldFunc, tileX int, tileY
 func (game *Game) doCastCorruption(yield coroutine.YieldFunc, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 6 {
-            game.Model.ApplyCorruption(x, y)
+            game.Model.ApplyCorruption(game.Model.Plane, x, y)
         }
     }
 
@@ -1821,7 +1821,7 @@ func (game *Game) doCastWarpNode(yield coroutine.YieldFunc, tileX int, tileY int
 
     game.doCastOnMap(yield, tileX, tileY, 13, soundIndex, update)
 
-    game.Model.ApplyWarpNode(tileX, tileY, caster)
+    game.Model.ApplyWarpNode(game.Model.Plane, tileX, tileY, caster)
 }
 
 type GlobalEnchantmentFonts struct {
@@ -2028,7 +2028,7 @@ func (game *Game) doCastGlobalEnchantment(yield coroutine.YieldFunc, player *pla
 func (game *Game) doCastFloatingIsland(yield coroutine.YieldFunc, player *playerlib.Player, tileX int, tileY int) {
     update := func (x int, y int, frame int) {
         if frame == 5 {
-            game.Model.ApplyFloatingIsland(player, tileX, tileY)
+            game.Model.ApplyFloatingIsland(game.Model.Plane, player, tileX, tileY)
             game.discoverWizards(nil)
         }
     }

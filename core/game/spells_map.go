@@ -14,8 +14,8 @@ import (
 
 // Corruption (applied at animation frame 6)
 // FIXME (inherited): the row check is always true (|| instead of &&)
-func (model *GameModel) ApplyCorruption(x int, y int) {
-    mapObject := model.CurrentMap()
+func (model *GameModel) ApplyCorruption(plane data.Plane, x int, y int) {
+    mapObject := model.GetMap(plane)
     if y >= 0 || y < mapObject.Map.Rows() {
         x = mapObject.WrapX(x)
         mapObject.SetCorruption(x, y)
@@ -23,15 +23,15 @@ func (model *GameModel) ApplyCorruption(x int, y int) {
 }
 
 // Raise Volcano, terrain part (applied at animation frame 8 for each animated tile)
-func (model *GameModel) ApplyRaiseVolcanoTerrain(x int, y int, tileX int, tileY int) {
-    mapObject := model.CurrentMap()
+func (model *GameModel) ApplyRaiseVolcanoTerrain(plane data.Plane, x int, y int, tileX int, tileY int) {
+    mapObject := model.GetMap(plane)
     mapObject.Map.SetTerrainAt(x, y, terrain.Grass, mapObject.Data, mapObject.Plane)
     mapObject.SetBonus(tileX, tileY, data.BonusNone)
 }
 
 // Raise Volcano, after the animation
-func (model *GameModel) ApplyRaiseVolcano(tileX int, tileY int, player *playerlib.Player) {
-    mapObject := model.CurrentMap()
+func (model *GameModel) ApplyRaiseVolcano(plane data.Plane, tileX int, tileY int, player *playerlib.Player) {
+    mapObject := model.GetMap(plane)
     mapObject.SetVolcano(tileX, tileY, player)
 
     // volcanoes may destroy buildings if cast in a city
@@ -48,8 +48,8 @@ func (model *GameModel) ApplyRaiseVolcano(tileX int, tileY int, player *playerli
 }
 
 // Enchant Road, after the animation
-func (model *GameModel) ApplyEnchantRoad(tileX int, tileY int) {
-    useMap := model.CurrentMap()
+func (model *GameModel) ApplyEnchantRoad(plane data.Plane, tileX int, tileY int) {
+    useMap := model.GetMap(plane)
 
     // all roads in a 5x5 square around the target tile should become enchanted
     for dx := -2; dx <= 2; dx++ {
@@ -68,8 +68,8 @@ func (model *GameModel) ApplyEnchantRoad(tileX int, tileY int) {
 }
 
 // Change Terrain (applied at animation frame 7)
-func (model *GameModel) ApplyChangeTerrain(x int, y int) {
-    mapObject := model.CurrentMap()
+func (model *GameModel) ApplyChangeTerrain(plane data.Plane, x int, y int) {
+    mapObject := model.GetMap(plane)
     switch mapObject.GetTile(x, y).Tile.TerrainType() {
         case terrain.Desert, terrain.Forest, terrain.Hill, terrain.Swamp:
             mapObject.Map.SetTerrainAt(x, y, terrain.Grass, mapObject.Data, mapObject.Plane)
@@ -83,8 +83,8 @@ func (model *GameModel) ApplyChangeTerrain(x int, y int) {
 }
 
 // Transmute (applied at animation frame 6)
-func (model *GameModel) ApplyTransmute(x int, y int) {
-    mapObject := model.CurrentMap()
+func (model *GameModel) ApplyTransmute(plane data.Plane, x int, y int) {
+    mapObject := model.GetMap(plane)
     switch mapObject.GetBonusTile(x, y) {
         case data.BonusCoal: mapObject.SetBonus(x, y, data.BonusGem)
         case data.BonusGem: mapObject.SetBonus(x, y, data.BonusCoal)
@@ -96,8 +96,8 @@ func (model *GameModel) ApplyTransmute(x int, y int) {
 }
 
 // Warp Node, after the animation
-func (model *GameModel) ApplyWarpNode(tileX int, tileY int, caster *playerlib.Player) {
-    node := model.CurrentMap().GetMagicNode(tileX, tileY)
+func (model *GameModel) ApplyWarpNode(plane data.Plane, tileX int, tileY int, caster *playerlib.Player) {
+    node := model.GetMap(plane).GetMagicNode(tileX, tileY)
     if node != nil {
         node.Warped = true
         node.WarpedOwner = caster
@@ -105,8 +105,8 @@ func (model *GameModel) ApplyWarpNode(tileX int, tileY int, caster *playerlib.Pl
 }
 
 // Floating Island (applied at animation frame 5); the frontend then checks for newly met wizards
-func (model *GameModel) ApplyFloatingIsland(player *playerlib.Player, tileX int, tileY int) {
-    overworldUnit := units.MakeOverworldUnitFromUnit(units.FloatingIsland, tileX, tileY, model.CurrentMap().Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
+func (model *GameModel) ApplyFloatingIsland(plane data.Plane, player *playerlib.Player, tileX int, tileY int) {
+    overworldUnit := units.MakeOverworldUnitFromUnit(units.FloatingIsland, tileX, tileY, model.GetMap(plane).Plane, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
     player.AddUnit(overworldUnit)
-    player.LiftFog(tileX, tileY, 1, model.Plane)
+    player.LiftFog(tileX, tileY, 1, plane)
 }

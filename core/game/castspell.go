@@ -199,27 +199,16 @@ func (model *GameModel) CastSpell(player *playerlib.Player, spell spellbook.Spel
 
 // a hero for hire at no cost (summoned heroes)
 func (model *GameModel) offerHero(player *playerlib.Player, hero *herolib.Hero) {
-    select {
-        case model.Events <- &GameEventHireHero{Hero: hero, Player: player, Cost: 0}:
-        default:
-    }
+    model.SendOffer(&GameEventHireHero{Hero: hero, Player: player, Cost: 0})
 }
 
 func (model *GameModel) castOnTile(player *playerlib.Player, spell spellbook.Spell, location Location, choice string) error {
     x, y, plane := location.X, location.Y, location.Plane
     city, cityOwner := model.FindCity(x, y, plane)
 
-    // the map spells act on the viewed plane (model.Plane, see CurrentMap); view the target's plane
-    // while casting
-    viewedPlane := model.Plane
-    model.Plane = plane
-    defer func() {
-        model.Plane = viewedPlane
-    }()
-
     // map tile checks (terrain types, explored, ...) as for the UI's target picking
     if locationType, _ := model.SpellTargetType(player, spell); locationType != LocationTypeFriendlyUnit && locationType != LocationTypeEnemyUnit && locationType != LocationTypeFriendlyCity && locationType != LocationTypeEnemyCity {
-        tileX, ok, message := model.CheckSpellTarget(player, spell, locationType, model.ComputeCityStackInfo(), x, y)
+        tileX, ok, message := model.CheckSpellTarget(player, spell, locationType, model.ComputeCityStackInfo(), plane, x, y)
         if !ok {
             if message == "" {
                 message = fmt.Sprintf("%v can't be cast there", spell.Name)
@@ -365,30 +354,30 @@ func (model *GameModel) castOnTile(player *playerlib.Player, spell spellbook.Spe
             player.LiftFogSquare(x, y, 5, plane)
             model.AnnounceVisibleWizards()
         case "Enchant Road":
-            model.ApplyEnchantRoad(x, y)
+            model.ApplyEnchantRoad(plane, x, y)
         case "Change Terrain":
-            model.ApplyChangeTerrain(x, y)
+            model.ApplyChangeTerrain(plane, x, y)
         case "Transmute":
-            model.ApplyTransmute(x, y)
+            model.ApplyTransmute(plane, x, y)
         case "Raise Volcano":
             if city != nil && city.CheckDispel(spell) {
                 model.ShowFizzleSpell(spell, player)
                 return nil
             }
-            model.ApplyRaiseVolcanoTerrain(x, y, x, y)
-            model.ApplyRaiseVolcano(x, y, player)
+            model.ApplyRaiseVolcanoTerrain(plane, x, y, x, y)
+            model.ApplyRaiseVolcano(plane, x, y, player)
         case "Corruption":
             if city != nil && city.CheckDispel(spell) {
                 model.ShowFizzleSpell(spell, player)
                 return nil
             }
-            model.ApplyCorruption(x, y)
+            model.ApplyCorruption(plane, x, y)
         case "Warp Node":
-            model.ApplyWarpNode(x, y, player)
+            model.ApplyWarpNode(plane, x, y, player)
         case "Disenchant Area", "Disenchant True":
-            model.ApplyDisenchantArea(player, spell, spell.Name == "Disenchant True", x, y)
+            model.ApplyDisenchantArea(plane, player, spell, spell.Name == "Disenchant True", x, y)
         case "Floating Island":
-            model.ApplyFloatingIsland(player, x, y)
+            model.ApplyFloatingIsland(plane, player, x, y)
             model.AnnounceVisibleWizards()
     }
 

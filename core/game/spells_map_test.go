@@ -53,7 +53,7 @@ func TestApplyTransmuteSwapsBonuses(test *testing.T) {
 
     for from, to := range pairs {
         model.ArcanusMap.SetBonus(2, 2, from)
-        model.ApplyTransmute(2, 2)
+        model.ApplyTransmute(data.PlaneArcanus, 2, 2)
         if got := model.ArcanusMap.GetBonusTile(2, 2); got != to {
             test.Errorf("transmute %v: got %v, want %v", from, got, to)
         }
@@ -61,7 +61,7 @@ func TestApplyTransmuteSwapsBonuses(test *testing.T) {
 
     // other bonuses are left alone
     model.ArcanusMap.SetBonus(2, 2, data.BonusWildGame)
-    model.ApplyTransmute(2, 2)
+    model.ApplyTransmute(data.PlaneArcanus, 2, 2)
     if got := model.ArcanusMap.GetBonusTile(2, 2); got != data.BonusWildGame {
         test.Errorf("transmute wild game: got %v", got)
     }
@@ -74,7 +74,7 @@ func TestApplyEnchantRoadEnchantsRoadsInRange(test *testing.T) {
     useMap.SetRoad(6, 6, false) // corner of the 5x5 square
     useMap.SetRoad(7, 4, false) // outside
 
-    model.ApplyEnchantRoad(4, 4)
+    model.ApplyEnchantRoad(data.PlaneArcanus, 4, 4)
 
     check := func(x int, y int, want bool) {
         road, ok := useMap.ExtraMap[image.Pt(x, y)][maplib.ExtraKindRoad].(*maplib.ExtraRoad)
@@ -96,7 +96,7 @@ func TestApplyEnchantRoadEnchantsRoadsInRange(test *testing.T) {
 
 func TestApplyCorruption(test *testing.T) {
     model := makeSpellTestModel(5, 5)
-    model.ApplyCorruption(1, 3)
+    model.ApplyCorruption(data.PlaneArcanus, 1, 3)
     if !model.ArcanusMap.HasCorruption(1, 3) {
         test.Errorf("expected corruption at 1,3")
     }
@@ -105,5 +105,5 @@ func TestApplyCorruption(test *testing.T) {
 func TestApplyWarpNodeWithoutNode(test *testing.T) {
     model := makeSpellTestModel(3, 3)
     // no node on the tile: nothing happens (and nothing panics)
-    model.ApplyWarpNode(1, 1, nil)
+    model.ApplyWarpNode(data.PlaneArcanus, 1, 1, nil)
 }

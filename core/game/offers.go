@@ -1,6 +1,8 @@
 package game
 
 import (
+    "errors"
+
     "github.com/bfalese/civ-of-magic/core/units"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/artifact"
@@ -54,4 +56,72 @@ func (model *GameModel) HireMercenaries(player *playerlib.Player, mercenaries []
 func (model *GameModel) BuyMerchantItem(player *playerlib.Player, item *artifact.Artifact, cost int) {
     model.ArtifactPool.Award(item)
     player.Gold -= cost
+}
+
+// send an offer event (GameEventHireHero, GameEventHireMercenaries or GameEventMerchant) and keep
+// it as the player's open offer, for frontends that answer with the answer-offer command
+func (model *GameModel) SendOffer(offer GameEvent) {
+    var player *playerlib.Player
+    switch offer.(type) {
+        case *GameEventHireHero: player = offer.(*GameEventHireHero).Player
+        case *GameEventHireMercenaries: player = offer.(*GameEventHireMercenaries).Player
+        case *GameEventMerchant: player = offer.(*GameEventMerchant).Player
+        default: return
+    }
+
+    if model.PendingOffers == nil {
+        model.PendingOffers = make(map[*playerlib.Player]GameEvent)
+    }
+    model.PendingOffers[player] = offer
+
+    select {
+        case model.Events <- offer:
+        default:
+    }
+}
+
+// accept or decline the player's open offer (see SendOffer)
+func (model *GameModel) AnswerOffer(player *playerlib.Player, accept bool) error {
+    offer, ok := model.PendingOffers[player]
+    if !ok {
+        return errors.New("no open offer")
+    }
+
+    if !accept {
+        delete(model.PendingOffers, player)
+        if hire, ok := offer.(*GameEventHireHero); ok {
+            model.DeclineHero(hire.Hero)
+        }
+        return nil
+    }
+
+    switch offer.(type) {
+        case *GameEventHireHero:
+            hire := offer.(*GameEventHireHero)
+            if hire.Cost > player.Gold {
+                return errors.New("not enough gold")
+            }
+            if !model.HireHero(player, hire.Hero, hire.Cost, true, data.PlanePoint{}) {
+                return errors.New("no room for another hero")
+            }
+        case *GameEventHireMercenaries:
+            hire := offer.(*GameEventHireMercenaries)
+            if hire.Cost > player.Gold {
+                return errors.New("not enough gold")
+            }
+            model.HireMercenaries(player, hire.Units, hire.Cost)
+        case *GameEventMerchant:
+            merchant := offer.(*GameEventMerchant)
+            if merchant.Cost > player.Gold {
+                return errors.New("not enough gold")
+            }
+            model.BuyMerchantItem(player, merchant.Artifact, merchant.Cost)
+            select {
+                case model.Events <- &GameEventVault{CreatedArtifact: merchant.Artifact, Player: player}:
+                default:
+            }
+    }
+
+    delete(model.PendingOffers, player)
+    return nil
 }
