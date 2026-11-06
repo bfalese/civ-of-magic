@@ -5,10 +5,9 @@ Previous: [009](009-start-here-next-session.md) (start-here doc; still valid for
 
 ## State
 
-- PR #13 (`game-go-split-1` → `master`) is still open, waiting for the user's smoke test.
-- This round is on branch `game-go-split-2`, **stacked on `game-go-split-1`**. It was local only
-  at the end of the session (not pushed, no PR). Once #13 is squash-merged, rebase it with the
-  recipe in 009 (`git merge -s ours origin/master`, push, open the PR against `master`).
+- PR #13 is merged into `master`.
+- This round: **PR #14** (`game-go-split-2` → `master`), waiting for the user's smoke test.
+  **Don't merge without explicit approval.**
 
 `game/magic/game/game.go`: 6.8k → 6.0k lines.
 
