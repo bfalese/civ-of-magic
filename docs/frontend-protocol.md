@@ -42,18 +42,28 @@ command isn't legal (not your city, not enough gold, no path...).
 | `cast-spell` | `spell`, `target?` | cast now if mana and casting skill allow (spells that need a target must then come with one), otherwise start casting it over the next turns |
 | `cast-spell-target` | `target` | the target for a finished spell announced by `choose-spell-target` |
 
-A spell target is `{"location": {...}, "unit": 2}`: a tile (a city or a stack), plus for spells on
-a single unit the unit's index in your stack there (the order of the player view's stack units).
-Spells castable this way: unit enchantments (and Black/Chaos Channels, Lycanthropy), city
-enchantments and curses, summons, Summon Hero/Champion, Incarnation, global enchantments, Death
-Wish, Great Unsummoning, Black Wind, Stasis, Ice/Fire Storm, Nature's Cures, Plane Shift, Spell of
-Return, Earthquake. The rest (Spell Ward, Subversion, Spell Binding, Disjunction, Resurrection,
-Create Artifact, map spells such as Change Terrain) are refused for now.
+A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
+fields the spell needs:
+- unit spells (enchantments, Black/Chaos Channels, Lycanthropy, Word of Recall): `location` of your
+  stack and `unit`, the unit's index in it (the order of the player view's stack units);
+- city spells (enchantments, curses, Spell Ward, Wall of Stone, Summoning Circle, Move Fortress,
+  Spell of Return, Earthquake, Call the Void): `location` of the city; Spell Ward also `choice`,
+  the ward's name;
+- stack and map spells (Black Wind, Stasis, Ice/Fire Storm, Nature's Cures, Plane Shift, Earth
+  Lore, Enchant Road, Change Terrain, Transmute, Raise Volcano, Corruption, Warp Node, Disenchant
+  Area/True, Floating Island): `location`;
+- spells on a wizard (Spell Blast, Cruel Unminding, Drain Power, Subversion): `wizard` (banner);
+- Spell Binding, Disjunction (True): `wizard` (the owner) and `choice`, the global enchantment;
+- Resurrection: `choice`, the dead hero's name.
+
+Summons, hero summons, global enchantments, Death Wish and Great Unsummoning need no target.
+Refused for now: Spell of Mastery (its victory screens), Create Artifact / Enchant Item (the item
+is designed in the UI).
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
 Not yet: planar travel, answering offers (hire hero, mercenaries, merchant), unit orders (patrol,
-wait, disband), the spells listed above as refused.
+wait, disband).
 
 ## Events (model → frontend)
 
@@ -67,7 +77,7 @@ wait, disband), the spells listed above as refused.
 | `random-event` | `event`, `starting`, `message`, `good`, `city?`, `player?` | random event started or ended |
 | `diplomacy` | `player`, `enemy` | first meeting with a wizard |
 | `choose-research` | `player`, `candidates` | pick research (answer with `set-research`) |
-| `choose-spell-target` | `player`, `spell`, `target` | a finished spell needs a target of kind `target` (`friendly-unit`, `enemy-unit`, `friendly-city`, `enemy-city`); answer with `cast-spell-target` |
+| `choose-spell-target` | `player`, `spell`, `target` | a finished spell needs a target of kind `target` (`friendly-unit`, `enemy-unit`, `friendly-city`, `enemy-city`, `any`, `land`, `empty-water`, `change-terrain`, `transmute`, `raise-volcano`, `enemy-melded-node`, `disenchant`, `wizard`, `enemy-global-enchantment`, `dead-hero`); answer with `cast-spell-target` |
 | `learned-spell` | `player`, `spell`, `magic` | research finished |
 | `new-building` | `player`, `city`, `building` | a building finished |
 | `new-outpost` | `player`, `city` | an outpost was settled |

@@ -66,6 +66,7 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 - [ ] Map spell (e.g. Change Terrain, Transmute, Corruption)
 - [ ] Curse on an enemy city or unit
 - [ ] Disenchant / Disjunction; Spell Binding
+- [ ] Word of Recall (unit returns to the summoning circle; notice if already there)
 - [ ] Resurrection (needs a dead hero)
 - [ ] Global enchantment: casting animation, effect active
 - [ ] Awareness (cities revealed, owners met) and Nature Awareness (map revealed)

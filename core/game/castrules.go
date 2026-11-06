@@ -162,6 +162,31 @@ func (model *GameModel) UnitSpellRule(spell spellbook.Spell) (UnitSpellRule, boo
                     model.ApplyLycanthropy(unit)
                 },
             }, true
+
+        case "Word of Recall":
+            return UnitSpellRule{
+                AnimationIndex: 1,
+                Check: func(unit units.StackUnit) error {
+                    owner := model.GetUnitOwner(unit)
+                    if owner == nil {
+                        return errors.New("That unit cannot be targeted")
+                    }
+                    summonCity := owner.FindSummoningCity()
+                    if summonCity == nil {
+                        return errors.New("You have no summoning circle to recall the unit to")
+                    }
+                    if unit.GetX() == summonCity.X && unit.GetY() == summonCity.Y {
+                        return errors.New("Your unit is already in this city")
+                    }
+                    if unit.GetPlane() != summonCity.Plane && model.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
+                        return errors.New("Your unit cannot planar travel to this location")
+                    }
+                    return nil
+                },
+                Apply: func(unit units.StackUnit) {
+                    model.RelocateUnit(model.GetUnitOwner(unit), unit)
+                },
+            }, true
     }
 
     return UnitSpellRule{}, false

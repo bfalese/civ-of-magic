@@ -191,6 +191,28 @@ func (headless *HeadlessGame) castSpell(player *playerlib.Player, spell spellboo
                 break
             }
         }
+    } else if locationType, ok := model.SpellTargetType(player, spell); ok {
+        switch locationType {
+            case LocationTypeWizard:
+                for _, other := range model.Players {
+                    if other != player && !other.IsHuman() && !other.IsNeutral() && !other.Defeated && !other.Banished && player.IsAwareOf(other) {
+                        target.Wizard = other
+                        break
+                    }
+                }
+            case LocationTypeEnemyCity:
+                for _, other := range model.GetEnemies(player) {
+                    for _, city := range other.Cities {
+                        if player.IsExplored(city.X, city.Y, city.Plane) {
+                            target.Location = &Location{Plane: city.Plane, X: city.X, Y: city.Y}
+                            break
+                        }
+                    }
+                    if target.Location != nil {
+                        break
+                    }
+                }
+        }
     }
 
     if err := model.CastSpell(player, spell, target); err != nil {

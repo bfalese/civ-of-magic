@@ -113,3 +113,13 @@ func (model *GameModel) GetPlayerByBanner(banner data.BannerType) *playerlib.Pla
 
     return nil
 }
+
+// the player whose stack holds the unit, nil if none
+func (model *GameModel) GetUnitOwner(unit units.StackUnit) *playerlib.Player {
+    for _, player := range model.Players {
+        if player.FindStackByUnit(unit) != nil {
+            return player
+        }
+    }
+    return nil
+}

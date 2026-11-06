@@ -24,6 +24,11 @@ const (
     LocationTypeRaiseVolcano
     LocationTypeEnemyMeldedNode
     LocationTypeDisenchant
+    // targets that aren't map locations (headless casting and commands; the Ebitengine UI picks
+    // these in its own screens)
+    LocationTypeWizard
+    LocationTypeEnemyGlobalEnchantment
+    LocationTypeDeadHero
 )
 
 // checks whether the tile is a valid target for a spell of the given location type, as seen by the
@@ -180,6 +185,9 @@ func (locationType LocationType) Name() string {
         case LocationTypeRaiseVolcano: return "raise-volcano"
         case LocationTypeEnemyMeldedNode: return "enemy-melded-node"
         case LocationTypeDisenchant: return "disenchant"
+        case LocationTypeWizard: return "wizard"
+        case LocationTypeEnemyGlobalEnchantment: return "enemy-global-enchantment"
+        case LocationTypeDeadHero: return "dead-hero"
     }
     return "unknown"
 }
