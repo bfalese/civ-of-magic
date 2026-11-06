@@ -4330,69 +4330,14 @@ func (game *Game) DoMeld(unit units.StackUnit, player *playerlib.Player, node *m
 
 
 func (game *Game) DoBuildAction(player *playerlib.Player){
-    if player.SelectedStack != nil {
-        var powers gamecore.UnitBuildPowers
-
-        if player.SelectedStack != nil {
-            powers = gamecore.ComputeUnitBuildPowers(player.SelectedStack)
+    if game.Model.DoBuildAction(player, game.SuggestCityName) {
+        // ask the user to confirm where to build the road
+        select {
+            case game.Events <- &GameEventBuildRoad{Stack: player.SelectedStack}:
+            default:
         }
 
-        // if a stack has multiple units with different build powers, only do the first legal one found
-
-        if powers.CreateOutpost {
-            // search for the settlers (the only unit with the create outpost ability
-            for _, settlers := range player.SelectedStack.ActiveUnits() {
-                if game.Model.IsSettlableLocation(settlers.GetX(), settlers.GetY(), settlers.GetPlane()) && settlers.HasAbility(data.AbilityCreateOutpost) {
-                    game.CreateOutpost(settlers, player)
-                    game.RefreshUI()
-                    return
-                }
-            }
-        }
-
-        if powers.Meld {
-            node := game.GetMap(player.SelectedStack.Plane()).GetMagicNode(player.SelectedStack.X(), player.SelectedStack.Y())
-            if node != nil {
-                for _, melder := range player.SelectedStack.ActiveUnits() {
-                    if melder.HasAbility(data.AbilityMeld) && !node.Warped {
-                        game.DoMeld(melder, player, node)
-                        game.RefreshUI()
-                        return
-                    }
-                }
-            }
-        }
-
-        if powers.Purify {
-
-            tile := game.GetMap(player.SelectedStack.Plane()).GetTile(player.SelectedStack.X(), player.SelectedStack.Y())
-            if tile.Corrupted() {
-                for _, unit := range player.SelectedStack.ActiveUnits() {
-                    if unit.HasAbility(data.AbilityPurify) {
-                        unit.SetBusy(units.BusyStatusPurify)
-                        unit.SetMovesLeft(true, fraction.Zero())
-                    }
-                }
-
-                player.SelectedStack.EnableMovers()
-
-                // player.SelectedStack.ExhaustMoves()
-                game.RefreshUI()
-                return
-            }
-
-        }
-
-        if powers.BuildRoad {
-
-            // ask the user to confirm where to build the road
-            select {
-                case game.Events <- &GameEventBuildRoad{Stack: player.SelectedStack}:
-                default:
-            }
-
-            game.RefreshUI()
-        }
+        game.RefreshUI()
     }
 }
 
