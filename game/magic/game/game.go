@@ -141,11 +141,6 @@ type GameEventBuildRoad struct {
 type GameEventPauseWatchMode struct {
 }
 
-type GameEventTreasure struct {
-    Treasure gamecore.Treasure
-    Player *playerlib.Player
-}
-
 // invoke an arbitrary routine
 type GameEventInvokeRoutine struct {
     Routine func (yield coroutine.YieldFunc)
@@ -2229,8 +2224,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         castSpell := event.(*GameEventCastSpell)
                         // in cast.go
                         game.doCastSpell(castSpell.Player, castSpell.Spell)
-                    case *GameEventTreasure:
-                        treasure := event.(*GameEventTreasure)
+                    case *gamecore.GameEventTreasure:
+                        treasure := event.(*gamecore.GameEventTreasure)
                         if treasure.Player.IsHuman() && !game.WatchMode {
                             game.doTreasurePopup(yield, treasure.Player, treasure.Treasure)
                         }
@@ -3575,65 +3570,21 @@ func (game *Game) confirmLairEncounter(yield coroutine.YieldFunc, encounter *map
 }
 
 func (game *Game) doEncounter(yield coroutine.YieldFunc, player *playerlib.Player, stack *playerlib.UnitStack, encounter *maplib.ExtraEncounter, mapUse *maplib.Map, x int, y int) combat.CombatState {
+    point := data.PlanePoint{X: x, Y: y, Plane: mapUse.Plane}
+
     // there was nothing in the encounter, just give treasure
     if len(encounter.Units) == 0 {
         mapUse.RemoveEncounter(x, y)
-        game.createTreasure(encounter.Type, encounter.Budget, data.PlanePoint{X: x, Y: y, Plane: mapUse.Plane}, player)
+        game.createTreasure(encounter.Type, encounter.Budget, point, player)
         yield()
         return combat.CombatStateNoCombat
     }
 
-    wizard := setup.WizardCustom{
-        Name: encounter.Type.ShortName(),
-    }
-
-    defender := playerlib.MakePlayer(wizard, false, 1, 1, make(map[herolib.HeroType]string), game.Model)
-    defender.StrategicCombat = true
-
-    var enemies []units.StackUnit
-
-    for _, unit := range encounter.Units {
-        enemies = append(enemies, units.MakeOverworldUnit(unit, x, y, mapUse.Plane))
-    }
-
-    zone := combat.ZoneType{
-    }
-
-    switch encounter.Type {
-        case maplib.EncounterTypeLair, maplib.EncounterTypeCave: zone.Encounter = combat.ZoneLair
-        case maplib.EncounterTypePlaneTower: zone.Encounter = combat.ZoneTower
-        case maplib.EncounterTypeAncientTemple: zone.Encounter = combat.ZoneAncientTemple
-        case maplib.EncounterTypeFallenTemple: zone.Encounter = combat.ZoneFallenTemple
-        case maplib.EncounterTypeRuins: zone.Encounter = combat.ZoneRuins
-        case maplib.EncounterTypeAbandonedKeep: zone.Encounter = combat.ZoneAbandonedKeep
-        case maplib.EncounterTypeDungeon: zone.Encounter = combat.ZoneDungeon
-        case maplib.EncounterTypeNatureNode: zone.Encounter = combat.ZoneNatureNode
-        case maplib.EncounterTypeSorceryNode: zone.Encounter = combat.ZoneSorceryNode
-        case maplib.EncounterTypeChaosNode: zone.Encounter = combat.ZoneChaosNode
-    }
+    defender, enemies, zone := game.Model.EncounterDefenders(encounter, mapUse.Plane, x, y)
 
     result := game.doCombat(yield, player, stack, defender, playerlib.MakeUnitStackFromUnits(enemies), zone)
-    if result == combat.CombatStateAttackerWin {
-        mapUse.RemoveEncounter(x, y)
-
-        game.createTreasure(encounter.Type, encounter.Budget, data.PlanePoint{X: x, Y: y, Plane: mapUse.Plane}, player)
-
-        // defeating a plane tower also removes the tower from the other plane
-        if encounter.Type == maplib.EncounterTypePlaneTower {
-            mapUse.SetPlaneTower(x, y)
-            otherMap := game.GetMap(mapUse.Plane.Opposite())
-            otherMap.RemoveEncounter(x, y)
-            otherMap.SetPlaneTower(x, y)
-        }
-
-    } else {
-        var remaining []units.Unit
-        for index := range enemies {
-            if enemies[index].GetHealth() > 0 {
-                remaining = append(remaining, encounter.Units[index])
-            }
-        }
-        encounter.Units = remaining
+    if game.Model.ResolveEncounter(encounter, mapUse, x, y, enemies, result) {
+        game.createTreasure(encounter.Type, encounter.Budget, point, player)
     }
 
     // absorb extra clicks
@@ -3647,31 +3598,11 @@ func (game *Game) createTreasure(encounterType maplib.EncounterType, budget int,
     if err != nil {
         log.Printf("Error: unable to read spells: %v", err)
     } else {
-        var heroes []*herolib.Hero
-        for _, hero := range player.HeroPool {
-            // only include available heroes that are not champions
-            if hero.Status == herolib.StatusAvailable && !hero.IsChampion() {
-                heroes = append(heroes, hero)
-            }
-        }
-
-        makeArtifacts := func () []*artifact.Artifact {
-            return game.Model.ArtifactPool.AvailableArtifacts()
-        }
-
-        // cannot find the last spell in treasure
-        allSpells.RemoveSpell(allSpells.FindByName("Spell of Mastery"))
-
         getPowers := func() (map[artifact.Power]int, map[artifact.Power]set.Set[artifact.ArtifactType], error) {
             _, costs, compatibilities, err := lbxdata.ReadPowers(game.Cache)
             return costs, compatibilities, err
         }
-        treasure := gamecore.MakeTreasure(getPowers, encounterType, budget, point, player.Wizard, player.KnownSpells, allSpells, heroes, makeArtifacts)
-        // FIXME: show treasure ui for human, otherwise just apply treasure for AI
-        select {
-            case game.Events <- &GameEventTreasure{Treasure: treasure, Player: player}:
-            default:
-        }
+        game.Model.CreateTreasure(allSpells, getPowers, encounterType, budget, point, player)
     }
 }
 
@@ -3749,63 +3680,25 @@ func (game *Game) doTreasurePopup(yield coroutine.YieldFunc, player *playerlib.P
     game.HudUI.RemoveElement(element)
 }
 
-func (game *Game) ApplyTreasure(yield coroutine.YieldFunc, player *playerlib.Player, treasure gamecore.Treasure) {
-    // apply gold/mana first (#758)
-    for _, item := range treasure.Treasures {
-        switch item.(type) {
-            case *gamecore.TreasureGold:
-                gold := item.(*gamecore.TreasureGold)
-                player.Gold += gold.Amount
-            case *gamecore.TreasureMana:
-                mana := item.(*gamecore.TreasureMana)
-                player.Mana += mana.Amount
-        }
-    }
+type gameTreasureHandlers struct {
+    Game *Game
+    Yield coroutine.YieldFunc
+}
 
-    // then items/spells
-    for _, item := range treasure.Treasures {
-        switch item.(type) {
-            case *gamecore.TreasureMagicalItem:
-                magicalItem := item.(*gamecore.TreasureMagicalItem)
-                if player.IsHuman() {
-                    game.doVault(yield, magicalItem.Artifact)
-                } else {
-                    if player.AIBehavior != nil {
-                        // there is a light impedance mismatch between giving a treasure item and invoking the merchant item function
-                        // but its ok for now
-                        player.AIBehavior.HandleMerchantItem(player, magicalItem.Artifact, 0)
-                    }
-                }
-                // if the treasure was one of the premade artifacts, then remove it from the pool
-                game.Model.ArtifactPool.Award(magicalItem.Artifact)
-            case *gamecore.TreasurePrisonerHero:
-                hero := item.(*gamecore.TreasurePrisonerHero)
-                if player.IsHuman() {
-                    game.doHireHero(yield, 0, hero.Hero, player, false, treasure.Point)
-                } else {
-                    if player.AIBehavior != nil {
-                        player.AIBehavior.HandleHireHero(player, hero.Hero, 0, false, treasure.Point)
-                    }
-                }
-            case *gamecore.TreasureSpell:
-                spell := item.(*gamecore.TreasureSpell)
-                // add the spell to the research pool in case so it shows up in the spell book
-                player.ResearchPoolSpells.AddSpell(spell.Spell)
-                if player.IsHuman() {
-                    game.doLearnSpell(yield, player, spell.Spell)
-                }
-                player.LearnSpell(spell.Spell)
-            case *gamecore.TreasureSpellbook:
-                spellbook := item.(*gamecore.TreasureSpellbook)
-                player.Wizard.AddMagicLevel(spellbook.Magic, spellbook.Count)
-                allSpells := game.AllSpells()
-                // add more researchable spells based on the new magic level
-                player.InitializeResearchableSpells(&allSpells)
-            case *gamecore.TreasureRetort:
-                retort := item.(*gamecore.TreasureRetort)
-                player.Wizard.EnableRetort(retort.Retort)
-        }
-    }
+func (handlers *gameTreasureHandlers) GiveArtifact(player *playerlib.Player, artifact *artifact.Artifact) {
+    handlers.Game.doVault(handlers.Yield, artifact)
+}
+
+func (handlers *gameTreasureHandlers) OfferPrisonerHero(player *playerlib.Player, hero *herolib.Hero, point data.PlanePoint) {
+    handlers.Game.doHireHero(handlers.Yield, 0, hero, player, false, point)
+}
+
+func (handlers *gameTreasureHandlers) ShowLearnedSpell(player *playerlib.Player, spell spellbook.Spell) {
+    handlers.Game.doLearnSpell(handlers.Yield, player, spell)
+}
+
+func (game *Game) ApplyTreasure(yield coroutine.YieldFunc, player *playerlib.Player, treasure gamecore.Treasure) {
+    game.Model.ApplyTreasure(&gameTreasureHandlers{Game: game, Yield: yield}, player, treasure, game.AllSpells())
 }
 
 func (game *Game) GetCombatLandscape(x int, y int, plane data.Plane) combat.CombatLandscape {

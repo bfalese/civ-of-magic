@@ -91,3 +91,9 @@ type GameEventNewOutpost struct {
     Stack *playerlib.UnitStack
     Player *playerlib.Player
 }
+
+// treasure found in a cleared encounter (see CreateTreasure)
+type GameEventTreasure struct {
+    Treasure Treasure
+    Player *playerlib.Player
+}
