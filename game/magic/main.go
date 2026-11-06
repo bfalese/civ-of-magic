@@ -26,6 +26,8 @@ import (
     "os"
     */
 
+    gamecore "github.com/bfalese/civ-of-magic/core/game"
+
     "github.com/bfalese/civ-of-magic/game/magic/setupview"
 
     "github.com/bfalese/civ-of-magic/lib/lbx"
@@ -216,7 +218,7 @@ func euclideanDistance(x1, y1, x2, y2 int) float64 {
     return math.Sqrt(dx*dx + dy*dy)
 }
 
-func findCityLocation(game *gamelib.Game, startingPlane data.Plane, cityArea gamelib.CityValidArea) (int, int) {
+func findCityLocation(game *gamelib.Game, startingPlane data.Plane, cityArea gamecore.CityValidArea) (int, int) {
     allCities := game.Model.AllCities()
 
     closestDistance := func(x, y int) int {
@@ -289,7 +291,7 @@ func findCityLocation(game *gamelib.Game, startingPlane data.Plane, cityArea gam
     return -1, -1
 }
 
-func initializePlayer(game *gamelib.Game, wizard setup.WizardCustom, isHuman bool, arcanusCityArea gamelib.CityValidArea, myrrorCityArea gamelib.CityValidArea) *playerlib.Player {
+func initializePlayer(game *gamelib.Game, wizard setup.WizardCustom, isHuman bool, arcanusCityArea gamecore.CityValidArea, myrrorCityArea gamecore.CityValidArea) *playerlib.Player {
     area := arcanusCityArea
     startingPlane := data.PlaneArcanus
     if wizard.RetortEnabled(data.RetortMyrran) {
@@ -352,7 +354,7 @@ func initializePlayer(game *gamelib.Game, wizard setup.WizardCustom, isHuman boo
     return player
 }
 
-func initializeNeutralPlayer(game *gamelib.Game, arcanusCityArea gamelib.CityValidArea, myrrorCityArea gamelib.CityValidArea) *playerlib.Player {
+func initializeNeutralPlayer(game *gamelib.Game, arcanusCityArea gamecore.CityValidArea, myrrorCityArea gamecore.CityValidArea) *playerlib.Player {
     wizard := setup.WizardCustom{
         Name: "Raiders",
         Base: data.WizardMerlin, // doesn't really matter
@@ -662,7 +664,7 @@ func startAITrainMode(yield coroutine.YieldFunc, game *MagicGame) error {
             return err
         }
 
-        wizard, ok := gamelib.ChooseUniqueWizard(nil, spells)
+        wizard, ok := gamecore.ChooseUniqueWizard(nil, spells)
         if !ok {
             return fmt.Errorf("Could not choose a wizard")
         }
@@ -788,7 +790,7 @@ func startWatchMode(yield coroutine.YieldFunc, game *MagicGame) error {
         return err
     }
 
-    wizard, ok := gamelib.ChooseUniqueWizard(nil, spells)
+    wizard, ok := gamecore.ChooseUniqueWizard(nil, spells)
     if !ok {
         return fmt.Errorf("Could not choose a wizard")
     }
@@ -850,7 +852,7 @@ func startQuickGame(yield coroutine.YieldFunc, game *MagicGame, gameLoader *Orig
         return err
     }
 
-    wizard, ok := gamelib.ChooseUniqueWizard(nil, spells)
+    wizard, ok := gamecore.ChooseUniqueWizard(nil, spells)
     if !ok {
         return fmt.Errorf("Could not choose a wizard")
     }

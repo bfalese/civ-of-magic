@@ -414,7 +414,7 @@ func createScenario4(cache *lbx.LbxCache) *gamelib.Game {
 
     introCity.Buildings.Insert(buildinglib.BuildingSmithy)
 
-    game.Events <- &gamelib.GameEventNewBuilding{
+    game.Events <- &gamecore.GameEventNewBuilding{
         City: introCity,
         Player: player,
         // Building: buildinglib.BuildingSmithy,
@@ -1389,7 +1389,7 @@ func createScenario14(cache *lbx.LbxCache) *gamelib.Game {
     player.LiftFog(x, y, 4, data.PlaneArcanus)
     game.Camera.Center(x, y)
 
-    game.Events <- &gamelib.GameEventLearnedSpell{
+    game.Events <- &gamecore.GameEventLearnedSpell{
         Player: player,
         // Spell: allSpells.FindByName("Earth Lore"),
         Spell: allSpells.FindByName("Magic Spirit"),
@@ -1894,7 +1894,7 @@ func createScenario19(cache *lbx.LbxCache) *gamelib.Game {
     enemy1.AddUnit(units.MakeOverworldUnitFromUnit(units.Warlocks, x + 2, y + 2, data.PlaneArcanus, enemy1.Wizard.Banner, enemy1.MakeExperienceInfo(), enemy1.MakeUnitEnchantmentProvider()))
     enemy1.AddUnit(units.MakeOverworldUnitFromUnit(units.HighMenBowmen, x + 2, y + 2, data.PlaneArcanus, enemy1.Wizard.Banner, enemy1.MakeExperienceInfo(), enemy1.MakeUnitEnchantmentProvider()))
 
-    game.Events <- &gamelib.GameEventHireHero{
+    game.Events <- &gamecore.GameEventHireHero{
         Player: player,
         Hero: player.HeroPool[hero.HeroRakir],
         Cost: 200,
@@ -2426,7 +2426,7 @@ func createScenario24(cache *lbx.LbxCache) *gamelib.Game {
     enemy1.AddUnit(units.MakeOverworldUnitFromUnit(units.Warlocks, x + 1, y + 1, data.PlaneArcanus, enemy1.Wizard.Banner, enemy1.MakeExperienceInfo(), enemy1.MakeUnitEnchantmentProvider()))
     enemy1.AddUnit(units.MakeOverworldUnitFromUnit(units.HighMenBowmen, x + 1, y + 1, data.PlaneArcanus, enemy1.Wizard.Banner, enemy1.MakeExperienceInfo(), enemy1.MakeUnitEnchantmentProvider()))
 
-    game.Events <- &gamelib.GameEventHireMercenaries{
+    game.Events <- &gamecore.GameEventHireMercenaries{
         Player: player,
         Units: []*units.OverworldUnit{
             units.MakeOverworldUnitFromUnit(units.BarbarianSpearmen, x, y, data.PlaneArcanus, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider()),
@@ -2496,7 +2496,7 @@ func createScenario25(cache *lbx.LbxCache) *gamelib.Game {
 
     artifact := game.Model.ArtifactPool.FindByName("Pummel Mace")
 
-    game.Events <- &gamelib.GameEventMerchant{
+    game.Events <- &gamecore.GameEventMerchant{
         Player: player,
         Artifact: artifact,
         Cost: artifact.Cost,
@@ -3401,13 +3401,13 @@ func createScenario36(cache *lbx.LbxCache) *gamelib.Game {
     // enemy1.AddUnit(units.MakeOverworldUnitFromUnit(units.GreatDrake, x-1, y, data.PlaneArcanus, wizard1.Banner, enemy1.MakeExperienceInfo(), enemy1.MakeUnitEnchantmentProvider()))
 
     /*
-    game.Events <- &gamelib.GameEventHireHero{
+    game.Events <- &gamecore.GameEventHireHero{
         Player: enemy1,
         Hero: enemy1.HeroPool[hero.HeroRakir],
     }
     */
 
-    game.Events <- &gamelib.GameEventHireMercenaries{
+    game.Events <- &gamecore.GameEventHireMercenaries{
         Cost: 100,
         Player: enemy1,
         Units: []*units.OverworldUnit{
@@ -4852,13 +4852,13 @@ func createScenario51_52(cache *lbx.LbxCache, kill bool) *gamelib.Game {
     player.AddHeroToFortress(player.HeroPool[hero.HeroAerie])
     player.AddHeroToFortress(player.HeroPool[hero.HeroBShan])
 
-    game.Events <- &gamelib.GameEventHireHero{
+    game.Events <- &gamecore.GameEventHireHero{
         Player: player,
         Hero: player.HeroPool[hero.HeroShinBo],
         Cost: 200,
     }
 
-    game.Events <- &gamelib.GameEventHireMercenaries{
+    game.Events <- &gamecore.GameEventHireMercenaries{
         Player: player,
         Units: []*units.OverworldUnit{
             units.MakeOverworldUnitFromUnit(units.Berserkers, x, y, data.PlaneArcanus, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider()),

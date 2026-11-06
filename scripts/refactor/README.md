@@ -11,6 +11,7 @@ They don't fix imports; let the compiler tell you, then run `prune-imports.sh`.
 | `fixcallers.py OLD_ALIAS_REGEX NEW_ALIAS NEW_IMPORT FUNC[,FUNC...] FILE...` | Rewrites `old.Func` to `new.Func` in callers and adds the import (`NEW_IMPORT` may be `alias path`). Unqualified calls inside the old package are not touched. |
 | `prune-imports.sh` | Deletes imports `go build` reports as unused, repeating until clean. |
 | `check-move.sh REV NEW_FILE QUALIFIERS OLD_FILE...` | Confirms moved code is identical apart from qualifiers. |
+| `promote-methods.py SRC DST UI_DIR ALIAS NAME...` | Moves `Game` methods (and free functions) onto `GameModel` in another package: exports them, rewrites `game.Model.`/`game.X(` inside, leaves one-line delegating wrappers for exported methods, updates UI callers. Aborts if moved code still needs `game.`. |
 | `tidy-imports.py FILE...` | Formatting only: moves this module's imports that landed among third-party ones back into the module group, collapses blank lines. |
 
 Known limits of the qualifier rewrite (regex, not a Go parser):

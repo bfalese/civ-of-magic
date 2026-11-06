@@ -89,7 +89,7 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
     }
 
     if spell.IsOfRealm(data.ChaosMagic) || spell.IsOfRealm(data.DeathMagic) {
-        game.maybeDoNaturesWrath(player)
+        game.Model.MaybeDoNaturesWrath(player)
     }
 
     switch spell.Name {
@@ -1486,7 +1486,7 @@ func (game *Game) doSummonHero(player *playerlib.Player, champion bool) {
             default:
         }
 
-        event := GameEventHireHero{
+        event := gamecore.GameEventHireHero{
             Hero: hero,
             Player: player,
             Cost: 0,
@@ -1504,7 +1504,7 @@ func (game *Game) doSummonHero(player *playerlib.Player, champion bool) {
 func (game *Game) doIncarnation(player *playerlib.Player) {
     for _, hero := range player.HeroPool {
         if hero.HeroType == herolib.HeroTorin && hero.Status != herolib.StatusEmployed {
-            event := GameEventHireHero{
+            event := gamecore.GameEventHireHero{
                 Hero: hero,
                 Player: player,
                 Cost: 0,
