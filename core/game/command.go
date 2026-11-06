@@ -821,6 +821,7 @@ var commandTypes = map[string]func() Command{
     "battle-wait": func() Command { return &BattleWaitCommand{} },
     "battle-flee": func() Command { return &BattleFleeCommand{} },
     "battle-auto": func() Command { return &BattleAutoCommand{} },
+    "battle-cast": func() Command { return &BattleCastCommand{} },
     "confirm-encounter": func() Command { return &ConfirmEncounterCommand{} },
     "raze-city": func() Command { return &RazeCityCommand{} },
 }

@@ -1,6 +1,8 @@
 package combat
 
 import (
+    "math/rand/v2"
+
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/spellbook"
 )
@@ -112,3 +114,34 @@ const (
     TargetEnemy
     TargetEither
 )
+
+// Apply the model-side effect of a combat event, for code without a battle screen (Run, battle
+// sessions driven by commands). The Ebitengine battle screen does the same in its event loop,
+// plus the animations. Returns false for events the caller has to answer: a human army choosing
+// the target of a spell (CombatEventSelectUnit, CombatEventSelectTile, CombatSelectTargets).
+// Projectiles created here still need resolving (e.g. ProxyActions.DoProjectiles).
+func (model *CombatModel) ApplyEvent(spellSystem SpellSystem, event CombatEvent) bool {
+    switch event.(type) {
+        case *CombatEventNextUnit:
+            model.NextUnit()
+        case *CombatEventCreateLightningBolt:
+            bolt := event.(*CombatEventCreateLightningBolt)
+            model.AddProjectile(spellSystem.CreateLightningBoltProjectile(bolt.Target, bolt.Strength))
+        case *CombatCreateWallOfFire:
+            CreateWallOfFire(model.Tiles, TownCenterX, TownCenterY, 4, 0)
+        case *CombatCreateWallOfDarkness:
+            CreateWallOfDarkness(model.Tiles, TownCenterX, TownCenterY, 4, 0)
+        case *CombatSelectTargets:
+            choose := event.(*CombatSelectTargets)
+            if !choose.Army.IsAI() {
+                return false
+            }
+            // an AI (or auto) army picks one of the targets at random, as the battle screen does
+            if len(choose.Targets) > 0 {
+                choose.Select(choose.Targets[rand.N(len(choose.Targets))])
+            }
+        case *CombatEventSelectUnit, *CombatEventSelectTile:
+            return false
+    }
+    return true
+}
