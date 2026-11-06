@@ -29,6 +29,10 @@ type HeadlessGame struct {
     Stats HeadlessStats
     // log a summary line per wizard every year
     LogSummary bool
+    // called with every model event as JSON (see EncodeEvent), if set
+    OnEventJSON func(encoded []byte)
+    // events that failed to encode, or model events without a JSON form
+    EventErrors []error
 }
 
 type HeadlessStats struct {
@@ -223,6 +227,7 @@ func (headless *HeadlessGame) drainEvents() {
     for {
         select {
             case event := <-model.Events:
+                headless.encodeEvent(event)
                 switch event.(type) {
                     case *GameEventHireHero:
                         hire := event.(*GameEventHireHero)
@@ -249,6 +254,21 @@ func (headless *HeadlessGame) drainEvents() {
             default:
                 return
         }
+    }
+}
+
+func (headless *HeadlessGame) encodeEvent(event GameEvent) {
+    encoded, ok, err := headless.Model.EncodeEvent(event)
+    if err != nil {
+        headless.EventErrors = append(headless.EventErrors, fmt.Errorf("%T: %v", event, err))
+        return
+    }
+    if !ok {
+        headless.EventErrors = append(headless.EventErrors, fmt.Errorf("%T has no JSON form", event))
+        return
+    }
+    if headless.OnEventJSON != nil {
+        headless.OnEventJSON(encoded)
     }
 }
 

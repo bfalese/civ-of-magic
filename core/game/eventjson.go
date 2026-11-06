@@ -192,7 +192,7 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
 
         case *GameEventHireMercenaries:
             hire := event.(*GameEventHireMercenaries)
-            var mercenaries []UnitRef
+            mercenaries := []UnitRef{}
             for _, unit := range hire.Units {
                 mercenaries = append(mercenaries, MakeUnitRef(unit))
             }
@@ -234,7 +234,7 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
 
         case *GameEventResearchSpell:
             research := event.(*GameEventResearchSpell)
-            var candidates []string
+            candidates := []string{}
             for _, spell := range research.Player.ResearchCandidateSpells.Spells {
                 candidates = append(candidates, spell.Name)
             }
@@ -267,7 +267,7 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
 
         case *GameEventTreasure:
             treasure := event.(*GameEventTreasure)
-            var items []TreasureItemJSON
+            items := []TreasureItemJSON{}
             for _, item := range treasure.Treasure.Treasures {
                 items = append(items, makeTreasureItemJSON(item))
             }

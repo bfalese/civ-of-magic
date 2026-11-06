@@ -42,8 +42,27 @@ func TestHeadlessGame(test *testing.T) {
         }
     }
 
+    events := 0
+    game.OnEventJSON = func(encoded []byte) {
+        events += 1
+    }
+
     years := game.RunYears(40)
     test.Log(game.Summary())
+
+    for _, err := range game.EventErrors {
+        test.Errorf("event: %v", err)
+    }
+    test.Logf("%v events encoded", events)
+
+    for _, wizard := range game.WizardsLeft() {
+        if _, err := game.Model.EncodePlayerView(wizard); err != nil {
+            test.Errorf("player view of %v: %v", wizard.Wizard.Name, err)
+        }
+        if _, err := game.Model.EncodeMapView(wizard, data.PlaneArcanus); err != nil {
+            test.Errorf("map view of %v: %v", wizard.Wizard.Name, err)
+        }
+    }
 
     if years == 0 {
         test.Fatalf("no years were played")
