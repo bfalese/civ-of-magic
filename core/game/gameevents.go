@@ -104,3 +104,25 @@ type GameEventChooseSpellTarget struct {
     Spell spellbook.Spell
     LocationType LocationType
 }
+
+// a battle involving the session's player started (Started) or ended (State)
+type GameEventBattle struct {
+    Attacker *playerlib.Player
+    Defender *playerlib.Player
+    Location Location
+    Started bool
+    State string
+}
+
+// a stack of the session's player reached a lair / node / tower: enter? (confirm-encounter)
+type GameEventChooseEncounter struct {
+    Player *playerlib.Player
+    Encounter string
+    Guards int
+}
+
+// the session's player won at a city: raze it or keep it? (raze-city)
+type GameEventChooseRaze struct {
+    Player *playerlib.Player
+    City *citylib.City
+}

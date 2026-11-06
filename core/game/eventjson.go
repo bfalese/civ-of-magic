@@ -277,6 +277,34 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
                 Items []TreasureItemJSON `json:"items"`
             }{MakePlayerRef(treasure.Player), Location{Plane: treasure.Treasure.Point.Plane, X: treasure.Treasure.Point.X, Y: treasure.Treasure.Point.Y}, items}, true
 
+        case *GameEventBattle:
+            battle := event.(*GameEventBattle)
+            eventType := "battle-ended"
+            if battle.Started {
+                eventType = "battle-started"
+            }
+            return eventType, struct {
+                Attacker *PlayerRef `json:"attacker"`
+                Defender *PlayerRef `json:"defender"`
+                Location Location `json:"location"`
+                Result string `json:"result,omitempty"`
+            }{MakePlayerRef(battle.Attacker), MakePlayerRef(battle.Defender), battle.Location, battle.State}, true
+
+        case *GameEventChooseEncounter:
+            choose := event.(*GameEventChooseEncounter)
+            return "choose-encounter", struct {
+                Player *PlayerRef `json:"player"`
+                Encounter string `json:"encounter"`
+                Guards int `json:"guards"`
+            }{MakePlayerRef(choose.Player), choose.Encounter, choose.Guards}, true
+
+        case *GameEventChooseRaze:
+            choose := event.(*GameEventChooseRaze)
+            return "choose-raze", struct {
+                Player *PlayerRef `json:"player"`
+                City *CityRef `json:"city"`
+            }{MakePlayerRef(choose.Player), MakeCityRef(choose.City)}, true
+
         case *GameEventChooseSpellTarget:
             choose := event.(*GameEventChooseSpellTarget)
             return "choose-spell-target", struct {

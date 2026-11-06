@@ -12,6 +12,19 @@ frontend ◀──views──── MakePlayerView / MakeMapView (ask again afte
 
 Code: `core/game/command.go`, `core/game/eventjson.go`, `core/game/view.go`.
 
+## Sessions: commands that wait for the player
+
+A frontend plays through a `CommandSession` (`core/game/session.go`): `session.Execute(command)`.
+Some commands can't finish at once: a stack walking into a lair asks whether to enter, a battle
+needs orders, a captured city asks raze-or-keep. The command then pauses: `Execute` returns,
+`session.WaitingFor()` is `confirm-encounter`, `battle` or `raze-city` (an event announces it),
+and the next commands answer it. When the answer is complete, the paused command carries on to
+its end. While a command is paused, only answers are accepted.
+
+Frontends also pass every event they take from `model.Events` through `session.ProcessEvent`
+(it applies treasure for the player: items go to the vault as new items, prisoners become an
+offer).
+
 ## Conventions
 
 - **Players** are identified by banner: `{"banner": "blue", "wizard": "Merlin", "human": true}`.
@@ -63,6 +76,23 @@ Artifact and Enchant Item take the item as `"artifact": {"type": "Sword", "name"
 `cast-spell` (at most 4 powers, one per stat, abilities need spellbooks, Enchant Item only cheap
 powers, spell charges on staffs and wands).
 
+Answers while a command is paused (see Sessions):
+
+| type | command | effect |
+|---|---|---|
+| `confirm-encounter` | `enter` | enter the lair / node / tower (`choose-encounter` event) or stay out |
+| `raze-city` | `raze` | raze the captured city or keep it (`choose-raze` event) |
+| `battle-act` | `x`, `y` | the selected unit moves to / attacks the battlefield tile (like a click) |
+| `battle-done` | | the selected unit is done this turn |
+| `battle-wait` | | the selected unit waits, the next one is up |
+| `battle-flee` | | your army flees |
+| `battle-auto` | | the AI fights the rest of the battle for you |
+
+During a battle, `session.Battle.View()` gives the battlefield: `turn`, `selected` (the id of your
+unit that is up), `you-attack`, `width`, `height`, `units` (id, name, owner, yours, x, y, health,
+max-health, moves-left, ranged-attacks) and `state`. Ask for it again after each battle command.
+Casting combat spells isn't available through commands yet.
+
 A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
 fields the spell needs:
 - unit spells (enchantments, Black/Chaos Channels, Lycanthropy, Word of Recall): `location` of your
@@ -82,8 +112,7 @@ Refused for now: Spell of Mastery (its victory screens).
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
-Not yet: tactical combat (battles are resolved by the model for now), the diplomacy steps the
-other wizard initiates.
+Not yet: combat spells in battles, the diplomacy steps the other wizard initiates.
 
 ## Events (model → frontend)
 
@@ -108,6 +137,10 @@ other wizard initiates.
 | `vault` | `player`, `artifact` | an item went to the vault |
 | `hero-level-up` | `hero` | |
 | `banish` | `attacker`, `defender` | a wizard's fortress city fell |
+| `battle-started` | `attacker`, `defender`, `location` | a battle with you started: send battle commands |
+| `battle-ended` | `attacker`, `defender`, `location`, `result` | `attacker-won`, `defender-won`, `attacker-fled`, `defender-fled` |
+| `choose-encounter` | `player`, `encounter`, `guards` | enter? answer with `confirm-encounter` |
+| `choose-raze` | `player`, `city` | raze or keep? answer with `raze-city` |
 
 Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 (`core/artifact.SerializedArtifact`).

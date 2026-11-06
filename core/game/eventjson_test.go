@@ -78,6 +78,19 @@ func TestEncodeEvents(test *testing.T) {
         test.Errorf("random-event: %v %v", eventType, body)
     }
 
+    eventType, body = decodeTestEvent(test, model, &GameEventBattle{Attacker: player, Defender: enemy, Location: Location{X: 4, Y: 3}, State: "attacker-won"})
+    if eventType != "battle-ended" || body["result"] != "attacker-won" {
+        test.Errorf("battle-ended: %v %v", eventType, body)
+    }
+    eventType, body = decodeTestEvent(test, model, &GameEventChooseRaze{Player: player, City: city})
+    if eventType != "choose-raze" || body["city"].(map[string]any)["name"] != "Testville" {
+        test.Errorf("choose-raze: %v %v", eventType, body)
+    }
+    eventType, _ = decodeTestEvent(test, model, &GameEventChooseEncounter{Player: player, Encounter: "Monster Lair", Guards: 3})
+    if eventType != "choose-encounter" {
+        test.Errorf("choose-encounter: %v", eventType)
+    }
+
     // events that aren't the model's are not encoded
     if _, ok, _ := model.EncodeEvent(struct{}{}); ok {
         test.Errorf("unknown events should not be encoded")

@@ -72,6 +72,13 @@ func TestCommandJSONRoundTrip(test *testing.T) {
         &OfferTributeCommand{Wizard: "green", Gold: true},
         &TradeSpellsCommand{Wizard: "green", Spell: "Fireball"},
         &CastSpellCommand{Spell: "Create Artifact", Artifact: &artifact.Design{Type: "Staff", Powers: []string{"+1 Attack"}, Spell: "Fire Bolt", Charges: 2}},
+        &BattleActCommand{X: 12, Y: 9},
+        &BattleDoneCommand{},
+        &BattleWaitCommand{},
+        &BattleFleeCommand{},
+        &BattleAutoCommand{},
+        &ConfirmEncounterCommand{Enter: true},
+        &RazeCityCommand{Raze: true},
     }
 
     for _, command := range commands {
