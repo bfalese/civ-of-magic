@@ -347,6 +347,103 @@ func (command *EndTurnCommand) Execute(context *CommandContext) error {
     return nil
 }
 
+
+// what a spell is cast on: a tile (city or stack), and for unit spells the unit's index in the
+// player's stack there (in the order the player view lists them)
+type CommandSpellTarget struct {
+    Location Location `json:"location"`
+    Unit *int `json:"unit,omitempty"`
+}
+
+func (context *CommandContext) spellTarget(target *CommandSpellTarget) (SpellTarget, error) {
+    if target == nil {
+        return SpellTarget{}, nil
+    }
+
+    location := target.Location
+    out := SpellTarget{Location: &location}
+    if target.Unit != nil {
+        stack, err := context.ownStack(location)
+        if err != nil {
+            return SpellTarget{}, err
+        }
+        stackUnits := stack.Units()
+        if *target.Unit < 0 || *target.Unit >= len(stackUnits) {
+            return SpellTarget{}, fmt.Errorf("no unit %v in the stack", *target.Unit)
+        }
+        out.Unit = stackUnits[*target.Unit]
+    }
+    return out, nil
+}
+
+// cast an overland spell: right away if mana and the remaining casting skill allow it (a spell
+// that needs a target must then come with one), otherwise it becomes the spell being cast over
+// the next turns (when it finishes, a choose-spell-target event asks for the target)
+type CastSpellCommand struct {
+    Spell string `json:"spell"`
+    Target *CommandSpellTarget `json:"target,omitempty"`
+}
+
+func (command *CastSpellCommand) CommandType() string { return "cast-spell" }
+
+func (command *CastSpellCommand) Execute(context *CommandContext) error {
+    model := context.Model
+    player := context.Player
+
+    overlandSpells := player.KnownSpells.OverlandSpells()
+    spell := overlandSpells.FindByName(command.Spell)
+    if !spell.Valid() || spell.Name == "Spell of Return" {
+        return fmt.Errorf("%v can't be cast now", command.Spell)
+    }
+
+    target, err := context.spellTarget(command.Target)
+    if err != nil {
+        return err
+    }
+
+    cost := player.ComputeEffectiveSpellCost(spell, true)
+    if cost <= player.Mana && cost <= player.RemainingCastingSkill {
+        if _, needsTarget := model.SpellTargetType(player, spell); needsTarget && command.Target == nil {
+            return ErrSpellNeedsTarget
+        }
+        if err := model.CastSpell(player, spell, target); err != nil {
+            return err
+        }
+        player.Mana -= cost
+        player.RemainingCastingSkill -= cost
+        return nil
+    }
+
+    player.CastingSpell = spell
+    player.CastingSpellProgress = 0
+    return nil
+}
+
+// the target for the player's finished spell announced by choose-spell-target
+type CastSpellTargetCommand struct {
+    Target CommandSpellTarget `json:"target"`
+}
+
+func (command *CastSpellTargetCommand) CommandType() string { return "cast-spell-target" }
+
+func (command *CastSpellTargetCommand) Execute(context *CommandContext) error {
+    model := context.Model
+    spell, ok := model.PendingSpells[context.Player]
+    if !ok {
+        return errors.New("no spell is waiting for a target")
+    }
+
+    target, err := context.spellTarget(&command.Target)
+    if err != nil {
+        return err
+    }
+    if err := model.CastSpell(context.Player, spell, target); err != nil {
+        return err
+    }
+    delete(model.PendingSpells, context.Player)
+    return nil
+}
+
 var commandTypes = map[string]func() Command{
     "move-stack": func() Command { return &MoveStackCommand{} },
     "set-research": func() Command { return &SetResearchCommand{} },
@@ -358,6 +455,8 @@ var commandTypes = map[string]func() Command{
     "build-action": func() Command { return &BuildActionCommand{} },
     "build-road": func() Command { return &BuildRoadCommand{} },
     "end-turn": func() Command { return &EndTurnCommand{} },
+    "cast-spell": func() Command { return &CastSpellCommand{} },
+    "cast-spell-target": func() Command { return &CastSpellTargetCommand{} },
 }
 
 type commandEnvelope struct {

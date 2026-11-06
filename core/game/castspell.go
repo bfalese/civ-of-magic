@@ -253,3 +253,26 @@ func (model *GameModel) castOnTile(player *playerlib.Player, spell spellbook.Spe
     model.RefreshUI()
     return nil
 }
+
+// the castSpell hook (see StartPlayerTurn) for frontends that use commands: a spell that needs a
+// target is kept as pending and announced with GameEventChooseSpellTarget; others are cast now
+func (model *GameModel) FinishCast(player *playerlib.Player, spell spellbook.Spell) {
+    if locationType, ok := model.SpellTargetType(player, spell); ok {
+        if model.PendingSpells == nil {
+            model.PendingSpells = make(map[*playerlib.Player]spellbook.Spell)
+        }
+        model.PendingSpells[player] = spell
+        select {
+            case model.Events <- &GameEventChooseSpellTarget{Player: player, Spell: spell, LocationType: locationType}:
+            default:
+        }
+        return
+    }
+
+    if err := model.CastSpell(player, spell, SpellTarget{}); err != nil {
+        select {
+            case model.Events <- &GameEventNotice{Message: fmt.Sprintf("%v: %v", spell.Name, err)}:
+            default:
+        }
+    }
+}

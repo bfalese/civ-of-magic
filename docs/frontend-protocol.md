@@ -39,11 +39,21 @@ command isn't legal (not your city, not enough gold, no path...).
 | `build-action` | `stack` | settle an outpost / meld a node / purify |
 | `build-road` | `stack`, `to` | engineers build a road over the next turns |
 | `end-turn` | | the frontend's turn loop moves on |
+| `cast-spell` | `spell`, `target?` | cast now if mana and casting skill allow (spells that need a target must then come with one), otherwise start casting it over the next turns |
+| `cast-spell-target` | `target` | the target for a finished spell announced by `choose-spell-target` |
+
+A spell target is `{"location": {...}, "unit": 2}`: a tile (a city or a stack), plus for spells on
+a single unit the unit's index in your stack there (the order of the player view's stack units).
+Spells castable this way: unit enchantments (and Black/Chaos Channels, Lycanthropy), city
+enchantments and curses, summons, Summon Hero/Champion, Incarnation, global enchantments, Death
+Wish, Great Unsummoning, Black Wind, Stasis, Ice/Fire Storm, Nature's Cures, Plane Shift, Spell of
+Return, Earthquake. The rest (Spell Ward, Subversion, Spell Binding, Disjunction, Resurrection,
+Create Artifact, map spells such as Change Terrain) are refused for now.
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
-Not yet: casting spells (targeting still lives in the Ebitengine UI), planar travel, answering
-offers (hire hero, mercenaries, merchant), unit orders (patrol, wait, disband).
+Not yet: planar travel, answering offers (hire hero, mercenaries, merchant), unit orders (patrol,
+wait, disband), the spells listed above as refused.
 
 ## Events (model → frontend)
 
@@ -57,6 +67,7 @@ offers (hire hero, mercenaries, merchant), unit orders (patrol, wait, disband).
 | `random-event` | `event`, `starting`, `message`, `good`, `city?`, `player?` | random event started or ended |
 | `diplomacy` | `player`, `enemy` | first meeting with a wizard |
 | `choose-research` | `player`, `candidates` | pick research (answer with `set-research`) |
+| `choose-spell-target` | `player`, `spell`, `target` | a finished spell needs a target of kind `target` (`friendly-unit`, `enemy-unit`, `friendly-city`, `enemy-city`); answer with `cast-spell-target` |
 | `learned-spell` | `player`, `spell`, `magic` | research finished |
 | `new-building` | `player`, `city`, `building` | a building finished |
 | `new-outpost` | `player`, `city` | an outpost was settled |
