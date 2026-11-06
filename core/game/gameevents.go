@@ -97,3 +97,10 @@ type GameEventTreasure struct {
     Treasure Treasure
     Player *playerlib.Player
 }
+
+// a finished spell waits for its target (frontends using commands answer with cast-spell-target)
+type GameEventChooseSpellTarget struct {
+    Player *playerlib.Player
+    Spell spellbook.Spell
+    LocationType LocationType
+}

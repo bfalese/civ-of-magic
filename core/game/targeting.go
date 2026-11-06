@@ -164,3 +164,22 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
 
     return tileX, false, ""
 }
+
+// a stable name for JSON
+func (locationType LocationType) Name() string {
+    switch locationType {
+        case LocationTypeAny: return "any"
+        case LocationTypeLand: return "land"
+        case LocationTypeEmptyWater: return "empty-water"
+        case LocationTypeFriendlyCity: return "friendly-city"
+        case LocationTypeEnemyCity: return "enemy-city"
+        case LocationTypeFriendlyUnit: return "friendly-unit"
+        case LocationTypeEnemyUnit: return "enemy-unit"
+        case LocationTypeChangeTerrain: return "change-terrain"
+        case LocationTypeTransmute: return "transmute"
+        case LocationTypeRaiseVolcano: return "raise-volcano"
+        case LocationTypeEnemyMeldedNode: return "enemy-melded-node"
+        case LocationTypeDisenchant: return "disenchant"
+    }
+    return "unknown"
+}

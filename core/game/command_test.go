@@ -50,6 +50,8 @@ func TestCommandJSONRoundTrip(test *testing.T) {
         &BuildActionCommand{Stack: Location{X: 1, Y: 1}},
         &BuildRoadCommand{Stack: Location{X: 1, Y: 1}, To: Location{X: 4, Y: 1}},
         &EndTurnCommand{},
+        &CastSpellCommand{Spell: "Wall of Fire", Target: &CommandSpellTarget{Location: Location{X: 5, Y: 5}}},
+        &CastSpellTargetCommand{Target: CommandSpellTarget{Location: Location{X: 3, Y: 3}}},
     }
 
     for _, command := range commands {
@@ -174,5 +176,72 @@ func TestSetResearchCommand(test *testing.T) {
     }
     if err := model.Execute(context, &SetResearchCommand{Spell: "Spell of Mastery"}); err == nil {
         test.Errorf("a spell that isn't a candidate should be rejected")
+    }
+}
+
+func TestCastSpellCommandNow(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    player.KnownSpells.AddSpell(spellbook.Spell{Name: "Bless", Magic: data.LifeMagic, CastCost: 10})
+    player.Mana = 100
+    player.RemainingCastingSkill = 100
+    context := &CommandContext{Player: player}
+    stackLocation := Location{Plane: data.PlaneArcanus, X: 3, Y: 3}
+
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Bless"}); !errors.Is(err, ErrSpellNeedsTarget) {
+        test.Errorf("bless without a target: %v", err)
+    }
+
+    unit := 0
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Bless", Target: &CommandSpellTarget{Location: stackLocation, Unit: &unit}}); err != nil {
+        test.Fatalf("bless: %v", err)
+    }
+    if !player.FindStack(3, 3, data.PlaneArcanus).Units()[0].HasEnchantment(data.UnitEnchantmentBless) {
+        test.Errorf("the first unit should be blessed")
+    }
+    if player.Mana >= 100 || player.RemainingCastingSkill >= 100 {
+        test.Errorf("casting should cost mana and skill: mana=%v skill=%v", player.Mana, player.RemainingCastingSkill)
+    }
+
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Armageddon"}); err == nil {
+        test.Errorf("an unknown spell should be refused")
+    }
+}
+
+func TestCastSpellCommandOverTurns(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    player.KnownSpells.AddSpell(spellbook.Spell{Name: "Bless", Magic: data.LifeMagic, CastCost: 10})
+    player.Mana = 5
+    player.RemainingCastingSkill = 5
+    context := &CommandContext{Player: player}
+
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Bless"}); err != nil {
+        test.Fatalf("starting a long cast: %v", err)
+    }
+    if player.CastingSpell.Name != "Bless" {
+        test.Fatalf("bless should be the spell being cast, got %v", player.CastingSpell.Name)
+    }
+
+    // the casting finished (StartPlayerTurn calls the hook): the target is asked for
+    model.FinishCast(player, player.CastingSpell)
+    var chosen *GameEventChooseSpellTarget
+    for len(model.Events) > 0 {
+        if event, ok := (<-model.Events).(*GameEventChooseSpellTarget); ok {
+            chosen = event
+        }
+    }
+    if chosen == nil || chosen.Spell.Name != "Bless" || chosen.LocationType != LocationTypeFriendlyUnit {
+        test.Fatalf("expected a choose-spell-target event, got %+v", chosen)
+    }
+
+    unit := 1
+    target := CommandSpellTarget{Location: Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, Unit: &unit}
+    if err := model.Execute(context, &CastSpellTargetCommand{Target: target}); err != nil {
+        test.Fatalf("target: %v", err)
+    }
+    if !player.FindStack(3, 3, data.PlaneArcanus).Units()[1].HasEnchantment(data.UnitEnchantmentBless) {
+        test.Errorf("the second unit should be blessed")
+    }
+    if err := model.Execute(context, &CastSpellTargetCommand{Target: target}); err == nil {
+        test.Errorf("no spell should be pending any more")
     }
 }

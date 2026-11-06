@@ -7,7 +7,6 @@ import (
     "context"
     "slices"
     "cmp"
-    "math/rand/v2"
     "errors"
 
     "github.com/bfalese/civ-of-magic/lib/coroutine"
@@ -40,18 +39,9 @@ import (
     "github.com/hajimehoshi/ebiten/v2"
 )
 
-
 type UnitEnchantmentCallback func (units.StackUnit) bool
 
-func noUnitEnchantmentCallback(unit units.StackUnit) bool {
-    return true
-}
-
 type CityCallback func (*citylib.City) bool
-
-func noCityCallback(city *citylib.City) bool {
-    return true
-}
 
 type SpellSpecialUIFonts struct {
     BigOrange *font.Font
@@ -92,6 +82,33 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         game.Model.MaybeDoNaturesWrath(player)
     }
 
+    // spells on one of the caster's units, and enchantments/curses on a city: the rules are in the
+    // model (core/game/castrules.go); here the target is picked and the cast is shown
+    if rule, ok := game.Model.UnitSpellRule(spell); ok {
+        before := func (unit units.StackUnit) bool {
+            if err := rule.Check(unit); err != nil {
+                game.Events <- &gamecore.GameEventNotice{Message: err.Error()}
+                return false
+            }
+            return true
+        }
+        after := func (unit units.StackUnit) bool {
+            rule.Apply(unit)
+            return true
+        }
+        game.doCastOnUnit(player, spell, rule.AnimationIndex, before, after)
+        return
+    }
+
+    if rule, ok := game.Model.CitySpellRule(player, spell); ok {
+        after := func (city *citylib.City) bool {
+            rule.After(city)
+            return true
+        }
+        game.doCastCityEnchantmentFull(spell, player, rule.LocationType, rule.Enchantment, rule.Before, after)
+        return
+    }
+
     switch spell.Name {
         /*
             SUMMONING SPELLS
@@ -123,220 +140,11 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
         /*
             UNIT ENCHANTMENTS
         */
-        case "Bless":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentBless)
-        case "Heroism":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentHeroism)
-        case "Giant Strength":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentGiantStrength)
-        case "Lionheart":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentLionHeart)
-        case "Immolation":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentImmolation)
-        case "Resist Elements":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentResistElements)
-        case "Resist Magic":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentResistMagic)
-        case "Elemental Armor":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentElementalArmor)
-        case "Righteousness":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentRighteousness)
-        case "Cloak of Fear":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentCloakOfFear)
-        case "True Sight":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentTrueSight)
-        case "Flight":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentFlight)
-        case "Chaos Channels":
-            choices := []data.UnitEnchantment{
-                data.UnitEnchantmentChaosChannelsDemonSkin,
-                data.UnitEnchantmentChaosChannelsDemonWings,
-                data.UnitEnchantmentChaosChannelsFireBreath,
-            }
-
-            choice := choices[rand.N(len(choices))]
-
-            before := func (unit units.StackUnit) bool {
-                if unit.GetRace() == data.RaceFantastic {
-                    game.Events <- &gamecore.GameEventNotice{Message: "That unit cannot be targeted"}
-                    return false
-                }
-
-                for _, enchantment := range choices {
-                    if unit.HasEnchantment(enchantment) {
-                        game.Events <- &gamecore.GameEventNotice{Message: "That unit cannot be targeted"}
-                        return false
-                    }
-                }
-
-                return true
-            }
-
-            after := func (unit units.StackUnit) bool {
-                unit.AddEnchantment(choice)
-                return true
-            }
-
-            game.doCastOnUnit(player, spell, choice.CastAnimationIndex(), before, after)
-        case "Endurance":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentEndurance)
-        case "Holy Armor":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentHolyArmor)
-        case "Holy Weapon":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentHolyWeapon)
-        case "Invulnerability":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentInvulnerability)
-        case "Planar Travel":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentPlanarTravel)
-        case "Iron Skin":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentIronSkin)
-        case "Path Finding":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentPathFinding)
-        case "Regeneration":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentRegeneration)
-        case "Stone Skin":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentStoneSkin)
-        case "Water Walking":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentWaterWalking)
-        case "Guardian Wind":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentGuardianWind)
-        // "Invisiblity" is a typo in the game in spelldat.lbx
-        case "Invisiblity":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentInvisibility)
-        case "Magic Immunity":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentMagicImmunity)
-        case "Spell Lock":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentSpellLock)
-        case "Wind Walking":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentWindWalking)
-        case "Eldritch Weapon":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentEldritchWeapon)
-        case "Flame Blade":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentFlameBlade)
-        case "Black Channels":
-            after := func (unit units.StackUnit) bool {
-                unit.SetUndead()
-                return true
-            }
-            game.doCastUnitEnchantmentFull(player, spell, data.UnitEnchantmentBlackChannels, noUnitEnchantmentCallback, after)
-        case "Wraith Form":
-            game.doCastUnitEnchantment(player, spell, data.UnitEnchantmentWraithForm)
-        case "Lycanthropy":
-            before := func (unit units.StackUnit) bool {
-                if unit.GetRace() == data.RaceFantastic {
-                    game.Events <- &gamecore.GameEventNotice{Message: "Summoned units may not have cast Lycanthropy on them"}
-                    return false
-                }
-
-                if unit.GetRace() == data.RaceHero {
-                    game.Events <- &gamecore.GameEventNotice{Message: "Heroes units may not have cast Lycanthropy on them"}
-                    return false
-                }
-
-                if unit.IsUndead() || unit.HasEnchantment(data.UnitEnchantmentBlackChannels) || unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonSkin) || unit.HasEnchantment(data.UnitEnchantmentChaosChannelsDemonWings) || unit.HasEnchantment(data.UnitEnchantmentChaosChannelsFireBreath) {
-                    game.Events <- &gamecore.GameEventNotice{Message: "Chaos channeled and Undead units may not have cast Lycanthropy on them"}
-                    return false
-                }
-               return true
-            }
-            after := func (unit units.StackUnit) bool {
-                game.Model.ApplyLycanthropy(unit)
-                return true
-            }
-            game.doCastOnUnit(player, spell, 4, before, after)
-
         case "Spell Ward":
             game.doCastSpellWard(player, spell)
-        case "Flying Fortress":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentFlyingFortress)
-        case "Earth Gate":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentEarthGate)
-        case "Astral Gate":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentAstralGate)
-        case "Heavenly Light":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentHeavenlyLight)
-        case "Cloud of Shadow":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentCloudOfShadow)
-        case "Prosperity":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentProsperity)
-        case "Consecration":
-            after := func (city *citylib.City) bool {
-                game.Model.ApplyConsecration(city)
-                return true
-            }
-            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentConsecration, noCityCallback, after)
-        case "Inspirations":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentInspirations)
-        case "Gaia's Blessing":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentGaiasBlessing)
-        case "Nature's Eye":
-            after := func (city *citylib.City) bool {
-                player.UpdateFogVisibility()
-                game.discoverWizards(nil)
-                return true
-            }
-            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentNaturesEye, noCityCallback, after)
-        case "Dark Rituals":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentDarkRituals)
-        case "Stream of Life":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentStreamOfLife)
-        case "Altar of Battle":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentAltarOfBattle)
-        case "Wall of Fire":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentWallOfFire)
-        case "Wall of Darkness":
-            game.doCastCityEnchantment(spell, player, gamecore.LocationTypeFriendlyCity, data.CityEnchantmentWallOfDarkness)
-
         /*
             TOWN CURSES
         */
-        case "Chaos Rift":
-            before := func (city *citylib.City) bool {
-                if city.CheckDispel(spell) {
-                    game.ShowFizzleSpell(spell, player)
-                    return false
-                }
-                return true
-            }
-            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentChaosRift, before, noCityCallback)
-        case "Cursed Lands":
-            before := func (city *citylib.City) bool {
-                if city.CheckDispel(spell) {
-                    game.ShowFizzleSpell(spell, player)
-                    return false
-                }
-                return true
-            }
-            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentCursedLands, before, noCityCallback)
-        case "Famine":
-            before := func (city *citylib.City) bool {
-                if city.CheckDispel(spell) {
-                    game.ShowFizzleSpell(spell, player)
-                    return false
-                }
-                return true
-            }
-            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentFamine, before, noCityCallback)
-        case "Pestilence":
-            before := func (city *citylib.City) bool {
-                if city.CheckDispel(spell) {
-                    game.ShowFizzleSpell(spell, player)
-                    return false
-                }
-                return true
-            }
-            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentPestilence, before, noCityCallback)
-        case "Evil Presence":
-            before := func (city *citylib.City) bool {
-                if city.CheckDispel(spell) {
-                    game.ShowFizzleSpell(spell, player)
-                    return false
-                }
-                return true
-            }
-            game.doCastCityEnchantmentFull(spell, player, gamecore.LocationTypeEnemyCity, data.CityEnchantmentEvilPresence, before, noCityCallback)
-
-
         /*
             GLOBAL ENCHANTMENTS
         */
@@ -468,7 +276,6 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
             }
 
             game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeEnemyUnit, SelectedFunc: selected}
-
 
         case "Stasis":
             selected := func (yield coroutine.YieldFunc, tileX int, tileY int){
@@ -1388,29 +1195,6 @@ func (game *Game) doCastOnUnit(player *playerlib.Player, spell spellbook.Spell, 
     game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: gamecore.LocationTypeFriendlyUnit, SelectedFunc: selected}
 }
 
-func (game *Game) doCastUnitEnchantmentFull(player *playerlib.Player, spell spellbook.Spell, enchantment data.UnitEnchantment, customBefore UnitEnchantmentCallback, customAfter UnitEnchantmentCallback) {
-    before := func (unit units.StackUnit) bool {
-        if unit.HasEnchantment(enchantment) {
-            game.Events <- &gamecore.GameEventNotice{Message: fmt.Sprintf("That unit already has %v cast on it", spell.Name)}
-            return false
-        }
-
-        return customBefore(unit)
-    }
-
-    after := func (unit units.StackUnit) bool {
-        unit.AddEnchantment(enchantment)
-
-        return customAfter(unit)
-    }
-
-    game.doCastOnUnit(player, spell, enchantment.CastAnimationIndex(), before, after)
-}
-
-func (game *Game) doCastUnitEnchantment(player *playerlib.Player, spell spellbook.Spell, enchantment data.UnitEnchantment) {
-   game.doCastUnitEnchantmentFull(player, spell, enchantment, noUnitEnchantmentCallback, noUnitEnchantmentCallback)
-}
-
 func (game *Game) doSelectUnit(yield coroutine.YieldFunc, player *playerlib.Player, stack *playerlib.UnitStack) units.StackUnit {
     quit := false
 
@@ -1898,10 +1682,6 @@ func (game *Game) doCastNewCityBuilding(spell spellbook.Spell, player *playerlib
     }
 
     game.Events <- &GameEventSelectLocationForSpell{Spell: spell, Player: player, LocationType: locationType, SelectedFunc: selected}
-}
-
-func (game *Game) doCastCityEnchantment(spell spellbook.Spell, player *playerlib.Player, locationType gamecore.LocationType, enchantment data.CityEnchantment) {
-    game.doCastCityEnchantmentFull(spell, player, locationType, enchantment, noCityCallback, noCityCallback)
 }
 
 type UpdateMapFunction func (tileX int, tileY int, animationFrame int)

@@ -11,7 +11,6 @@ import (
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/spellbook"
-    "github.com/bfalese/civ-of-magic/core/units"
 )
 
 // A game played by AI wizards only, without any frontend: no Ebitengine, no LBX files (the data
@@ -20,9 +19,8 @@ import (
 //
 // Uses: a regression run after refactors, AI experiments, balance statistics.
 //
-// Not covered yet: spells other than summons, global enchantments and plain unit enchantments are
-// skipped (counted in Stats.SkippedSpells), since the rest need targeting that lives in the UI's
-// cast.go.
+// Spells go through GameModel.CastSpell; the ones it can't cast without the UI yet (and spells
+// with no valid target) are counted in Stats.SkippedSpells.
 type HeadlessGame struct {
     Model *GameModel
     Data *gamedata.GameData
@@ -168,57 +166,43 @@ func (headless *HeadlessGame) startPlayerTurn(player *playerlib.Player) {
     headless.DiscoverWizards()
 }
 
-// a spell finished casting (the UI does this in cast.go doCastSpell)
+// a spell finished casting: cast it through the model with a target chosen here (the AI picks
+// targets only for unit spells)
 func (headless *HeadlessGame) castSpell(player *playerlib.Player, spell spellbook.Spell) {
     model := headless.Model
+    var target SpellTarget
 
-    fizzled, _ := model.CheckInstantFizzle(player, spell)
-    if fizzled {
-        model.ShowFizzleSpell(spell, player)
-        return
-    }
-
-    if spell.IsOfRealm(data.ChaosMagic) || spell.IsOfRealm(data.DeathMagic) {
-        model.MaybeDoNaturesWrath(player)
-    }
-
-    if spell.Section == spellbook.SectionSummoning {
-        unit := units.GetUnitByName(spell.Name)
-        if !unit.IsNone() {
-            model.SummonUnit(player, unit)
-            headless.Stats.SpellsCast += 1
-            return
-        }
-    }
-
-    // AI unit spells carry a target chosen by the AI (see doCastOnUnit in the UI)
-    if target := player.CastingSpellTarget; target != nil {
-        enchantment := data.UnitEnchantmentForSpell(spell.Name)
-        // Black Channels also changes the unit (undead), which only the UI does so far
-        if enchantment != data.UnitEnchantmentNone && enchantment != data.UnitEnchantmentBlackChannels {
-            player.CastingSpellTarget = nil
-            if player.FindStackByUnit(target) != nil && !target.HasEnchantment(enchantment) {
-                target.AddEnchantment(enchantment)
+    if rule, ok := model.UnitSpellRule(spell); ok {
+        target.Unit = player.CastingSpellTarget
+        player.CastingSpellTarget = nil
+        if target.Unit == nil || player.FindStackByUnit(target.Unit) == nil {
+            target.Unit = nil
+            for unit := range player.Units() {
+                if rule.Check(unit) == nil {
+                    target.Unit = unit
+                    break
+                }
             }
-            headless.Stats.SpellsCast += 1
-            return
+        }
+    } else if rule, ok := model.CitySpellRule(player, spell); ok && rule.LocationType == LocationTypeFriendlyCity {
+        for _, city := range player.Cities {
+            if !city.HasEnchantment(rule.Enchantment) {
+                target.Location = &Location{Plane: city.Plane, X: city.X, Y: city.Y}
+                break
+            }
         }
     }
 
-    if enchantment := data.GetEnchantmentByName(spell.Name); enchantment != data.EnchantmentNone {
-        if !player.GlobalEnchantments.Contains(enchantment) {
-            player.GlobalEnchantments.Insert(enchantment)
-            model.ApplyGlobalEnchantment(enchantment, player)
+    if err := model.CastSpell(player, spell, target); err != nil {
+        headless.Stats.SpellsSkipped += 1
+        if headless.Stats.SkippedSpells == nil {
+            headless.Stats.SkippedSpells = make(map[string]int)
         }
-        headless.Stats.SpellsCast += 1
+        headless.Stats.SkippedSpells[spell.Name] += 1
         return
     }
 
-    headless.Stats.SpellsSkipped += 1
-    if headless.Stats.SkippedSpells == nil {
-        headless.Stats.SkippedSpells = make(map[string]int)
-    }
-    headless.Stats.SkippedSpells[spell.Name] += 1
+    headless.Stats.SpellsCast += 1
 }
 
 // handle what the model sent: AI players answer offers and take treasure; screens are skipped

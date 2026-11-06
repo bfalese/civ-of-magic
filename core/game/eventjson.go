@@ -276,6 +276,14 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
                 Location Location `json:"location"`
                 Items []TreasureItemJSON `json:"items"`
             }{MakePlayerRef(treasure.Player), Location{Plane: treasure.Treasure.Point.Plane, X: treasure.Treasure.Point.X, Y: treasure.Treasure.Point.Y}, items}, true
+
+        case *GameEventChooseSpellTarget:
+            choose := event.(*GameEventChooseSpellTarget)
+            return "choose-spell-target", struct {
+                Player *PlayerRef `json:"player"`
+                Spell string `json:"spell"`
+                Target string `json:"target"`
+            }{MakePlayerRef(choose.Player), choose.Spell.Name, choose.LocationType.Name()}, true
     }
 
     return "", nil, false

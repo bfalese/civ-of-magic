@@ -28,6 +28,9 @@ import (
 )
 
 type GameModel struct {
+    // finished spells waiting for their target from a command frontend (see FinishCast)
+    PendingSpells map[*playerlib.Player]spellbook.Spell
+
     ArcanusMap *maplib.Map
     MyrrorMap *maplib.Map
     Players []*playerlib.Player
