@@ -7,7 +7,8 @@ import (
 )
 
 func (game *Game) playFirstMeeting(yield coroutine.YieldFunc, event *gamecore.GameEventDiplomacy) {
-    if event == nil {
+    // no one to greet in watch mode (see skipInWatchMode)
+    if event == nil || game.WatchMode {
         return
     }
 

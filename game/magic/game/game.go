@@ -2062,6 +2062,10 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
     for {
         select {
             case event := <-game.Events:
+                if game.skipInWatchMode(event) {
+                    continue
+                }
+
                 switch event.(type) {
                     case *GameEventMagicView:
                         game.doMagicView(yield)
@@ -2238,7 +2242,7 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         game.doCastSpell(castSpell.Player, castSpell.Spell)
                     case *GameEventTreasure:
                         treasure := event.(*GameEventTreasure)
-                        if treasure.Player.IsHuman() {
+                        if treasure.Player.IsHuman() && !game.WatchMode {
                             game.doTreasurePopup(yield, treasure.Player, treasure.Treasure)
                         }
 
