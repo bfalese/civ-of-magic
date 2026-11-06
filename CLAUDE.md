@@ -65,6 +65,7 @@ make wasm                           # GOOS=js GOARCH=wasm build
   `go list -deps ./core/... | grep -E 'ebiten|/lbx' && exit 1`
 - Core talks to frontends through **commands in / events out** (e.g. "move unit X to Y" → "unit moved"):
   `core/game/command.go` in, `Events chan GameEvent` (events in `core/game/gameevents.go`) out.
+  The JSON form of commands, events and views is described in `docs/frontend-protocol.md`.
 - Sprites/images referenced from core become **asset IDs** (strings), resolved by the frontend.
 - New logic should be testable without an `lbx.LbxCache`.
 
