@@ -750,15 +750,7 @@ func (game *Game) castGlobalEnchantment(enchantment data.Enchantment, player *pl
 
 // apply effects for a global enchantment
 func (game *Game) ApplyGlobalEnchantment(enchantment data.Enchantment, player *playerlib.Player) {
-    switch enchantment {
-        case data.EnchantmentAwareness: game.doExploreFogForAwareness(player)
-        case data.EnchantmentNatureAwareness:
-            player.LiftFogAll(data.PlaneArcanus)
-            player.LiftFogAll(data.PlaneMyrror)
-            game.discoverWizards(nil)
-        default:
-            game.Model.ApplyGlobalEnchantment(enchantment, player)
-    }
+    game.Model.ApplyGlobalEnchantment(enchantment, player)
 }
 
 func (game *Game) MakeResurrectionUI(caster *playerlib.Player, heroes []*herolib.Hero, resurrectionSound int) (*uilib.UIElementGroup, context.Context) {

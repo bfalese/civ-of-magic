@@ -4330,59 +4330,7 @@ func (game *Game) PlaneShift(stack *playerlib.UnitStack, player *playerlib.Playe
 }
 
 func (game *Game) doPlanarTraval() {
-    // no switching planes if the global enchantment planar seal is in effect
-    if !game.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
-        player := game.Model.GetHumanPlayer()
-
-        stack := player.SelectedStack
-
-        if stack != nil && stack.Plane() == game.Model.Plane.Opposite() {
-            activeStack := player.SplitActiveStack(stack)
-            // nothing to do
-            if len(activeStack.Units()) == 0 {
-                return
-            }
-
-            travelEnabled := false
-
-            if game.Model.CurrentMap().HasOpenTower(activeStack.X(), activeStack.Y()) {
-                travelEnabled = true
-            } else {
-                cityThisPlane := player.FindCity(activeStack.X(), activeStack.Y(), activeStack.Plane())
-                cityOppositePlane := player.FindCity(activeStack.X(), activeStack.Y(), activeStack.Plane().Opposite())
-                hasAstralGate := (cityThisPlane != nil && cityThisPlane.HasEnchantment(data.CityEnchantmentAstralGate)) ||
-                                 (cityOppositePlane != nil && cityOppositePlane.HasEnchantment(data.CityEnchantmentAstralGate))
-
-                hasPlanarTravel := activeStack.ActiveUnitsHasAbility(data.AbilityPlaneShift)
-
-                if hasAstralGate || hasPlanarTravel {
-                    travelEnabled = true
-                }
-            }
-
-            moved := false
-            if travelEnabled {
-                err := game.PlaneShift(activeStack, player)
-                if err != nil {
-                    select {
-                        case game.Events<- &gamecore.GameEventNotice{Message: fmt.Sprintf("The selected units cannot planar travel at this location.")}:
-                        default:
-                    }
-                } else {
-                    moved = true
-                    player.SelectedStack = stack
-                    player.UpdateFogVisibility()
-                    game.discoverWizards(nil)
-                }
-            }
-
-            if !moved {
-                if activeStack != stack {
-                    player.MergeStacks(stack, activeStack)
-                }
-            }
-        }
-    }
+    game.Model.PlanarTravel(game.Model.GetHumanPlayer())
 }
 
 func (game *Game) OnWaterTile(stack *playerlib.UnitStack) bool {
@@ -5398,16 +5346,7 @@ func (game *Game) StartPlayerTurn(player *playerlib.Player) {
 
 // At the beginning of each turn, Awareness clears the fog from all cities for enchantment's owner (newly built included)
 func (game *Game) doExploreFogForAwareness(awarenessOwner *playerlib.Player) {
-    for _, city := range game.Model.AllCities() {
-        if city.GetBanner() == awarenessOwner.GetBanner() {
-            continue // No need, those cities do already provide vision
-        }
-        awarenessOwner.ExploreFogSquare(city.X, city.Y, 1, city.Plane)
-        _, owner := game.Model.FindCity(city.X, city.Y, city.Plane)
-        if owner != nil {
-            game.meetWizards(nil, awarenessOwner, owner)
-        }
-    }
+    game.Model.ExploreFogForAwareness(awarenessOwner)
 }
 
 
