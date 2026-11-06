@@ -326,7 +326,7 @@ func ShowDiplomacyScreen(cache *lbx.LbxCache, player *playerlib.Player, enemy *p
     willTrade := false
 
     updateWillTrade := func() {
-        if hasRelationship && rand.N(100) < relationship.TradeInterest {
+        if player.WillTradeSpells(enemy) {
             willTrade = true
         } else {
             willTrade = false
@@ -355,10 +355,7 @@ func ShowDiplomacyScreen(cache *lbx.LbxCache, player *playerlib.Player, enemy *p
             talk.Clear()
             talk.SetTitle(fmt.Sprintf("I will trade you %v", choices.Spells[choice].Name))
             talk.AddItem("Yes", true, func(){
-                player.KnownSpells.AddSpell(choices.Spells[choice])
-                enemy.KnownSpells.AddSpell(spell)
-
-                relationship.TradeInterest = max(-100, relationship.TradeInterest - 20)
+                player.TradeSpells(enemy, spell, choices.Spells[choice])
                 updateWillTrade()
 
                 talkMain()
@@ -415,19 +412,17 @@ func ShowDiplomacyScreen(cache *lbx.LbxCache, player *playerlib.Player, enemy *p
         doTalk = true
         talk.Clear()
         talk.SetTitle("You propopse a treaty:")
+        // the rules are in core/player (diplomacy.go)
         talk.AddItem("Wizard Pact", true, func(){
-            enemy.PactWithPlayer(player)
-            player.PactWithPlayer(enemy)
+            player.ProposeTreaty(enemy, "pact")
             talkEnterPact()
         })
         talk.AddItem("Alliance", true, func(){
-            enemy.AllianceWithPlayer(player)
-            player.AllianceWithPlayer(enemy)
+            player.ProposeTreaty(enemy, "alliance")
             talkEnterAlliance()
         })
         talk.AddItem("Peace Treaty", true, func(){
-            if hasRelationship {
-                relationship.PeaceCounter = 50
+            if player.ProposeTreaty(enemy, "peace") == nil {
                 talkEnterPeaceTreaty()
             }
         })
@@ -455,8 +450,6 @@ func ShowDiplomacyScreen(cache *lbx.LbxCache, player *playerlib.Player, enemy *p
         doTalk = true
         talk.Clear()
         talk.SetTitle(fmt.Sprintf("I thank you, glorius %v, for your tribute.", player.Wizard.Name))
-        enemy.AdjustDiplomaticRelation(player, 5)
-        player.AdjustDiplomaticRelation(enemy, 5)
         ui.AddDelay(140, talkMain)
     }
 
@@ -475,7 +468,7 @@ func ShowDiplomacyScreen(cache *lbx.LbxCache, player *playerlib.Player, enemy *p
         for i, index := range rand.Perm(len(choices.Spells)) {
             talk.AddItem(choices.Spells[index].Name, true, func(){
                 log.Printf("Grant spell %v to %v", choices.Spells[index].Name, enemy.Wizard.Name)
-                enemy.KnownSpells.AddSpell(choices.Spells[index])
+                player.TributeSpell(enemy, choices.Spells[index])
                 talkThanksTribute()
             })
             if i >= 4 {
@@ -490,11 +483,10 @@ func ShowDiplomacyScreen(cache *lbx.LbxCache, player *playerlib.Player, enemy *p
         doTalk = true
         talk.Clear()
         talk.SetTitle("What do you offer as tribute?")
-        gold := int(float64(player.Gold) * 0.1)
-        if gold > 5 {
+        gold := player.TributeGoldAmount()
+        if gold > 0 {
             talk.AddItem(fmt.Sprintf("%v gold", gold), true, func(){
-                player.Gold -= gold
-                enemy.Gold += gold
+                player.TributeGold(enemy)
                 talkThanksTribute()
             })
         }

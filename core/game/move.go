@@ -1,7 +1,11 @@
 package game
 
 import (
+    "errors"
     "fmt"
+
+    "github.com/bfalese/civ-of-magic/core/data"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
 
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/combat"
@@ -225,4 +229,87 @@ func (model *GameModel) MoveSelectedStack(handlers PlayerMovementHandler, player
         model.RefreshUI()
     }
     */
+}
+
+var ErrNoPath = errors.New("no path there")
+
+// The player orders a stack to (newX, newY) on its plane. Only the active units go: inactive units
+// stay behind as their own stack (a stack with ships keeps its passengers instead). Between two of
+// the player's cities with Earth Gate the move is instant. Otherwise the path is set and the
+// returned stack should walk it (MoveSelectedStack). With no active units the path is only stored
+// (checked against all the units). Returns ErrNoPath (the units are merged back) if there's no way.
+func (model *GameModel) OrderStackMove(player *playerlib.Player, stack *playerlib.UnitStack, newX int, newY int) (*playerlib.UnitStack, error) {
+    oldX, oldY := stack.X(), stack.Y()
+    mapUse := model.GetMap(stack.Plane())
+    fog := player.GetFog(stack.Plane())
+
+    if len(stack.ActiveUnits()) == 0 {
+        // make a copy of the unit stack to activate all units, because path finding only checks active units for terrain constraints
+        path, ok := model.FindPath(oldX, oldY, newX, newY, player, playerlib.MakeUnitStackFromUnits(stack.Units()), fog)
+        if !ok {
+            return nil, ErrNoPath
+        }
+        stack.CurrentPath = path
+        stack.SetBuildRoadPath(nil)
+        return nil, nil
+    }
+
+    if newY < 0 || newY >= mapUse.Height() {
+        return nil, nil
+    }
+
+    var inactiveStack *playerlib.UnitStack
+
+    if stack.HasSailingUnits(true) {
+        stack.DisableNonTransport()
+    } else {
+        inactiveUnits := stack.InactiveUnits()
+        if len(inactiveUnits) > 0 {
+            stack.RemoveUnits(inactiveUnits)
+            inactiveStack = player.AddStack(playerlib.MakeUnitStackFromUnits(inactiveUnits))
+            model.RefreshUI()
+        }
+    }
+
+    oldCity := player.FindCity(oldX, oldY, stack.Plane())
+    newCity := player.FindCity(newX, newY, stack.Plane())
+
+    // unit can move instantly to the new city if they are standing on a city with earth gate
+    // and the new city also has earth gate
+    if oldCity != nil && newCity != nil && oldCity.HasEnchantment(data.CityEnchantmentEarthGate) && newCity.HasEnchantment(data.CityEnchantmentEarthGate) && stack.GetRemainingMoves().GreaterThan(fraction.Zero()) {
+        // the other city might be protected by spell ward
+        for _, unit := range stack.ActiveUnits() {
+            if !newCity.CanEnter(unit) {
+                model.Events <- &GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, newCity.Name)}
+                return nil, nil
+            }
+        }
+
+        stack.UseMovement(fraction.FromInt(1))
+        newCityStack := player.FindStack(newX, newY, stack.Plane())
+        if newCityStack != nil {
+            player.MergeStacks(newCityStack, stack)
+        } else {
+            stack.SetX(newX)
+            stack.SetY(newY)
+        }
+        model.RefreshUI()
+        return nil, nil
+    }
+
+    path, ok := model.FindPath(oldX, oldY, newX, newY, player, stack, fog)
+    if !ok {
+        if inactiveStack != nil {
+            player.MergeStacks(stack, inactiveStack)
+        }
+        return nil, ErrNoPath
+    }
+
+    // FIXME: i'm not sure this can ever occur in practice
+    if inactiveStack != nil {
+        inactiveStack.CurrentPath = stack.CurrentPath
+    }
+    stack.CurrentPath = path
+    stack.SetBuildRoadPath(nil)
+    return stack, nil
 }

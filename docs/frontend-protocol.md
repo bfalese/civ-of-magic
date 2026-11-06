@@ -45,6 +45,23 @@ command isn't legal (not your city, not enough gold, no path...).
 | `planar-travel` | `stack` | move the stack's active units to the other plane (tower, Astral Gate, Plane Shift) |
 | `patrol` | `stack` | the stack's active units patrol their tile |
 | `disband-unit` | `stack`, `unit` | dismiss the unit at that index in the stack |
+| `set-unit-active` | `stack`, `unit`, `active` | whether the unit moves with the stack; `move-stack` only moves active units, the others stay behind as their own stack (that's how stacks split; they merge when they stop on the same tile) |
+| `set-power-distribution` | `mana`, `research`, `skill` | shares of power, 0-1 each, adding up to 1 |
+| `alchemy` | `direction` (`mana-to-gold`, `gold-to-mana`), `amount` | convert at half rate (full rate with the Alchemy retort) |
+| `rename-city` | `city`, `name` | |
+| `rename-hero` | `hero` (index 0-5), `name` | |
+| `move-item` | `from`, `to` (item slots) | swap two slots; 20 mana for each item that arrives at a hero somewhere else |
+| `destroy-item` | `item` (item slot) | destroy for mana (half its cost, full cost with Artificer) |
+| `propose-treaty` | `wizard`, `treaty` (`pact`, `alliance`, `peace`) | the other wizard currently always agrees |
+| `offer-tribute` | `wizard`, `gold: true` or `spell` | a tenth of your gold, or a spell they don't know |
+| `trade-spells` | `wizard`, `spell` | if they're willing, they give a spell of their choice back (`learned-spell` event) |
+
+Item slots are `{"vault": 0-3}`, `{"hero": 0-5, "slot": 0-2}` or `{"new": i}` (an item that just
+arrived at the vault, announced by a `vault` event, waiting to be placed or destroyed). Create
+Artifact and Enchant Item take the item as `"artifact": {"type": "Sword", "name": "...",
+"image": 3, "powers": ["+2 Attack", "Flaming"], "spell": "Fire Bolt", "charges": 2}` in
+`cast-spell` (at most 4 powers, one per stat, abilities need spellbooks, Enchant Item only cheap
+powers, spell charges on staffs and wands).
 
 A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
 fields the spell needs:
@@ -61,13 +78,12 @@ fields the spell needs:
 - Resurrection: `choice`, the dead hero's name.
 
 Summons, hero summons, global enchantments, Death Wish and Great Unsummoning need no target.
-Refused for now: Spell of Mastery (its victory screens), Create Artifact / Enchant Item (the item
-is designed in the UI).
+Refused for now: Spell of Mastery (its victory screens).
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
-Not yet: splitting and merging stacks, hero equipment (vault), diplomacy, the item designer for
-Create Artifact.
+Not yet: tactical combat (battles are resolved by the model for now), the diplomacy steps the
+other wizard initiates.
 
 ## Events (model → frontend)
 

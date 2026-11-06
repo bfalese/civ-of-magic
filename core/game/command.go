@@ -5,6 +5,7 @@ import (
     "errors"
     "fmt"
 
+    "github.com/bfalese/civ-of-magic/core/artifact"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/data"
@@ -88,8 +89,9 @@ func (model *GameModel) buildingByName(name string) buildinglib.Building {
     return buildinglib.BuildingNone
 }
 
-// move a stack to a destination: find a path through explored land and walk it as far as its
-// moves go (the rest of the path is kept for next turns). Battles and encounters on the way go
+// move a stack to a destination, as the player does on the map (see GameModel.OrderStackMove):
+// only the active units go, Earth Gate moves are instant, otherwise the units walk the path as far
+// as their moves go (the rest is kept for next turns). Battles and encounters on the way go
 // through context.Handlers.
 type MoveStackCommand struct {
     From Location `json:"from"`
@@ -112,15 +114,14 @@ func (command *MoveStackCommand) Execute(context *CommandContext) error {
         return errors.New("moving needs movement handlers")
     }
 
-    path, ok := model.FindPath(stack.X(), stack.Y(), command.To.X, command.To.Y, player, stack, player.GetFog(stack.Plane()))
-    if !ok {
-        return fmt.Errorf("no path to %v,%v", command.To.X, command.To.Y)
+    walking, err := model.OrderStackMove(player, stack, command.To.X, command.To.Y)
+    if err != nil {
+        return err
     }
-
-    stack.CurrentPath = path
-    stack.SetBuildRoadPath(nil)
-    player.SelectedStack = stack
-    model.MoveSelectedStack(context.Handlers, player)
+    if walking != nil {
+        player.SelectedStack = walking
+        model.MoveSelectedStack(context.Handlers, player)
+    }
     return nil
 }
 
@@ -383,14 +384,11 @@ func (context *CommandContext) spellTarget(target *CommandSpellTarget) (SpellTar
     }
 
     if target.Wizard != "" {
-        for _, player := range context.Model.Players {
-            if player.GetBanner().String() == target.Wizard {
-                out.Wizard = player
-            }
+        wizard, err := context.wizardByBanner(target.Wizard)
+        if err != nil {
+            return SpellTarget{}, err
         }
-        if out.Wizard == nil {
-            return SpellTarget{}, fmt.Errorf("no wizard with banner %q", target.Wizard)
-        }
+        out.Wizard = wizard
     }
 
     return out, nil
@@ -402,6 +400,8 @@ func (context *CommandContext) spellTarget(target *CommandSpellTarget) (SpellTar
 type CastSpellCommand struct {
     Spell string `json:"spell"`
     Target *CommandSpellTarget `json:"target,omitempty"`
+    // the item to make, for Create Artifact and Enchant Item
+    Artifact *artifact.Design `json:"artifact,omitempty"`
 }
 
 func (command *CastSpellCommand) CommandType() string { return "cast-spell" }
@@ -419,6 +419,25 @@ func (command *CastSpellCommand) Execute(context *CommandContext) error {
     target, err := context.spellTarget(command.Target)
     if err != nil {
         return err
+    }
+
+    if spell.Name == "Create Artifact" || spell.Name == "Enchant Item" {
+        if command.Artifact == nil {
+            return errors.New("give the item design")
+        }
+        if model.ArtifactPowers == nil {
+            return errors.New("the artifact power table isn't available")
+        }
+        costs, compatibilities, err := model.ArtifactPowers()
+        if err != nil {
+            return err
+        }
+        created, err := artifact.BuildDesign(*command.Artifact, spell.Name == "Enchant Item", &player.Wizard, player.KnownSpells.CombatSpells(false), costs, compatibilities)
+        if err != nil {
+            return err
+        }
+        player.CreateArtifact = created
+        spell.OverrideCost = created.Cost
     }
 
     cost := player.ComputeEffectiveSpellCost(spell, true)
@@ -548,6 +567,228 @@ func (command *DisbandUnitCommand) Execute(context *CommandContext) error {
     return nil
 }
 
+func (context *CommandContext) wizardByBanner(banner string) (*playerlib.Player, error) {
+    for _, player := range context.Model.Players {
+        if player.GetBanner().String() == banner {
+            return player, nil
+        }
+    }
+    return nil, fmt.Errorf("no wizard with banner %q", banner)
+}
+
+// a wizard the player knows and can talk to
+func (context *CommandContext) rival(banner string) (*playerlib.Player, error) {
+    other, err := context.wizardByBanner(banner)
+    if err != nil {
+        return nil, err
+    }
+    if other == context.Player || other.IsNeutral() || other.Defeated || !context.Player.IsAwareOf(other) {
+        return nil, fmt.Errorf("you can't talk to %v", other.Wizard.Name)
+    }
+    return other, nil
+}
+
+// split power between mana, research and casting skill (shares 0-1 adding up to 1)
+type SetPowerDistributionCommand struct {
+    Mana float64 `json:"mana"`
+    Research float64 `json:"research"`
+    Skill float64 `json:"skill"`
+}
+
+func (command *SetPowerDistributionCommand) CommandType() string { return "set-power-distribution" }
+
+func (command *SetPowerDistributionCommand) Execute(context *CommandContext) error {
+    return context.Player.SetPowerDistribution(command.Mana, command.Research, command.Skill)
+}
+
+// convert mana into gold ("mana-to-gold") or gold into mana ("gold-to-mana")
+type AlchemyCommand struct {
+    Direction string `json:"direction"`
+    Amount int `json:"amount"`
+}
+
+func (command *AlchemyCommand) CommandType() string { return "alchemy" }
+
+func (command *AlchemyCommand) Execute(context *CommandContext) error {
+    switch command.Direction {
+        case "mana-to-gold":
+            _, err := context.Player.Alchemy(true, command.Amount)
+            return err
+        case "gold-to-mana":
+            _, err := context.Player.Alchemy(false, command.Amount)
+            return err
+    }
+    return fmt.Errorf("unknown direction %q", command.Direction)
+}
+
+// choose whether a unit in a stack moves with the stack (move-stack only moves active units;
+// the others stay behind as their own stack)
+type SetUnitActiveCommand struct {
+    Stack Location `json:"stack"`
+    Unit int `json:"unit"`
+    Active bool `json:"active"`
+}
+
+func (command *SetUnitActiveCommand) CommandType() string { return "set-unit-active" }
+
+func (command *SetUnitActiveCommand) Execute(context *CommandContext) error {
+    stack, err := context.ownStack(command.Stack)
+    if err != nil {
+        return err
+    }
+    stackUnits := stack.Units()
+    if command.Unit < 0 || command.Unit >= len(stackUnits) {
+        return fmt.Errorf("no unit %v in the stack", command.Unit)
+    }
+    unit := stackUnits[command.Unit]
+    // units in stasis can't be toggled
+    if unit.GetBusy() == units.BusyStatusStasis {
+        return errors.New("the unit is in stasis")
+    }
+    stack.SetActive(unit, command.Active)
+    return nil
+}
+
+type RenameCityCommand struct {
+    City Location `json:"city"`
+    Name string `json:"name"`
+}
+
+func (command *RenameCityCommand) CommandType() string { return "rename-city" }
+
+func (command *RenameCityCommand) Execute(context *CommandContext) error {
+    city, err := context.ownCity(command.City)
+    if err != nil {
+        return err
+    }
+    if command.Name == "" {
+        return errors.New("empty name")
+    }
+    city.Name = command.Name
+    return nil
+}
+
+// rename one of the player's heroes (index 0-5, as in the vault / player view)
+type RenameHeroCommand struct {
+    Hero int `json:"hero"`
+    Name string `json:"name"`
+}
+
+func (command *RenameHeroCommand) CommandType() string { return "rename-hero" }
+
+func (command *RenameHeroCommand) Execute(context *CommandContext) error {
+    if command.Hero < 0 || command.Hero >= len(context.Player.Heroes) || context.Player.Heroes[command.Hero] == nil {
+        return fmt.Errorf("no hero %v", command.Hero)
+    }
+    if command.Name == "" {
+        return errors.New("empty name")
+    }
+    context.Player.Heroes[command.Hero].SetName(command.Name)
+    return nil
+}
+
+// swap the items in two slots: the vault, a hero's equipment, or a newly arrived item
+// (see GameModel.MoveItem; moving an item to a hero elsewhere costs mana)
+type MoveItemCommand struct {
+    From ItemSlot `json:"from"`
+    To ItemSlot `json:"to"`
+}
+
+func (command *MoveItemCommand) CommandType() string { return "move-item" }
+
+func (command *MoveItemCommand) Execute(context *CommandContext) error {
+    return context.Model.MoveItem(context.Player, command.From, command.To)
+}
+
+// destroy an item for mana
+type DestroyItemCommand struct {
+    Item ItemSlot `json:"item"`
+}
+
+func (command *DestroyItemCommand) CommandType() string { return "destroy-item" }
+
+func (command *DestroyItemCommand) Execute(context *CommandContext) error {
+    _, err := context.Model.DestroyItem(context.Player, command.Item)
+    return err
+}
+
+// propose a treaty ("pact", "alliance" or "peace") to a wizard
+type ProposeTreatyCommand struct {
+    Wizard string `json:"wizard"`
+    Treaty string `json:"treaty"`
+}
+
+func (command *ProposeTreatyCommand) CommandType() string { return "propose-treaty" }
+
+func (command *ProposeTreatyCommand) Execute(context *CommandContext) error {
+    other, err := context.rival(command.Wizard)
+    if err != nil {
+        return err
+    }
+    return context.Player.ProposeTreaty(other, command.Treaty)
+}
+
+// offer a tribute to a wizard: a tenth of the treasury (gold) or a spell they don't know
+type OfferTributeCommand struct {
+    Wizard string `json:"wizard"`
+    Gold bool `json:"gold,omitempty"`
+    Spell string `json:"spell,omitempty"`
+}
+
+func (command *OfferTributeCommand) CommandType() string { return "offer-tribute" }
+
+func (command *OfferTributeCommand) Execute(context *CommandContext) error {
+    other, err := context.rival(command.Wizard)
+    if err != nil {
+        return err
+    }
+    if command.Gold == (command.Spell != "") {
+        return errors.New("offer either gold or a spell")
+    }
+    if command.Gold {
+        _, err := context.Player.TributeGold(other)
+        return err
+    }
+    return context.Player.TributeSpell(other, context.Player.KnownSpells.FindByName(command.Spell))
+}
+
+// offer a spell in trade: if the wizard is willing, they give a spell of their choice back
+// (announced as a learned-spell event). Unlike the diplomacy screen there's no step to see their
+// offer and decline it.
+type TradeSpellsCommand struct {
+    Wizard string `json:"wizard"`
+    Spell string `json:"spell"`
+}
+
+func (command *TradeSpellsCommand) CommandType() string { return "trade-spells" }
+
+func (command *TradeSpellsCommand) Execute(context *CommandContext) error {
+    player := context.Player
+    other, err := context.rival(command.Wizard)
+    if err != nil {
+        return err
+    }
+    give := player.KnownSpells.FindByName(command.Spell)
+    if !give.Valid() || other.KnownSpells.Contains(give) {
+        return fmt.Errorf("%v can't be traded to %v", command.Spell, other.Wizard.Name)
+    }
+    if !player.WillTradeSpells(other) {
+        return fmt.Errorf("%v doesn't want to trade spells now", other.Wizard.Name)
+    }
+    received, ok := player.SpellOfferedBy(other)
+    if !ok {
+        return fmt.Errorf("%v has no spell you don't know", other.Wizard.Name)
+    }
+    if err := player.TradeSpells(other, give, received); err != nil {
+        return err
+    }
+    select {
+        case context.Model.Events <- &GameEventLearnedSpell{Player: player, Spell: received}:
+        default:
+    }
+    return nil
+}
+
 var commandTypes = map[string]func() Command{
     "move-stack": func() Command { return &MoveStackCommand{} },
     "set-research": func() Command { return &SetResearchCommand{} },
@@ -565,6 +806,16 @@ var commandTypes = map[string]func() Command{
     "planar-travel": func() Command { return &PlanarTravelCommand{} },
     "patrol": func() Command { return &PatrolCommand{} },
     "disband-unit": func() Command { return &DisbandUnitCommand{} },
+    "set-power-distribution": func() Command { return &SetPowerDistributionCommand{} },
+    "alchemy": func() Command { return &AlchemyCommand{} },
+    "set-unit-active": func() Command { return &SetUnitActiveCommand{} },
+    "rename-city": func() Command { return &RenameCityCommand{} },
+    "rename-hero": func() Command { return &RenameHeroCommand{} },
+    "move-item": func() Command { return &MoveItemCommand{} },
+    "destroy-item": func() Command { return &DestroyItemCommand{} },
+    "propose-treaty": func() Command { return &ProposeTreatyCommand{} },
+    "offer-tribute": func() Command { return &OfferTributeCommand{} },
+    "trade-spells": func() Command { return &TradeSpellsCommand{} },
 }
 
 type commandEnvelope struct {

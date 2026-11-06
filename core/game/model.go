@@ -32,6 +32,11 @@ type GameModel struct {
     PendingSpells map[*playerlib.Player]spellbook.Spell
     // the open hero/mercenaries/merchant offer per player, for command frontends (see SendOffer)
     PendingOffers map[*playerlib.Player]GameEvent
+    // items that arrived at a player's vault and weren't placed yet, for command frontends (vault.go)
+    PendingItems map[*playerlib.Player][]*artifact.Artifact
+    // the artifact power table, set by the frontend (LBX) or headless game (gamedata); needed to
+    // check item designs (artifact.BuildDesign)
+    ArtifactPowers ArtifactPowersFunc
 
     ArcanusMap *maplib.Map
     MyrrorMap *maplib.Map
@@ -1286,6 +1291,9 @@ func (model *GameModel) DoRandomEvents() {
                     model.Events <- &GameEventShowRandomEvent{Event: newEvent, Starting: true}
 
                     if extraEvent != nil {
+                        if vault, ok := extraEvent.(*GameEventVault); ok {
+                            model.recordVaultItem(vault)
+                        }
                         model.Events <- extraEvent
                     }
 
@@ -1612,10 +1620,7 @@ func (model *GameModel) DoEarthquake(city *citylib.City, player *playerlib.Playe
             }
 
             for _, event := range vaultEvents {
-                select {
-                    case model.Events <- event:
-                    default:
-                }
+                model.SendVaultItem(event)
             }
         }
 

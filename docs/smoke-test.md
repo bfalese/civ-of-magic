@@ -13,6 +13,8 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 
 ## 1. Start and the overworld (first turns)
 
+- [ ] New game: capital naming prompt (a predefined name), camera on the capital, starting units;
+      the raiders' towns appear if enabled
 - [ ] Overworld map and minimap draw correctly, scrolling works, both planes
 - [ ] Cartographer (map of the world) and Surveyor open and show the right info
 - [ ] Random events: a few turns in, with random events on in settings (an event popup appears)
@@ -33,11 +35,18 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 
 ## 3. Units and the map
 
+- [ ] **Move your stacks** by clicking the map and with the keys (this order now goes through the
+      model): the stack walks; with some units deselected in the stack panel, only the selected ones
+      go and the rest stay; a blocked destination blinks red; Earth Gate between two of your cities
+      moves instantly
+
 - [ ] Walk a path that takes several turns (the stack continues on the next turns)
 - [ ] Build a road with engineers (build button, pick the destination, road grows over turns)
 - [ ] Meld a node with a magic spirit (build button on the node)
 - [ ] Planar travel through a tower (plane button with the stack on the tower)
 - [ ] Planar travel with Plane Shift (a unit with the ability, or the spell)
+- [ ] Toggle units in the stack panel (click a unit to deselect / select it; units in stasis can't be
+      toggled)
 - [ ] Patrol button: the stack patrols and the next unit is selected
 - [ ] Disband a unit from its context menu (right click on the unit in the stack panel)
 - [ ] Change the tax rate (Info / tax collector): rate and unrest update
@@ -57,6 +66,8 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 - [ ] Hero for hire offer: hire (name prompt, hero appears at the fortress) and decline
 - [ ] Mercenaries offer: hire (units appear, gold taken)
 - [ ] Merchant offer: buy (gold taken, item goes to the vault)
+- [ ] Alchemy in the magic screen: gold to mana and mana to gold (amounts as shown)
+- [ ] Diplomacy: propose a pact, offer a gold tribute and a spell tribute, exchange spells
 - [ ] Vault: destroy an item for mana (amount shown, mana received)
 - [ ] Vault: give an item to a hero somewhere else (20 mana transfer prompt)
 - [ ] Hero gains a level: level-up popup
@@ -65,9 +76,10 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 
 - [ ] Summon a creature (summon animation, unit appears)
 - [ ] City enchantment on own city (e.g. Wall of Fire / Heavenly Light); Spell Ward
-- [ ] Unit enchantment on a unit
-- [ ] Map spell (e.g. Change Terrain, Transmute, Corruption)
-- [ ] Curse on an enemy city or unit
+- [ ] Unit enchantment on a unit (e.g. Bless); casting it again on the same unit shows "already has"
+- [ ] Lycanthropy on a summoned unit or a hero is refused with a notice
+- [ ] Map spell (e.g. Change Terrain, Transmute, Corruption), on Arcanus and on Myrror
+- [ ] Curse on an enemy city (e.g. Famine) or unit
 - [ ] Disenchant / Disjunction; Spell Binding
 - [ ] Word of Recall (unit returns to the summoning circle; notice if already there)
 - [ ] Resurrection (needs a dead hero)

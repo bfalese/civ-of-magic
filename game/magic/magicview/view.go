@@ -90,10 +90,7 @@ func MakeTransmuteElements(ui *uilib.UI, smallFont *font.Font, player *playerlib
     totalGold := player.Gold
     totalMana := player.Mana
 
-    alchemyConversion := 0.5
-    if player.Wizard.RetortEnabled(data.RetortAlchemy) {
-        alchemyConversion = 1
-    }
+    alchemyConversion := player.AlchemyRate()
 
     getAlpha := group.MakeFadeIn(7)
 
@@ -306,19 +303,12 @@ func MakeTransmuteElements(ui *uilib.UI, smallFont *font.Font, player *playerlib
             okIndex = 0
             finish()
 
-            goldChange := 0
-            manaChange := 0
-
+            // the conversion rule is in core/player (Player.Alchemy)
             if isRight {
-                goldChange = int(float64(totalMana) * changePercent * alchemyConversion)
-                manaChange = -int(float64(totalMana) * changePercent)
+                player.Alchemy(true, int(float64(totalMana) * changePercent))
             } else {
-                goldChange = -int(float64(totalGold) * changePercent)
-                manaChange = int(float64(totalGold) * changePercent * alchemyConversion)
+                player.Alchemy(false, int(float64(totalGold) * changePercent))
             }
-
-            player.Gold += goldChange
-            player.Mana += manaChange
 
         },
         RightClick: func(element *uilib.UIElement){
