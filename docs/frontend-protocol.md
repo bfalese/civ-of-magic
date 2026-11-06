@@ -87,11 +87,11 @@ Answers while a command is paused (see Sessions):
 | `battle-wait` | | the selected unit waits, the next one is up |
 | `battle-flee` | | your army flees |
 | `battle-auto` | | the AI fights the rest of the battle for you |
+| `battle-cast` | `spell`, `caster?`, `target?` | cast a combat spell: the wizard's (no `caster`; once per turn, within the army's mana pool and your mana over the range) or the selected unit's (`caster` = its id; its spells within its casting skill, or item charges). `target` is `{"unit": id}` or `{"x", "y"}` when the spell needs one (also for picking from the units Raise/Animate Dead offer). Nothing is paid if the target is refused |
 
 During a battle, `session.Battle.View()` gives the battlefield: `turn`, `selected` (the id of your
 unit that is up), `you-attack`, `width`, `height`, `units` (id, name, owner, yours, x, y, health,
 max-health, moves-left, ranged-attacks) and `state`. Ask for it again after each battle command.
-Casting combat spells isn't available through commands yet.
 
 A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
 fields the spell needs:
@@ -112,7 +112,7 @@ Refused for now: Spell of Mastery (its victory screens).
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
-Not yet: combat spells in battles, the diplomacy steps the other wizard initiates.
+Not yet: the diplomacy steps the other wizard initiates.
 
 ## Events (model → frontend)
 

@@ -11,6 +11,7 @@ import (
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/setup"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/lib/set"
 )
@@ -224,5 +225,62 @@ func TestSessionCaptureCity(test *testing.T) {
     }
     if human.FindCity(4, 3, data.PlaneArcanus) == nil {
         test.Errorf("the city should belong to the human now")
+    }
+}
+
+func TestSessionBattleCast(test *testing.T) {
+    model, human, enemy := makeSessionTestModel()
+    fireBolt := spellbook.Spell{Name: "Fire Bolt", Magic: data.ChaosMagic, CastCost: 5, Section: spellbook.SectionCombatSpell}
+    human.KnownSpells.AddSpell(fireBolt)
+    human.Mana = 500
+    human.CastingSkillPower = 1000
+    session := MakeCommandSession(model, human)
+
+    if err := session.Execute(&MoveStackCommand{From: Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, To: Location{Plane: data.PlaneArcanus, X: 4, Y: 3}}); err != nil {
+        test.Fatalf("move: %v", err)
+    }
+    if session.WaitingFor() != WaitingBattle {
+        test.Fatalf("expected a battle, waiting for %q", session.WaitingFor())
+    }
+
+    var spearman *BattleUnitView
+    for _, unit := range session.Battle.View().Units {
+        if !unit.Yours {
+            spearman = &unit
+        }
+    }
+    if spearman == nil {
+        test.Fatalf("no enemy unit in the battle")
+    }
+    manaBefore := human.Mana
+
+    if err := session.Execute(&BattleCastCommand{Spell: "Fire Bolt"}); err == nil {
+        test.Errorf("fire bolt without a target should be refused")
+    }
+    if human.Mana != manaBefore || session.Battle.army().Casted {
+        test.Errorf("a refused cast shouldn't cost anything")
+    }
+
+    id := spearman.Id
+    if err := session.Execute(&BattleCastCommand{Spell: "Fire Bolt", Target: &BattleTarget{Unit: &id}}); err != nil {
+        test.Fatalf("fire bolt: %v", err)
+    }
+    if human.Mana >= manaBefore {
+        test.Errorf("the cast should cost mana")
+    }
+
+    // the bolt's damage depends on defense rolls; what's certain is that the spell was cast
+    if session.WaitingFor() == WaitingBattle && !session.Battle.army().Casted {
+        test.Errorf("the army should have used its spell for this turn")
+    }
+
+    if session.WaitingFor() == WaitingBattle {
+        if err := session.Execute(&BattleCastCommand{Spell: "Fire Bolt", Target: &BattleTarget{Unit: &id}}); err == nil {
+            test.Errorf("a second wizard spell in the same turn should be refused")
+        }
+        session.Execute(&BattleAutoCommand{})
+    }
+    if session.WaitingFor() != WaitingNothing || len(enemy.Stacks) != 0 {
+        test.Errorf("the battle should be won")
     }
 }

@@ -3,15 +3,19 @@ package game
 import (
     "encoding/json"
     "errors"
+    "fmt"
+    "slices"
 
     "github.com/bfalese/civ-of-magic/core/combat"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/lib/fraction"
 )
 
 // A tactical battle played through commands (see CommandSession). The AI moves its own units
 // (and the player's when auto is on); when one of the player's units is up, the session waits
 // for a battle command. Battle commands act on the selected unit, like the buttons and clicks of
-// the Ebitengine battle screen. Casting combat spells isn't available through commands yet.
+// the Ebitengine battle screen, including casting combat spells (battle-cast).
 type BattleSession struct {
     Battle *Battle
     Player *playerlib.Player
@@ -44,12 +48,22 @@ func (session *BattleSession) army() *combat.Army {
     return session.Battle.Combat.GetArmyForPlayer(session.Player)
 }
 
-func (session *BattleSession) drainEvents() {
+// apply the combat events' effects (next unit, lightning bolts, walls, AI target choices) and
+// resolve projectiles. Events asking the player for a spell target are returned for the caller.
+func (session *BattleSession) drainEvents() []combat.CombatEvent {
+    model := session.Battle.Combat
+    var questions []combat.CombatEvent
     for {
         select {
-            case <-session.Battle.Combat.Events:
+            case event := <-model.Events:
+                if !model.ApplyEvent(session.spells, event) {
+                    questions = append(questions, event)
+                }
             default:
-                return
+                if len(model.Projectiles) == 0 {
+                    return questions
+                }
+                session.actions.DoProjectiles()
         }
     }
 }
@@ -115,13 +129,172 @@ func (session *BattleSession) apply(command Command) error {
             session.army().Fled = true
         case *BattleAutoCommand:
             session.auto()
+        case *BattleCastCommand:
+            return session.cast(command.(*BattleCastCommand))
         default:
             return errors.New("answer with a battle command")
     }
     return nil
 }
 
+// cast a combat spell: the wizard's (once per turn, limited by the army's mana pool and the
+// wizard's mana over the range) or the selected unit's (its spells within its casting skill, or
+// item charges). The cost is paid only once the target is accepted, as in the battle screen.
+func (session *BattleSession) cast(command *BattleCastCommand) error {
+    model := session.Battle.Combat
+    player := session.Player
+    army := session.army()
+    defendingCity := model.Zone.City != nil && army == model.DefendingArmy
+
+    var spell spellbook.Spell
+    var unitCaster *combat.ArmyUnit
+    var castedCallback func(bool)
+
+    if command.Caster == nil {
+        if army.Casted {
+            return errors.New("you already cast a spell this turn")
+        }
+        combatSpells := player.KnownSpells.CombatSpells(defendingCity)
+        spell = combatSpells.FindByName(command.Spell)
+        if !spell.Valid() {
+            return fmt.Errorf("%v can't be cast here", command.Spell)
+        }
+        cost := player.ComputeEffectiveSpellCost(spell, false)
+        if cost > min(army.ManaPool, int(float64(player.GetMana()) / army.Range.ToFloat())) {
+            return errors.New("not enough mana or casting skill")
+        }
+        castedCallback = func(success bool) {
+            spellCost := player.ComputeEffectiveSpellCost(spell, false)
+            army.Casted = true
+            army.ManaPool -= spellCost
+            player.UseMana(int(float64(spellCost) * army.Range.ToFloat()))
+            if success {
+                model.AddLogEvent(fmt.Sprintf("%v casts %v", player.Wizard.Name, spell.Name))
+            }
+        }
+    } else {
+        unitCaster = model.SelectedUnit
+        if unitCaster.Id != *command.Caster {
+            return errors.New("only the unit that is up can cast")
+        }
+        if !unitCaster.CanCast() {
+            return errors.New("the unit can't cast now")
+        }
+        unitSpells := unitCaster.Spells.CombatSpells(defendingCity)
+        spell = unitSpells.FindByName(command.Spell)
+        if spell.Valid() {
+            if float32(spell.Cost(false)) > unitCaster.CastingSkill {
+                return errors.New("not enough casting skill")
+            }
+        } else {
+            for charged, charges := range unitCaster.SpellCharges {
+                if charged.Name == command.Spell && charges > 0 {
+                    spell = charged
+                }
+            }
+            if !spell.Valid() {
+                return fmt.Errorf("the unit can't cast %v", command.Spell)
+            }
+        }
+        caster := unitCaster
+        castedCallback = func(success bool) {
+            if success {
+                model.AddLogEvent(fmt.Sprintf("%v casts %v", caster.Unit.GetName(), spell.Name))
+            }
+            model.DoUnitCast(caster, spell)
+        }
+    }
+
+    paid := false
+    model.InvokeSpell(session.spells, army, unitCaster, spell, func(success bool) {
+        paid = true
+        castedCallback(success)
+    })
+
+    // answer the model's question for a target with the command's target
+    var targetErr error
+    for _, question := range session.drainEvents() {
+        if err := session.answerTarget(question, command.Target); err != nil && targetErr == nil {
+            targetErr = err
+        }
+    }
+    session.drainEvents()
+
+    if !paid {
+        if targetErr != nil {
+            return targetErr
+        }
+        return errors.New("the spell had no effect")
+    }
+
+    // a unit that cast is done (as Update does after an action)
+    if model.SelectedUnit != nil && model.InControl(player) && (model.SelectedUnit.GetHealth() <= 0 || model.SelectedUnit.MovesLeft.LessThanEqual(fraction.Zero())) {
+        model.DoneTurn()
+    }
+    return nil
+}
+
+func (session *BattleSession) answerTarget(question combat.CombatEvent, target *BattleTarget) error {
+    model := session.Battle.Combat
+    targetUnit := func() *combat.ArmyUnit {
+        if target == nil || target.Unit == nil {
+            return nil
+        }
+        return model.GetUnitById(*target.Unit)
+    }
+
+    switch question.(type) {
+        case *combat.CombatEventSelectUnit:
+            ask := question.(*combat.CombatEventSelectUnit)
+            unit := targetUnit()
+            if unit == nil {
+                return fmt.Errorf("%v needs a target unit", ask.Spell.Name)
+            }
+            if ask.SelectTeam != combat.TeamEither && unit.Team != ask.SelectTeam {
+                return fmt.Errorf("%v can't target that side", ask.Spell.Name)
+            }
+            if ask.CanTarget != nil && !ask.CanTarget(unit) {
+                return fmt.Errorf("%v can't target %v", ask.Spell.Name, unit.Unit.GetName())
+            }
+            ask.SelectTarget(unit)
+        case *combat.CombatEventSelectTile:
+            ask := question.(*combat.CombatEventSelectTile)
+            if target == nil || target.X == nil || target.Y == nil {
+                return fmt.Errorf("%v needs a target tile", ask.Spell.Name)
+            }
+            if ask.CanTarget != nil && !ask.CanTarget(*target.X, *target.Y) {
+                return fmt.Errorf("%v can't target that tile", ask.Spell.Name)
+            }
+            ask.SelectTile(*target.X, *target.Y)
+        case *combat.CombatSelectTargets:
+            ask := question.(*combat.CombatSelectTargets)
+            unit := targetUnit()
+            if unit == nil || !slices.Contains(ask.Targets, unit) {
+                return fmt.Errorf("choose one of the units offered (%v)", ask.Title)
+            }
+            ask.Select(unit)
+    }
+    return nil
+}
+
 // battle commands; they answer a CommandSession waiting for a battle
+
+// a target in a battle: a unit by id, or a tile
+type BattleTarget struct {
+    Unit *uint64 `json:"unit,omitempty"`
+    X *int `json:"x,omitempty"`
+    Y *int `json:"y,omitempty"`
+}
+
+// cast a combat spell; Caster is the id of the selected unit for a unit's spell, nil for the wizard
+type BattleCastCommand struct {
+    Spell string `json:"spell"`
+    Caster *uint64 `json:"caster,omitempty"`
+    Target *BattleTarget `json:"target,omitempty"`
+}
+
+func (command *BattleCastCommand) CommandType() string { return "battle-cast" }
+func (command *BattleCastCommand) Execute(context *CommandContext) error { return errors.New("not in a battle") }
 
 // the selected unit moves to, or attacks, the tile (as a click on the battle field)
 type BattleActCommand struct {

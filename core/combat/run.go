@@ -591,16 +591,20 @@ func Run(model *CombatModel) CombatState {
 
         model.Update(spellSystem, actions, false, 0, 0)
 
+        // apply what the events change in the battle (next unit, lightning bolts, walls, AI target
+        // choices); the rest is only for a battle screen
         stop := false
         for !stop {
             select {
                 case event := <-model.Events:
-                    _ = event
-                    log.Debug("Discarding event: %+v", event)
+                    if !model.ApplyEvent(spellSystem, event) {
+                        log.Debug("Discarding event: %+v", event)
+                    }
                 default:
                     stop = true
             }
         }
+        actions.DoProjectiles()
 
         state = model.FinalState()
     }
