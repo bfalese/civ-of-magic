@@ -464,6 +464,90 @@ func (command *CastSpellTargetCommand) Execute(context *CommandContext) error {
     return nil
 }
 
+// accept or decline the open hero / mercenaries / merchant offer (hire-hero, hire-mercenaries,
+// merchant events)
+type AnswerOfferCommand struct {
+    Accept bool `json:"accept"`
+}
+
+func (command *AnswerOfferCommand) CommandType() string { return "answer-offer" }
+
+func (command *AnswerOfferCommand) Execute(context *CommandContext) error {
+    return context.Model.AnswerOffer(context.Player, command.Accept)
+}
+
+// move the active units of a stack to the other plane (tower, Astral Gate, Plane Shift)
+type PlanarTravelCommand struct {
+    Stack Location `json:"stack"`
+}
+
+func (command *PlanarTravelCommand) CommandType() string { return "planar-travel" }
+
+func (command *PlanarTravelCommand) Execute(context *CommandContext) error {
+    model := context.Model
+    player := context.Player
+    stack, err := context.ownStack(command.Stack)
+    if err != nil {
+        return err
+    }
+
+    // PlanarTravel moves the selected stack while the view is on the destination plane
+    viewedPlane := model.Plane
+    model.Plane = stack.Plane().Opposite()
+    defer func() {
+        model.Plane = viewedPlane
+    }()
+
+    player.SelectedStack = stack
+    startPlane := stack.Plane()
+    model.PlanarTravel(player)
+    if player.SelectedStack == nil || player.SelectedStack.Plane() == startPlane {
+        return errors.New("the stack can't travel to the other plane here")
+    }
+    return nil
+}
+
+// the stack's active units stop and patrol (they guard the tile until given a new order)
+type PatrolCommand struct {
+    Stack Location `json:"stack"`
+}
+
+func (command *PatrolCommand) CommandType() string { return "patrol" }
+
+func (command *PatrolCommand) Execute(context *CommandContext) error {
+    stack, err := context.ownStack(command.Stack)
+    if err != nil {
+        return err
+    }
+    for _, unit := range stack.ActiveUnits() {
+        unit.SetBusy(units.BusyStatusPatrol)
+    }
+    stack.EnableMovers()
+    return nil
+}
+
+// dismiss a unit: the unit at index Unit in the stack at Stack
+type DisbandUnitCommand struct {
+    Stack Location `json:"stack"`
+    Unit int `json:"unit"`
+}
+
+func (command *DisbandUnitCommand) CommandType() string { return "disband-unit" }
+
+func (command *DisbandUnitCommand) Execute(context *CommandContext) error {
+    stack, err := context.ownStack(command.Stack)
+    if err != nil {
+        return err
+    }
+    stackUnits := stack.Units()
+    if command.Unit < 0 || command.Unit >= len(stackUnits) {
+        return fmt.Errorf("no unit %v in the stack", command.Unit)
+    }
+    context.Player.RemoveUnit(stackUnits[command.Unit])
+    context.Model.RefreshUI()
+    return nil
+}
+
 var commandTypes = map[string]func() Command{
     "move-stack": func() Command { return &MoveStackCommand{} },
     "set-research": func() Command { return &SetResearchCommand{} },
@@ -477,6 +561,10 @@ var commandTypes = map[string]func() Command{
     "end-turn": func() Command { return &EndTurnCommand{} },
     "cast-spell": func() Command { return &CastSpellCommand{} },
     "cast-spell-target": func() Command { return &CastSpellTargetCommand{} },
+    "answer-offer": func() Command { return &AnswerOfferCommand{} },
+    "planar-travel": func() Command { return &PlanarTravelCommand{} },
+    "patrol": func() Command { return &PatrolCommand{} },
+    "disband-unit": func() Command { return &DisbandUnitCommand{} },
 }
 
 type commandEnvelope struct {

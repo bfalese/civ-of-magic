@@ -41,6 +41,10 @@ command isn't legal (not your city, not enough gold, no path...).
 | `end-turn` | | the frontend's turn loop moves on |
 | `cast-spell` | `spell`, `target?` | cast now if mana and casting skill allow (spells that need a target must then come with one), otherwise start casting it over the next turns |
 | `cast-spell-target` | `target` | the target for a finished spell announced by `choose-spell-target` |
+| `answer-offer` | `accept` | accept or decline the open `hire-hero` / `hire-mercenaries` / `merchant` offer (a bought item then comes as a `vault` event) |
+| `planar-travel` | `stack` | move the stack's active units to the other plane (tower, Astral Gate, Plane Shift) |
+| `patrol` | `stack` | the stack's active units patrol their tile |
+| `disband-unit` | `stack`, `unit` | dismiss the unit at that index in the stack |
 
 A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
 fields the spell needs:
@@ -62,8 +66,8 @@ is designed in the UI).
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
-Not yet: planar travel, answering offers (hire hero, mercenaries, merchant), unit orders (patrol,
-wait, disband).
+Not yet: splitting and merging stacks, hero equipment (vault), diplomacy, the item designer for
+Create Artifact.
 
 ## Events (model → frontend)
 

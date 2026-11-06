@@ -3948,6 +3948,24 @@ func (game *Game) ShowGrandVizierUI(){
     game.HudUI.AddGroup(group)
 }
 
+// run a player action as a command (core/game/command.go), the same path a JSON frontend takes;
+// a refusal is shown as a notice
+func (game *Game) execute(player *playerlib.Player, command gamecore.Command) error {
+    context := &gamecore.CommandContext{
+        Player: player,
+        SuggestCityName: game.SuggestCityName,
+    }
+    err := game.Model.Execute(context, command)
+    if err != nil {
+        log.Printf("%v refused: %v", command.CommandType(), err)
+        select {
+            case game.Events <- &gamecore.GameEventNotice{Message: err.Error()}:
+            default:
+        }
+    }
+    return err
+}
+
 func (game *Game) ShowTaxCollectorUI(cornerX int, cornerY int){
     player := game.Model.GetHumanPlayer()
 
@@ -3961,7 +3979,7 @@ func (game *Game) ShowTaxCollectorUI(cornerX int, cornerY int){
     }
 
     update := func(rate fraction.Fraction){
-        player.UpdateTaxRate(rate)
+        game.execute(player, &gamecore.SetTaxRateCommand{Numerator: rate.Numerator, Denominator: rate.Denominator})
         game.RefreshUI()
     }
 
@@ -4633,7 +4651,10 @@ func (game *Game) MakeHudUI() *uilib.UI {
                 // show a unit element for each unit in the stack
                 // image index increases by 1 for each unit, indexes 24-32
                 disband := func(){
-                    player.RemoveUnit(unit)
+                    index := slices.Index(stack.Units(), unit)
+                    if index >= 0 {
+                        game.execute(player, &gamecore.DisbandUnitCommand{Stack: gamecore.Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()}, Unit: index})
+                    }
                     game.RefreshUI()
                     if player.SelectedStack == nil {
                         game.DoNextUnit(player)
@@ -4848,13 +4869,9 @@ func (game *Game) MakeHudUI() *uilib.UI {
                 LeftClickRelease: func(this *uilib.UIElement){
                     patrolIndex = 0
 
-                    if player.SelectedStack != nil {
-                        for _, unit := range player.SelectedStack.ActiveUnits() {
-                            unit.SetBusy(units.BusyStatusPatrol)
-                        }
+                    if stack := player.SelectedStack; stack != nil {
+                        game.execute(player, &gamecore.PatrolCommand{Stack: gamecore.Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()}})
                     }
-
-                    player.SelectedStack.EnableMovers()
 
                     game.DoNextUnit(player)
                 },

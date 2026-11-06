@@ -4,6 +4,9 @@ import (
     "errors"
     "testing"
 
+    "github.com/bfalese/civ-of-magic/core/artifact"
+    "github.com/bfalese/civ-of-magic/core/units"
+
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/combat"
@@ -53,6 +56,10 @@ func TestCommandJSONRoundTrip(test *testing.T) {
         &CastSpellCommand{Spell: "Wall of Fire", Target: &CommandSpellTarget{Location: &Location{X: 5, Y: 5}}},
         &CastSpellCommand{Spell: "Spell Blast", Target: &CommandSpellTarget{Wizard: "green"}},
         &CastSpellTargetCommand{Target: CommandSpellTarget{Location: &Location{X: 3, Y: 3}, Choice: "Spell Ward"}},
+        &AnswerOfferCommand{Accept: true},
+        &PlanarTravelCommand{Stack: Location{X: 3, Y: 3}},
+        &PatrolCommand{Stack: Location{X: 3, Y: 3}},
+        &DisbandUnitCommand{Stack: Location{X: 3, Y: 3}, Unit: 1},
     }
 
     for _, command := range commands {
@@ -244,5 +251,72 @@ func TestCastSpellCommandOverTurns(test *testing.T) {
     }
     if err := model.Execute(context, &CastSpellTargetCommand{Target: target}); err == nil {
         test.Errorf("no spell should be pending any more")
+    }
+}
+
+func TestAnswerOfferCommand(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    model.ArtifactPool = artifact.MakeCatalog(nil)
+    context := &CommandContext{Player: player}
+
+    if err := model.Execute(context, &AnswerOfferCommand{Accept: true}); err == nil {
+        test.Errorf("answering without an offer should fail")
+    }
+
+    player.Gold = 300
+    mercenary := units.MakeOverworldUnitFromUnit(units.HighMenSpearmen, 5, 5, data.PlaneArcanus, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider())
+    model.SendOffer(&GameEventHireMercenaries{Units: []*units.OverworldUnit{mercenary}, Cost: 100, Player: player})
+    if err := model.Execute(context, &AnswerOfferCommand{Accept: true}); err != nil {
+        test.Fatalf("hiring mercenaries: %v", err)
+    }
+    if player.Gold != 200 || player.FindStackByUnit(mercenary) == nil {
+        test.Errorf("the mercenary should be hired for 100 gold (gold %v)", player.Gold)
+    }
+
+    item := &artifact.Artifact{Name: "Sword", Cost: 500}
+    model.SendOffer(&GameEventMerchant{Artifact: item, Cost: 500, Player: player})
+    if err := model.Execute(context, &AnswerOfferCommand{Accept: true}); err == nil {
+        test.Errorf("buying a 500 gold item with 200 gold should fail")
+    }
+    if err := model.Execute(context, &AnswerOfferCommand{Accept: false}); err != nil {
+        test.Errorf("declining: %v", err)
+    }
+    if _, open := model.PendingOffers[player]; open {
+        test.Errorf("the offer should be closed after declining")
+    }
+}
+
+func TestUnitOrderCommands(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    context := &CommandContext{Player: player}
+    here := Location{Plane: data.PlaneArcanus, X: 3, Y: 3}
+    stack := player.FindStack(3, 3, data.PlaneArcanus)
+
+    if err := model.Execute(context, &PatrolCommand{Stack: here}); err != nil {
+        test.Fatalf("patrol: %v", err)
+    }
+    for _, unit := range stack.Units() {
+        if unit.GetBusy() != units.BusyStatusPatrol {
+            test.Errorf("%v should patrol", unit.GetName())
+        }
+    }
+
+    before := len(stack.Units())
+    if err := model.Execute(context, &DisbandUnitCommand{Stack: here, Unit: 0}); err != nil {
+        test.Fatalf("disband: %v", err)
+    }
+    if len(stack.Units()) != before - 1 {
+        test.Errorf("one unit should be gone: %v -> %v", before, len(stack.Units()))
+    }
+    if err := model.Execute(context, &DisbandUnitCommand{Stack: here, Unit: 99}); err == nil {
+        test.Errorf("a unit index out of range should be refused")
+    }
+
+    // no tower, gate or plane shift here
+    if err := model.Execute(context, &PlanarTravelCommand{Stack: here}); err == nil {
+        test.Errorf("planar travel without a way to travel should fail")
+    }
+    if model.Plane != data.PlaneArcanus {
+        test.Errorf("the viewed plane should be restored")
     }
 }

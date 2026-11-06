@@ -38,6 +38,9 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
 - [ ] Meld a node with a magic spirit (build button on the node)
 - [ ] Planar travel through a tower (plane button with the stack on the tower)
 - [ ] Planar travel with Plane Shift (a unit with the ability, or the spell)
+- [ ] Patrol button: the stack patrols and the next unit is selected
+- [ ] Disband a unit from its context menu (right click on the unit in the stack panel)
+- [ ] Change the tax rate (Info / tax collector): rate and unrest update
 
 ## 4. Combat
 

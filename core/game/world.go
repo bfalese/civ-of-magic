@@ -1214,10 +1214,7 @@ func (model *GameModel) MaybeHireMercenaries(player *playerlib.Player) {
         overworldUnits = append(overworldUnits, overworldUnit)
     }
 
-    select {
-        case model.Events <- &GameEventHireMercenaries{Cost: cost, Units: overworldUnits, Player: player}:
-        default:
-    }
+    model.SendOffer(&GameEventHireMercenaries{Cost: cost, Units: overworldUnits, Player: player})
 }
 
 func (model *GameModel) MaybeBuyFromMerchant(player *playerlib.Player) {
@@ -1264,10 +1261,7 @@ func (model *GameModel) MaybeBuyFromMerchant(player *playerlib.Player) {
         return
     }
 
-    select {
-        case model.Events <- &GameEventMerchant{Cost: cost, Artifact: artifact, Player: player}:
-        default:
-    }
+    model.SendOffer(&GameEventMerchant{Cost: cost, Artifact: artifact, Player: player})
 }
 
 func (model *GameModel) MaybeHireHero(player *playerlib.Player) {
@@ -1310,10 +1304,7 @@ func (model *GameModel) MaybeHireHero(player *playerlib.Player) {
                 // hero gains a level if the player can't afford to hire them
                 hero.GainLevel(units.ExperienceChampionHero)
             } else {
-                select {
-                    case model.Events <- &GameEventHireHero{Cost: fee, Hero: hero, Player: player}:
-                    default:
-                }
+                model.SendOffer(&GameEventHireHero{Cost: fee, Hero: hero, Player: player})
             }
         }
     }

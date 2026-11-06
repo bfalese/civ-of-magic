@@ -35,15 +35,15 @@ const (
 // player. Returns the tile x to use (wrapped around the map for map-tile types), whether the target
 // is valid, and a message to show when the target is refused for a reason the player should know.
 // cityStackInfo is a snapshot of cities and stacks (see ComputeCityStackInfo).
-func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbook.Spell, locationType LocationType, entityInfo playerlib.CityStackInfo, tileX int, tileY int) (int, bool, string) {
-    mapObject := model.CurrentMap()
+func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbook.Spell, locationType LocationType, entityInfo playerlib.CityStackInfo, plane data.Plane, tileX int, tileY int) (int, bool, string) {
+    mapObject := model.GetMap(plane)
 
     switch locationType {
         case LocationTypeAny: return tileX, true, ""
         case LocationTypeLand:
             if tileY >= 0 && tileY < mapObject.Height() {
                 tileX = mapObject.WrapX(tileX)
-                if player.IsTileExplored(tileX, tileY, model.Plane) {
+                if player.IsTileExplored(tileX, tileY, plane) {
                     if mapObject.GetTile(tileX, tileY).Tile.IsLand() {
                         return tileX, true, ""
                     }
@@ -52,11 +52,11 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
         case LocationTypeEmptyWater:
             if tileY >= 0 && tileY < mapObject.Height() {
                 tileX = mapObject.WrapX(tileX)
-                if player.IsTileExplored(tileX, tileY, model.Plane) {
+                if player.IsTileExplored(tileX, tileY, plane) {
                     if mapObject.GetTile(tileX, tileY).Tile.IsWater() {
                         empty := true
                         for _, enemy := range model.GetEnemies(player) {
-                            if enemy.FindStack(tileX, tileY, model.Plane) != nil {
+                            if enemy.FindStack(tileX, tileY, plane) != nil {
                                 empty = false
                                 break
                             }
@@ -69,7 +69,7 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
                 }
             }
         case LocationTypeFriendlyCity:
-            city := player.FindCity(tileX, tileY, model.Plane)
+            city := player.FindCity(tileX, tileY, plane)
             if city != nil {
                 return tileX, true, ""
             }
@@ -77,7 +77,7 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
             if tileY >= 0 && tileY < mapObject.Height() {
                 tileX = mapObject.WrapX(tileX)
 
-                if player.IsTileExplored(tileX, tileY, model.Plane) {
+                if player.IsTileExplored(tileX, tileY, plane) {
                     terrainType := mapObject.GetTile(tileX, tileY).Tile.TerrainType()
                     switch terrainType {
                         case terrain.Desert, terrain.Forest, terrain.Hill,
@@ -91,7 +91,7 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
             if tileY >= 0 && tileY < mapObject.Height() {
                 tileX = mapObject.WrapX(tileX)
 
-                if player.IsTileExplored(tileX, tileY, model.Plane) {
+                if player.IsTileExplored(tileX, tileY, plane) {
                     bonusType := mapObject.GetBonusTile(tileX, tileY)
                     switch bonusType {
                         case data.BonusCoal, data.BonusGem, data.BonusIronOre,
@@ -104,7 +104,7 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
             if tileY >= 0 && tileY < mapObject.Height() {
                 tileX = mapObject.WrapX(tileX)
 
-                if player.IsTileExplored(tileX, tileY, model.Plane) {
+                if player.IsTileExplored(tileX, tileY, plane) {
                     terrainType := mapObject.GetTile(tileX, tileY).Tile.TerrainType()
                     switch terrainType {
                         case terrain.Desert, terrain.Forest, terrain.Swamp, terrain.Grass, terrain.Tundra:
@@ -116,7 +116,7 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
             if tileY >= 0 && tileY < mapObject.Height() {
                 tileX = mapObject.WrapX(tileX)
 
-                if player.IsTileExplored(tileX, tileY, model.Plane) {
+                if player.IsTileExplored(tileX, tileY, plane) {
                     node := mapObject.GetMagicNode(tileX, tileY)
                     if node != nil && node.MeldingWizard != player {
                         return tileX, true, ""
@@ -127,8 +127,8 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
         case LocationTypeDisenchant:
             // return if the tile has a stack, town, or is a magic node
 
-            if entityInfo.FindStack(tileX, tileY, model.Plane) != nil ||
-               entityInfo.FindCity(tileX, tileY, model.Plane) != nil ||
+            if entityInfo.FindStack(tileX, tileY, plane) != nil ||
+               entityInfo.FindCity(tileX, tileY, plane) != nil ||
                mapObject.GetMagicNode(tileX, tileY) != nil {
 
                 return tileX, true, ""
@@ -136,7 +136,7 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
 
         case LocationTypeEnemyCity:
             for _, enemy := range model.GetEnemies(player) {
-                city := enemy.FindCity(tileX, tileY, model.Plane)
+                city := enemy.FindCity(tileX, tileY, plane)
                 if city != nil {
                     if !city.CanTarget(spell) {
                         return tileX, false, fmt.Sprintf("You cannot cast %v on this city", spell.Name)
@@ -147,16 +147,16 @@ func (model *GameModel) CheckSpellTarget(player *playerlib.Player, spell spellbo
             }
 
         case LocationTypeFriendlyUnit:
-            stack := player.FindStack(tileX, tileY, model.Plane)
+            stack := player.FindStack(tileX, tileY, plane)
             if stack != nil {
                 return tileX, true, ""
             }
 
         case LocationTypeEnemyUnit:
-            if player.IsVisible(tileX, tileY, model.Plane) {
-                stack := entityInfo.FindStack(tileX, tileY, model.Plane)
-                if stack != nil && entityInfo.ContainsEnemy(tileX, tileY, model.Plane, player) {
-                    city := entityInfo.FindCity(tileX, tileY, model.Plane)
+            if player.IsVisible(tileX, tileY, plane) {
+                stack := entityInfo.FindStack(tileX, tileY, plane)
+                if stack != nil && entityInfo.ContainsEnemy(tileX, tileY, plane, player) {
+                    city := entityInfo.FindCity(tileX, tileY, plane)
 
                     if city != nil && !city.CanTarget(spell) {
                         return tileX, false, fmt.Sprintf("You cannot cast %v on this unit", spell.Name)

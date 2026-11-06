@@ -30,6 +30,8 @@ import (
 type GameModel struct {
     // finished spells waiting for their target from a command frontend (see FinishCast)
     PendingSpells map[*playerlib.Player]spellbook.Spell
+    // the open hero/mercenaries/merchant offer per player, for command frontends (see SendOffer)
+    PendingOffers map[*playerlib.Player]GameEvent
 
     ArcanusMap *maplib.Map
     MyrrorMap *maplib.Map

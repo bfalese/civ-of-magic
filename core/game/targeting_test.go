@@ -16,7 +16,7 @@ func TestCheckSpellTarget(test *testing.T) {
     spell := spellbook.Spell{Name: "Test"}
 
     check := func(locationType LocationType, x int, y int) bool {
-        _, ok, _ := model.CheckSpellTarget(human, spell, locationType, model.ComputeCityStackInfo(), x, y)
+        _, ok, _ := model.CheckSpellTarget(human, spell, locationType, model.ComputeCityStackInfo(), data.PlaneArcanus, x, y)
         return ok
     }
 
