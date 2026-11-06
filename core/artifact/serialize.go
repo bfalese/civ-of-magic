@@ -30,7 +30,7 @@ type SerializedPower struct {
     Index int
 }
 
-func serializePowers(powers []Power) []SerializedPower {
+func SerializePowers(powers []Power) []SerializedPower {
     serialized := make([]SerializedPower, 0, len(powers))
 
     for _, power := range powers {
@@ -49,7 +49,7 @@ func serializePowers(powers []Power) []SerializedPower {
     return serialized
 }
 
-func reconstructPowers(serializedPowers []SerializedPower, allSpells spellbook.Spells) []Power {
+func ReconstructPowers(serializedPowers []SerializedPower, allSpells spellbook.Spells) []Power {
     var powers []Power
 
     for _, serialized := range serializedPowers {
@@ -74,7 +74,7 @@ func SerializeArtifact(artifact *Artifact) SerializedArtifact {
         Image: artifact.Image,
         Name: artifact.Name,
         Cost: artifact.Cost,
-        Powers: serializePowers(artifact.Powers),
+        Powers: SerializePowers(artifact.Powers),
         Requirements: append(make([]Requirement, 0), artifact.Requirements...),
         CatalogIndex: artifact.CatalogIndex,
     }
@@ -86,7 +86,7 @@ func ReconstructArtifact(serialized *SerializedArtifact, allSpells spellbook.Spe
         Image: serialized.Image,
         Name: serialized.Name,
         Cost: serialized.Cost,
-        Powers: reconstructPowers(serialized.Powers, allSpells),
+        Powers: ReconstructPowers(serialized.Powers, allSpells),
         Requirements: serialized.Requirements,
         CatalogIndex: serialized.CatalogIndex,
     }

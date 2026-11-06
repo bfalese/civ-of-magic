@@ -980,3 +980,14 @@ func (enchantment CombatEnchantment) Name() string {
 
     return ""
 }
+
+// the unit enchantment a spell puts on a unit, matched by name (UnitEnchantmentNone if none).
+// Chaos Channels picks one of three enchantments, so it isn't matched here.
+func UnitEnchantmentForSpell(spellName string) UnitEnchantment {
+    for enchantment := UnitEnchantmentGiantStrength; enchantment <= UnitEnchantmentWraithForm; enchantment++ {
+        if enchantment.Name() == spellName {
+            return enchantment
+        }
+    }
+    return UnitEnchantmentNone
+}
