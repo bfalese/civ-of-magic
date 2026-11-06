@@ -348,11 +348,15 @@ func (command *EndTurnCommand) Execute(context *CommandContext) error {
 }
 
 
-// what a spell is cast on: a tile (city or stack), and for unit spells the unit's index in the
-// player's stack there (in the order the player view lists them)
+// what a spell is cast on: a tile (city, stack or map tile), and for unit spells the unit's index
+// in the player's stack there (in the order the player view lists them); or a wizard (by banner)
+// for spells on wizards; plus a choice by name where the spell needs one (Spell Ward's ward, the
+// enchantment for Spell Binding / Disjunction, the hero for Resurrection)
 type CommandSpellTarget struct {
-    Location Location `json:"location"`
+    Location *Location `json:"location,omitempty"`
     Unit *int `json:"unit,omitempty"`
+    Wizard string `json:"wizard,omitempty"`
+    Choice string `json:"choice,omitempty"`
 }
 
 func (context *CommandContext) spellTarget(target *CommandSpellTarget) (SpellTarget, error) {
@@ -360,19 +364,35 @@ func (context *CommandContext) spellTarget(target *CommandSpellTarget) (SpellTar
         return SpellTarget{}, nil
     }
 
-    location := target.Location
-    out := SpellTarget{Location: &location}
-    if target.Unit != nil {
-        stack, err := context.ownStack(location)
-        if err != nil {
-            return SpellTarget{}, err
+    out := SpellTarget{Choice: target.Choice}
+
+    if target.Location != nil {
+        location := *target.Location
+        out.Location = &location
+        if target.Unit != nil {
+            stack, err := context.ownStack(location)
+            if err != nil {
+                return SpellTarget{}, err
+            }
+            stackUnits := stack.Units()
+            if *target.Unit < 0 || *target.Unit >= len(stackUnits) {
+                return SpellTarget{}, fmt.Errorf("no unit %v in the stack", *target.Unit)
+            }
+            out.Unit = stackUnits[*target.Unit]
         }
-        stackUnits := stack.Units()
-        if *target.Unit < 0 || *target.Unit >= len(stackUnits) {
-            return SpellTarget{}, fmt.Errorf("no unit %v in the stack", *target.Unit)
-        }
-        out.Unit = stackUnits[*target.Unit]
     }
+
+    if target.Wizard != "" {
+        for _, player := range context.Model.Players {
+            if player.GetBanner().String() == target.Wizard {
+                out.Wizard = player
+            }
+        }
+        if out.Wizard == nil {
+            return SpellTarget{}, fmt.Errorf("no wizard with banner %q", target.Wizard)
+        }
+    }
+
     return out, nil
 }
 

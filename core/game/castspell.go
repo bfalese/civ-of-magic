@@ -4,6 +4,9 @@ import (
     "errors"
     "fmt"
 
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
+
     "github.com/bfalese/civ-of-magic/core/data"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
@@ -17,15 +20,21 @@ import (
 
 var ErrSpellNeedsTarget = errors.New("the spell needs a target")
 
-// the spell isn't castable without the Ebitengine UI yet (its choices are still made in screens:
-// Spell Ward, Subversion, Spell Binding, Disjunction, Resurrection, Create Artifact, map spells...)
+// the spell isn't castable without the Ebitengine UI (Spell of Mastery's victory screens, Create
+// Artifact without an artifact designed beforehand)
 var ErrSpellNotSupported = errors.New("the spell can't be cast without the UI yet")
 
 type SpellTarget struct {
     // a unit, for spells on a single unit
     Unit units.StackUnit
-    // a tile, for spells on a city or a stack
+    // a tile, for spells on a city, a stack or the map
     Location *Location
+    // a wizard, for spells on a wizard (and the owner of the enchantment for Spell Binding,
+    // Disjunction)
+    Wizard *playerlib.Player
+    // a choice by name: the ward for Spell Ward, the global enchantment for Spell Binding and
+    // Disjunction, the hero for Resurrection
+    Choice string
 }
 
 // what kind of target a spell needs
@@ -39,8 +48,19 @@ func (model *GameModel) SpellTargetType(player *playerlib.Player, spell spellboo
     switch spell.Name {
         case "Black Wind", "Stasis", "Ice Storm", "Fire Storm": return LocationTypeEnemyUnit, true
         case "Nature's Cures", "Plane Shift": return LocationTypeFriendlyUnit, true
-        case "Spell of Return": return LocationTypeFriendlyCity, true
-        case "Earthquake": return LocationTypeEnemyCity, true
+        case "Spell of Return", "Spell Ward", "Wall of Stone", "Summoning Circle", "Move Fortress": return LocationTypeFriendlyCity, true
+        case "Earthquake", "Call the Void": return LocationTypeEnemyCity, true
+        case "Earth Lore", "Enchant Road": return LocationTypeAny, true
+        case "Change Terrain": return LocationTypeChangeTerrain, true
+        case "Transmute": return LocationTypeTransmute, true
+        case "Raise Volcano": return LocationTypeRaiseVolcano, true
+        case "Corruption": return LocationTypeLand, true
+        case "Warp Node": return LocationTypeEnemyMeldedNode, true
+        case "Disenchant Area", "Disenchant True": return LocationTypeDisenchant, true
+        case "Floating Island": return LocationTypeEmptyWater, true
+        case "Spell Blast", "Cruel Unminding", "Drain Power", "Subversion": return LocationTypeWizard, true
+        case "Spell Binding", "Disjunction", "Disjunction True": return LocationTypeEnemyGlobalEnchantment, true
+        case "Resurrection": return LocationTypeDeadHero, true
     }
     return LocationTypeAny, false
 }
@@ -144,13 +164,34 @@ func (model *GameModel) CastSpell(player *playerlib.Player, spell spellbook.Spel
         return nil
     }
 
-    // spells on a stack or a city at a tile
+    locationType, needsTarget := model.SpellTargetType(player, spell)
+    if needsTarget {
+        switch locationType {
+            case LocationTypeWizard:
+                return model.castOnWizard(player, spell, target.Wizard)
+            case LocationTypeEnemyGlobalEnchantment:
+                return model.castOnGlobalEnchantment(player, spell, target.Wizard, target.Choice)
+            case LocationTypeDeadHero:
+                return model.castResurrection(player, target.Choice)
+        }
+
+        if target.Location == nil {
+            return ErrSpellNeedsTarget
+        }
+        return model.castOnTile(player, spell, *target.Location, target.Choice)
+    }
+
     switch spell.Name {
-        case "Black Wind", "Stasis", "Ice Storm", "Fire Storm", "Nature's Cures", "Plane Shift", "Spell of Return", "Earthquake":
-            if target.Location == nil {
-                return ErrSpellNeedsTarget
+        case "Create Artifact", "Enchant Item":
+            if player.CreateArtifact == nil {
+                return ErrSpellNotSupported
             }
-            return model.castOnTile(player, spell, *target.Location)
+            select {
+                case model.Events <- &GameEventVault{CreatedArtifact: player.CreateArtifact, Player: player}:
+                default:
+            }
+            player.CreateArtifact = nil
+            return nil
     }
 
     return ErrSpellNotSupported
@@ -164,9 +205,37 @@ func (model *GameModel) offerHero(player *playerlib.Player, hero *herolib.Hero) 
     }
 }
 
-func (model *GameModel) castOnTile(player *playerlib.Player, spell spellbook.Spell, location Location) error {
+func (model *GameModel) castOnTile(player *playerlib.Player, spell spellbook.Spell, location Location, choice string) error {
     x, y, plane := location.X, location.Y, location.Plane
     city, cityOwner := model.FindCity(x, y, plane)
+
+    // the map spells act on the viewed plane (model.Plane, see CurrentMap); view the target's plane
+    // while casting
+    viewedPlane := model.Plane
+    model.Plane = plane
+    defer func() {
+        model.Plane = viewedPlane
+    }()
+
+    // map tile checks (terrain types, explored, ...) as for the UI's target picking
+    if locationType, _ := model.SpellTargetType(player, spell); locationType != LocationTypeFriendlyUnit && locationType != LocationTypeEnemyUnit && locationType != LocationTypeFriendlyCity && locationType != LocationTypeEnemyCity {
+        tileX, ok, message := model.CheckSpellTarget(player, spell, locationType, model.ComputeCityStackInfo(), x, y)
+        if !ok {
+            if message == "" {
+                message = fmt.Sprintf("%v can't be cast there", spell.Name)
+            }
+            return errors.New(message)
+        }
+        x = tileX
+    }
+
+    ownCity := func() (*citylib.City, error) {
+        own := player.FindCity(x, y, plane)
+        if own == nil {
+            return nil, errors.New("no city of yours there")
+        }
+        return own, nil
+    }
 
     // the city at the tile may resist spells on the stack in it
     cityResists := func(dispel bool) bool {
@@ -248,6 +317,79 @@ func (model *GameModel) castOnTile(player *playerlib.Player, spell spellbook.Spe
                 return errors.New("no enemy city there")
             }
             model.DoEarthquake(city, cityOwner)
+        case "Call the Void":
+            if city == nil || cityOwner == player {
+                return errors.New("no enemy city there")
+            }
+            if city.CheckDispel(spell) {
+                model.ShowFizzleSpell(spell, player)
+                return nil
+            }
+            model.DoCallTheVoid(city, cityOwner)
+        case "Spell Ward":
+            target, err := ownCity()
+            if err != nil {
+                return err
+            }
+            for _, ward := range model.AvailableSpellWards(target).Values() {
+                if ward.Name() == choice {
+                    model.AddCityEnchantment(target, player, ward)
+                    model.RefreshUI()
+                    return nil
+                }
+            }
+            return fmt.Errorf("%q is not a ward available for %v", choice, target.Name)
+        case "Wall of Stone", "Summoning Circle", "Move Fortress":
+            target, err := ownCity()
+            if err != nil {
+                return err
+            }
+            newBuilding, message := buildinglib.BuildingCityWalls, "This city already has a Wall of Stone"
+            switch spell.Name {
+                case "Summoning Circle": newBuilding, message = buildinglib.BuildingSummoningCircle, "Your summoning circle is already in this city"
+                case "Move Fortress": newBuilding, message = buildinglib.BuildingFortress, "Your fortress is already in this city"
+            }
+            if target.Buildings.Contains(newBuilding) {
+                return errors.New(message)
+            }
+            model.AddCityBuilding(target, newBuilding)
+            switch spell.Name {
+                case "Wall of Stone":
+                    if target.ProducingBuilding == buildinglib.BuildingCityWalls {
+                        target.ProducingBuilding = buildinglib.BuildingTradeGoods
+                    }
+                case "Summoning Circle": model.ApplySummoningCircleMoved(player, target)
+                case "Move Fortress": model.ApplyFortressMoved(player, target)
+            }
+        case "Earth Lore":
+            player.LiftFogSquare(x, y, 5, plane)
+            model.AnnounceVisibleWizards()
+        case "Enchant Road":
+            model.ApplyEnchantRoad(x, y)
+        case "Change Terrain":
+            model.ApplyChangeTerrain(x, y)
+        case "Transmute":
+            model.ApplyTransmute(x, y)
+        case "Raise Volcano":
+            if city != nil && city.CheckDispel(spell) {
+                model.ShowFizzleSpell(spell, player)
+                return nil
+            }
+            model.ApplyRaiseVolcanoTerrain(x, y, x, y)
+            model.ApplyRaiseVolcano(x, y, player)
+        case "Corruption":
+            if city != nil && city.CheckDispel(spell) {
+                model.ShowFizzleSpell(spell, player)
+                return nil
+            }
+            model.ApplyCorruption(x, y)
+        case "Warp Node":
+            model.ApplyWarpNode(x, y, player)
+        case "Disenchant Area", "Disenchant True":
+            model.ApplyDisenchantArea(player, spell, spell.Name == "Disenchant True", x, y)
+        case "Floating Island":
+            model.ApplyFloatingIsland(player, x, y)
+            model.AnnounceVisibleWizards()
     }
 
     model.RefreshUI()
@@ -275,4 +417,76 @@ func (model *GameModel) FinishCast(player *playerlib.Player, spell spellbook.Spe
             default:
         }
     }
+}
+
+// spells on another wizard: Spell Blast, Cruel Unminding, Drain Power, Subversion
+func (model *GameModel) castOnWizard(player *playerlib.Player, spell spellbook.Spell, wizard *playerlib.Player) error {
+    if wizard == nil {
+        return ErrSpellNeedsTarget
+    }
+    if wizard == player || wizard.IsNeutral() || wizard.Defeated || wizard.Banished || !player.IsAwareOf(wizard) {
+        return fmt.Errorf("%v can't be targeted", wizard.Wizard.Name)
+    }
+
+    ok := true
+    switch spell.Name {
+        case "Spell Blast": ok = model.ApplySpellBlast(player, wizard)
+        case "Cruel Unminding": _, ok = model.ApplyCruelUnminding(wizard)
+        case "Drain Power": _, ok = model.ApplyDrainPower(wizard)
+        case "Subversion": ok = model.ApplySubversion(player, wizard)
+    }
+    if !ok {
+        return fmt.Errorf("%v has no effect on %v", spell.Name, wizard.Wizard.Name)
+    }
+    model.RefreshUI()
+    return nil
+}
+
+// Spell Binding (steal) and Disjunction (remove) on another wizard's global enchantment.
+// A failed dispel roll is not an error: the spell was cast, it just didn't work.
+func (model *GameModel) castOnGlobalEnchantment(player *playerlib.Player, spell spellbook.Spell, owner *playerlib.Player, choice string) error {
+    if owner == nil || owner == player {
+        return ErrSpellNeedsTarget
+    }
+
+    enchantment := data.GetEnchantmentByName(choice)
+    if enchantment == data.EnchantmentNone || !owner.GlobalEnchantments.Contains(enchantment) {
+        return fmt.Errorf("%v has no %q", owner.Wizard.Name, choice)
+    }
+    targetSpell := model.AllSpells.FindByName(enchantment.String())
+
+    if spell.Name == "Spell Binding" {
+        if player.GlobalEnchantments.Contains(enchantment) {
+            return fmt.Errorf("you already have %v", choice)
+        }
+        if model.TrySpellBinding(player, owner, enchantment, targetSpell, 20000) {
+            model.ApplyGlobalEnchantment(enchantment, player)
+        }
+    } else {
+        dispelStrength := spell.Cost(true)
+        if spell.Name == "Disjunction True" {
+            dispelStrength *= 3
+        }
+        if player.Wizard.RetortEnabled(data.RetortRunemaster) {
+            dispelStrength *= 2
+        }
+        model.TryDisjunction(owner, enchantment, targetSpell, dispelStrength)
+    }
+
+    model.RefreshUI()
+    return nil
+}
+
+func (model *GameModel) castResurrection(player *playerlib.Player, heroName string) error {
+    if player.FreeHeroSlots() == 0 {
+        return errors.New("No free hero slots to resurrect hero")
+    }
+    for _, hero := range player.GetDeadHeroes() {
+        if hero.GetName() == heroName || hero.Name == heroName {
+            model.ResurrectHero(player, hero)
+            model.RefreshUI()
+            return nil
+        }
+    }
+    return fmt.Errorf("no dead hero named %q", heroName)
 }

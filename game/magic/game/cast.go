@@ -514,32 +514,6 @@ func (game *Game) doCastSpell(player *playerlib.Player, spell spellbook.Spell) {
                 return true
             }
             game.doCastNewCityBuilding(spell, player, gamecore.LocationTypeFriendlyCity, building.BuildingFortress, "Your fortress is already in this city", after)
-        case "Word of Recall":
-            before := func (unit units.StackUnit) bool {
-                summonCity := player.FindSummoningCity()
-                if summonCity == nil {
-                    return false
-                }
-
-                if unit.GetX() == summonCity.X && unit.GetY() == summonCity.Y {
-                    game.Events <- &gamecore.GameEventNotice{Message: "Your unit is already in this city"}
-                    return false
-                }
-
-                if unit.GetPlane() != summonCity.Plane && game.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
-                    game.Events <- &gamecore.GameEventNotice{Message: "Your unit cannot planar travel to this location"}
-                    return false
-                }
-
-               return true
-            }
-            after := func (unit units.StackUnit) bool {
-                game.Model.RelocateUnit(player, unit)
-
-                return true
-            }
-            game.doCastOnUnit(player, spell, 1, before, after)
-
         default:
             log.Printf("Warning: casting unhandled spell '%v'", spell.Name)
     }

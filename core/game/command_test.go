@@ -50,8 +50,9 @@ func TestCommandJSONRoundTrip(test *testing.T) {
         &BuildActionCommand{Stack: Location{X: 1, Y: 1}},
         &BuildRoadCommand{Stack: Location{X: 1, Y: 1}, To: Location{X: 4, Y: 1}},
         &EndTurnCommand{},
-        &CastSpellCommand{Spell: "Wall of Fire", Target: &CommandSpellTarget{Location: Location{X: 5, Y: 5}}},
-        &CastSpellTargetCommand{Target: CommandSpellTarget{Location: Location{X: 3, Y: 3}}},
+        &CastSpellCommand{Spell: "Wall of Fire", Target: &CommandSpellTarget{Location: &Location{X: 5, Y: 5}}},
+        &CastSpellCommand{Spell: "Spell Blast", Target: &CommandSpellTarget{Wizard: "green"}},
+        &CastSpellTargetCommand{Target: CommandSpellTarget{Location: &Location{X: 3, Y: 3}, Choice: "Spell Ward"}},
     }
 
     for _, command := range commands {
@@ -192,7 +193,7 @@ func TestCastSpellCommandNow(test *testing.T) {
     }
 
     unit := 0
-    if err := model.Execute(context, &CastSpellCommand{Spell: "Bless", Target: &CommandSpellTarget{Location: stackLocation, Unit: &unit}}); err != nil {
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Bless", Target: &CommandSpellTarget{Location: &stackLocation, Unit: &unit}}); err != nil {
         test.Fatalf("bless: %v", err)
     }
     if !player.FindStack(3, 3, data.PlaneArcanus).Units()[0].HasEnchantment(data.UnitEnchantmentBless) {
@@ -234,7 +235,7 @@ func TestCastSpellCommandOverTurns(test *testing.T) {
     }
 
     unit := 1
-    target := CommandSpellTarget{Location: Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, Unit: &unit}
+    target := CommandSpellTarget{Location: &Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, Unit: &unit}
     if err := model.Execute(context, &CastSpellTargetCommand{Target: target}); err != nil {
         test.Fatalf("target: %v", err)
     }
