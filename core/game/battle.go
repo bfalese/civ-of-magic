@@ -17,6 +17,9 @@ type BattleSession struct {
     Player *playerlib.Player
     actions *combat.ProxyActions
     spells *combat.ProxySpellSystem
+    // the outcome once known: CombatModel.FinalState has side effects when the battle ends (the
+    // flee rolls, FinishCombat), so it must only be asked until it reports an end
+    finalState combat.CombatState
 }
 
 func makeBattleSession(battle *Battle, player *playerlib.Player) *BattleSession {
@@ -25,7 +28,16 @@ func makeBattleSession(battle *Battle, player *playerlib.Player) *BattleSession 
         Player: player,
         actions: &combat.ProxyActions{Model: battle.Combat},
         spells: &combat.ProxySpellSystem{Model: battle.Combat},
+        finalState: combat.CombatStateRunning,
     }
+}
+
+// the battle's state; asks the combat model only while the battle is running
+func (session *BattleSession) State() combat.CombatState {
+    if session.finalState == combat.CombatStateRunning {
+        session.finalState = session.Battle.Combat.FinalState()
+    }
+    return session.finalState
 }
 
 func (session *BattleSession) army() *combat.Army {
@@ -46,7 +58,7 @@ func (session *BattleSession) drainEvents() {
 func (session *BattleSession) advance() {
     model := session.Battle.Combat
     for steps := 0; steps < 100000; steps++ {
-        if model.FinalState() != combat.CombatStateRunning {
+        if session.State() != combat.CombatStateRunning {
             return
         }
 
@@ -197,7 +209,7 @@ func (session *BattleSession) View() BattleView {
         YouAttack: model.AttackingArmy.Player == session.Player,
         Height: len(model.Tiles),
         Units: []BattleUnitView{},
-        State: battleStateName(model.FinalState()),
+        State: battleStateName(session.State()),
     }
     if len(model.Tiles) > 0 {
         view.Width = len(model.Tiles[0])

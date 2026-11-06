@@ -174,9 +174,21 @@ func TestSessionBattleActAndFlee(test *testing.T) {
     if session.WaitingFor() != WaitingNothing {
         test.Fatalf("fleeing should end the battle, waiting for %q", session.WaitingFor())
     }
-    stack := human.FindStack(3, 3, data.PlaneArcanus)
-    if stack == nil {
-        test.Errorf("a fleeing attacker should be back at 3,3")
+    // fleeing units may die (50% each), so all of them can be lost; the survivors step back
+    if human.FindStack(4, 3, data.PlaneArcanus) != nil {
+        test.Errorf("no stack should stay on the enemy's tile")
+    }
+    if len(human.Stacks) > 0 && human.FindStack(3, 3, data.PlaneArcanus) == nil {
+        test.Errorf("the survivors should be back at 3,3")
+    }
+    fled := false
+    for len(model.Events) > 0 {
+        if battle, ok := (<-model.Events).(*GameEventBattle); ok && battle.State == "attacker-fled" {
+            fled = true
+        }
+    }
+    if !fled {
+        test.Errorf("the battle should end with the attacker fleeing")
     }
     if len(enemy.Stacks) != 1 {
         test.Errorf("the spearman should still be there")

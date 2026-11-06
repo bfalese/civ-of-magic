@@ -202,7 +202,7 @@ func (session *CommandSession) DoCombat(attacker *playerlib.Player, attackerStac
 
         for {
             session.Battle.advance()
-            state := battle.Combat.FinalState()
+            state := session.Battle.State()
             if state != combat.CombatStateRunning {
                 result = battle.Result(state)
                 break
