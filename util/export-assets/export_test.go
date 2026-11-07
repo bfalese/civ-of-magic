@@ -93,6 +93,25 @@ func TestExport(test *testing.T) {
     for _, encounter := range []maplib.EncounterType{maplib.EncounterTypeLair, maplib.EncounterTypeCave, maplib.EncounterTypePlaneTower, maplib.EncounterTypeAncientTemple, maplib.EncounterTypeFallenTemple, maplib.EncounterTypeRuins, maplib.EncounterTypeAbandonedKeep, maplib.EncounterTypeDungeon} {
         check(assets.Encounter(encounter))
     }
+    for _, unit := range units.AllUnits {
+        for _, facing := range assets.Facings {
+            check(assets.BattleUnit(unit.Race, unit.Name, facing))
+        }
+    }
+    for _, file := range []string{"cmbgrass.lbx", "cmbgrasc.lbx", "cmbdesrt.lbx", "cmbdesrc.lbx", "cmbmount.lbx", "cmbmounc.lbx", "cmbtundr.lbx", "cmbtundc.lbx"} {
+        check(assets.BattleTile(file, 0))
+        check(assets.BattleTile(file, 31))
+        check(assets.BattleTop(file, 48))
+        check(assets.BattleTop(file, 57))
+    }
+    check(assets.BattleTile("cmbtcity.lbx", 109))
+    check(assets.BattleTile("chriver.lbx", 12))
+    check(assets.BattleTop("cmbtcity.lbx", 19))
+    check(assets.BattleMud)
+    check(assets.BattleRoad)
+    if len(manifest.BannerMarker) != 4 || len(manifest.BannerColors) != len(Banners) || len(manifest.BannerColors["red"]) != 4 {
+        test.Errorf("banner colours: %v %v", manifest.BannerMarker, manifest.BannerColors)
+    }
     check(assets.OpenTower)
     check(assets.Corruption)
     check(assets.TerrainTile(0))

@@ -99,12 +99,85 @@ def main():
         check(state("s.view.you.researching") is not None, f"research chosen: {state('s.view.you.researching')}")
         shot(page, "5-next-turn")
 
+        battle(page, state, check, shot)
         browser.close()
 
     if errors:
         print("page errors:\n  " + "\n  ".join(errors))
         sys.exit(1)
     print("smoke test passed")
+
+
+# the nearest guarded site (lair, ruins, ...) to the first stack, in the explored map
+FIND_ENCOUNTER = """(() => {
+    const s = window.civGame;
+    const stack = s.view.stacks.find((stack) => stack.units.length);
+    if (!stack) return null;
+    const map = s.core.map(stack.location.plane);
+    let best = null;
+    map.tiles.forEach((row, y) => row.forEach((tile, x) => {
+        if (!tile || !tile.encounter || tile.encounter.includes("Node")) return;
+        const dx = Math.min(Math.abs(x - stack.location.x), map.width - Math.abs(x - stack.location.x));
+        const distance = Math.max(dx, Math.abs(y - stack.location.y));
+        if (!best || distance < best.distance) best = { x, y, distance, kind: tile.encounter };
+    }));
+    return best && { to: { plane: stack.location.plane, x: best.x, y: best.y }, distance: best.distance, kind: best.kind };
+})()"""
+
+
+def battle(page, state, check, shot):
+    """March to a guarded site near a fresh capital, enter, fight one move by hand, then auto."""
+    url = page.url.split("?")[0]
+    for _ in range(10):
+        page.goto(url + "?opponents=1")
+        page.wait_for_function("window.civGame && window.civGame.view", timeout=60000)
+        target = page.evaluate(FIND_ENCOUNTER)
+        if target and target["distance"] <= 4:
+            break
+    else:
+        print("skip: no guarded site near the capital in 10 games")
+        return
+
+    for _ in range(12):
+        status = page.evaluate(f"""(() => {{
+            const s = window.civGame;
+            const stack = s.view.stacks.find((stack) => stack.units.length);
+            return s.execute("move-stack", {{ from: stack.location, to: {json.dumps(target["to"])} }});
+        }})()""")
+        if status.get("waiting") == "confirm-encounter":
+            break
+        page.evaluate("window.civGame.execute('end-turn')")
+        while page.locator("#modal.open").count():
+            page.click("#modalChoices button >> nth=0")
+    page.wait_for_selector("#modal.open")
+    page.click("#modalChoices button:has-text('Enter')")
+    page.wait_for_selector("#battle.open")
+    check(True, f"entered the {target['kind']}: the battle screen is open")
+    shot(page, "6-battle")
+
+    view = page.evaluate("window.civGame.core.battle()")
+    check(len(view["moves"]) > 0 and view.get("selected") is not None, f"one of your units is up with {len(view['moves'])} tiles to move to")
+
+    # click the first reachable tile on the canvas
+    x, y = view["moves"][0]
+    point = page.evaluate(f"""(() => {{
+        const battle = window.civGame.battle;
+        const [cx, cy] = battle.center({x}, {y});
+        const bounds = battle.canvas.getBoundingClientRect();
+        return [bounds.left + cx * bounds.width / battle.canvas.width, bounds.top + cy * bounds.height / battle.canvas.height];
+    }})()""")
+    selected = view["selected"]
+    page.mouse.click(point[0], point[1])
+    after = page.evaluate("window.civGame.core.battle()")
+    moved = next((unit for unit in after.get("units", []) if unit["id"] == selected), None)
+    check(moved is not None and (moved["x"], moved["y"]) == (x, y), f"clicked tile {x},{y}: the unit walked there")
+    shot(page, "7-battle-moved")
+
+    page.click("#battle button[data-command='battle-auto']")
+    page.wait_for_function("!window.civGame.battle.open", timeout=60000)
+    check(True, "auto finished the battle and the screen closed")
+    log = page.inner_text("#log")
+    check("the battle at" in log, f"the log reports it: {next((line for line in log.splitlines() if 'battle at' in line), '')}")
 
 
 if __name__ == "__main__":

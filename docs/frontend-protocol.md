@@ -94,7 +94,11 @@ Answers while a command is paused (see Sessions):
 
 During a battle, `session.Battle.View()` gives the battlefield: `turn`, `selected` (the id of your
 unit that is up), `you-attack`, `width`, `height`, `units` (id, name, owner, yours, x, y, health,
-max-health, moves-left, ranged-attacks) and `state`. Ask for it again after each battle command.
+max-health, moves-left, ranged-attacks, `asset`/`banner`/`facing` for its combat sprite, `figures`
+(pixel offsets of its living figures from the tile centre), `flying`), `tiles[y][x]` (`asset`, `top`
+and `top-align` for a tree/rock/building, `mud`), `road`/`clouds` for a town, `moves` (tiles the
+selected unit can walk to), `targets` (`{id, kind}`, enemies it can attack: `ranged` or `melee`)
+and `state`. Ask for it again after each battle command.
 
 A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
 fields the spell needs:
@@ -178,7 +182,11 @@ go run ./util/export-assets -data "/path/to/Master of Magic" -out ~/.local/share
 (animated terrain has 4). IDs: `terrain/<tile index>`, `unit/<race>/<unit>/<banner>`,
 `unit-background/<banner>`, `city/<hamlet|village|town|city|capital>/<open|walled>/<banner>`,
 `road/<center|n|ne|...>`, `road-enchanted/...`, `bonus/<name>`, `encounter/<name>`,
-`encounter/open-tower`, `corruption`, `node-zone/<banner>`. Replacing art = replacing the
+`encounter/open-tower`, `corruption`, `node-zone/<banner>`; battles: `battle-tile/<lbx>/<index>`,
+`battle-top/<lbx>/<index>` (cropped), `battle-mud`, `battle-road`, `battle-clouds`,
+`battle-unit/<race>/<unit>/<facing>` (facing `up`, `up-right`, ..., all frames). Battle units are
+banner-neutral: pixels in the manifest's `bannerMarker` colours (4) are replaced with
+`bannerColors[banner]` by the frontend. Replacing art = replacing the
 rectangle behind an ID.
 
 ## Trying it

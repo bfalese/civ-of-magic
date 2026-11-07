@@ -6,9 +6,12 @@ import (
     "fmt"
     "slices"
 
+    "github.com/bfalese/civ-of-magic/core/assets"
     "github.com/bfalese/civ-of-magic/core/combat"
+    "github.com/bfalese/civ-of-magic/core/data"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/spellbook"
+    "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/lib/fraction"
 )
 
@@ -362,6 +365,30 @@ type BattleUnitView struct {
     MaxHealth int `json:"max-health"`
     MovesLeft float64 `json:"moves-left"`
     RangedAttacks int `json:"ranged-attacks,omitempty"`
+    // the combat sprite for the way it faces (core/assets BattleUnit), in the owner's banner colour
+    Asset string `json:"asset"`
+    Banner string `json:"banner"`
+    Facing string `json:"facing"`
+    // where its living figures stand, in pixels from the tile's centre (units.CombatPoints)
+    Figures [][2]int `json:"figures"`
+    // flying units flap in place (the sprite's frames loop)
+    Flying bool `json:"flying,omitempty"`
+}
+
+// a battlefield tile: its ground, and a tree/rock/building on it
+type BattleTileView struct {
+    Asset string `json:"asset"`
+    Top string `json:"top,omitempty"`
+    // how the top sits on the tile: "middle" (centred) or "bottom" (standing on the tile's centre)
+    TopAlign string `json:"top-align,omitempty"`
+    Mud bool `json:"mud,omitempty"`
+}
+
+// an enemy the selected unit can attack now
+type BattleTargetView struct {
+    Id uint64 `json:"id"`
+    // "ranged" or "melee", the attack a battle-act on its tile makes
+    Kind string `json:"kind"`
 }
 
 type BattleView struct {
@@ -373,6 +400,14 @@ type BattleView struct {
     Height int `json:"height"`
     Units []BattleUnitView `json:"units"`
     State string `json:"state"`
+    // tiles[y][x]
+    Tiles [][]BattleTileView `json:"tiles"`
+    // a battle in a town: the road through it, and clouds under a flying fortress
+    Road bool `json:"road,omitempty"`
+    Clouds bool `json:"clouds,omitempty"`
+    // for the selected unit: the tiles battle-act moves it to, and the enemies it can attack
+    Moves [][2]int `json:"moves"`
+    Targets []BattleTargetView `json:"targets"`
 }
 
 func (session *BattleSession) View() BattleView {
@@ -390,6 +425,32 @@ func (session *BattleSession) View() BattleView {
     if model.SelectedUnit != nil && model.InControl(session.Player) {
         id := model.SelectedUnit.Id
         view.Selected = &id
+    }
+
+    view.Tiles = make([][]BattleTileView, len(model.Tiles))
+    for y, row := range model.Tiles {
+        view.Tiles[y] = make([]BattleTileView, len(row))
+        for x, tile := range row {
+            tileView := BattleTileView{Asset: assets.BattleTile(tile.Lbx, tile.Index), Mud: tile.Mud}
+            if tile.ExtraObject.Special == combat.TileTopSpecialNone && tile.ExtraObject.Index != -1 {
+                tileView.Top = assets.BattleTop(tile.ExtraObject.Lbx, tile.ExtraObject.Index)
+                tileView.TopAlign = "middle"
+                if tile.ExtraObject.Alignment == combat.TileAlignBottom {
+                    tileView.TopAlign = "bottom"
+                }
+            }
+            view.Tiles[y][x] = tileView
+        }
+    }
+    if model.Zone.City != nil {
+        view.Road = true
+        view.Clouds = model.Zone.City.HasEnchantment(data.CityEnchantmentFlyingFortress)
+    }
+
+    view.Moves = [][2]int{}
+    view.Targets = []BattleTargetView{}
+    if view.Selected != nil {
+        view.Moves, view.Targets = session.reach(model.SelectedUnit)
     }
 
     for _, army := range []*combat.Army{model.AttackingArmy, model.DefendingArmy} {
@@ -412,12 +473,55 @@ func (session *BattleSession) View() BattleView {
                 MaxHealth: unit.GetMaxHealth(),
                 MovesLeft: unit.MovesLeft.ToFloat(),
                 RangedAttacks: unit.GetRangedAttacks(),
+                Asset: assets.BattleUnit(unit.Unit.GetRawUnit().Race, unit.Unit.GetRawUnit().Name, unit.Facing),
+                Banner: unit.Unit.GetBanner().String(),
+                Facing: assets.FacingName(unit.Facing),
+                Figures: figurePoints(unit.VisibleFigures()),
+                Flying: unit.Unit.IsFlying(),
             })
         }
     }
     return view
 }
 
+func figurePoints(count int) [][2]int {
+    out := [][2]int{}
+    for _, point := range units.CombatPoints(count) {
+        out = append(out, [2]int{point.X, point.Y})
+    }
+    return out
+}
+
+// what a battle-act can do for the unit: the empty tiles it can walk (or teleport) to, and the
+// enemies it can shoot or strike; the same checks CombatModel.Update makes for a click
+func (session *BattleSession) reach(unit *combat.ArmyUnit) ([][2]int, []BattleTargetView) {
+    model := session.Battle.Combat
+    moves := [][2]int{}
+    targets := []BattleTargetView{}
+    if unit.MovesLeft.LessThanEqual(fraction.Zero()) {
+        return moves, targets
+    }
+
+    for y, row := range model.Tiles {
+        for x := range row {
+            if model.TileIsEmpty(x, y) && model.CanMoveTo(unit, x, y, false) {
+                moves = append(moves, [2]int{x, y})
+            }
+        }
+    }
+
+    for _, enemy := range model.GetOppositeArmyForPlayer(session.Player).GetUnits() {
+        if enemy.GetHealth() <= 0 {
+            continue
+        }
+        if model.WithinArrowRange(unit, enemy) && model.CanRangeAttack(unit, enemy) {
+            targets = append(targets, BattleTargetView{Id: enemy.Id, Kind: "ranged"})
+        } else if model.WithinMeleeRange(unit, enemy) && model.CanMeleeAttack(unit, enemy, true) {
+            targets = append(targets, BattleTargetView{Id: enemy.Id, Kind: "melee"})
+        }
+    }
+    return moves, targets
+}
 
 func (session *BattleSession) EncodeView() ([]byte, error) {
     return json.Marshal(session.View())
