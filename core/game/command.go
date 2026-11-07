@@ -349,8 +349,8 @@ func (command *EndTurnCommand) Execute(context *CommandContext) error {
 }
 
 
-// what a spell is cast on: a tile (city, stack or map tile), and for unit spells the unit's index
-// in the player's stack there (in the order the player view lists them); or a wizard (by banner)
+// what a spell is cast on: a tile (city, stack or map tile), and for unit spells the unit (its id,
+// see GameModel.UnitId; it must stand on that tile); or a wizard (by banner)
 // for spells on wizards; plus a choice by name where the spell needs one (Spell Ward's ward, the
 // enchantment for Spell Binding / Disjunction, the hero for Resurrection)
 type CommandSpellTarget struct {
@@ -370,17 +370,19 @@ func (context *CommandContext) spellTarget(target *CommandSpellTarget) (SpellTar
     if target.Location != nil {
         location := *target.Location
         out.Location = &location
-        if target.Unit != nil {
-            stack, err := context.ownStack(location)
-            if err != nil {
-                return SpellTarget{}, err
-            }
-            stackUnits := stack.Units()
-            if *target.Unit < 0 || *target.Unit >= len(stackUnits) {
-                return SpellTarget{}, fmt.Errorf("no unit %v in the stack", *target.Unit)
-            }
-            out.Unit = stackUnits[*target.Unit]
+    }
+
+    if target.Unit != nil {
+        unit, stack, err := context.Model.FindUnitById(context.Player, *target.Unit)
+        if err != nil {
+            return SpellTarget{}, err
         }
+        here := Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()}
+        if out.Location != nil && *out.Location != here {
+            return SpellTarget{}, fmt.Errorf("unit %v isn't at %v,%v", *target.Unit, out.Location.X, out.Location.Y)
+        }
+        out.Location = &here
+        out.Unit = unit
     }
 
     if target.Wizard != "" {
@@ -545,24 +547,19 @@ func (command *PatrolCommand) Execute(context *CommandContext) error {
     return nil
 }
 
-// dismiss a unit: the unit at index Unit in the stack at Stack
+// dismiss one of the player's units (by id, see GameModel.UnitId)
 type DisbandUnitCommand struct {
-    Stack Location `json:"stack"`
     Unit int `json:"unit"`
 }
 
 func (command *DisbandUnitCommand) CommandType() string { return "disband-unit" }
 
 func (command *DisbandUnitCommand) Execute(context *CommandContext) error {
-    stack, err := context.ownStack(command.Stack)
+    unit, _, err := context.Model.FindUnitById(context.Player, command.Unit)
     if err != nil {
         return err
     }
-    stackUnits := stack.Units()
-    if command.Unit < 0 || command.Unit >= len(stackUnits) {
-        return fmt.Errorf("no unit %v in the stack", command.Unit)
-    }
-    context.Player.RemoveUnit(stackUnits[command.Unit])
+    context.Player.RemoveUnit(unit)
     context.Model.RefreshUI()
     return nil
 }
@@ -624,7 +621,7 @@ func (command *AlchemyCommand) Execute(context *CommandContext) error {
 // choose whether a unit in a stack moves with the stack (move-stack only moves active units;
 // the others stay behind as their own stack)
 type SetUnitActiveCommand struct {
-    Stack Location `json:"stack"`
+    // the unit's id (see GameModel.UnitId)
     Unit int `json:"unit"`
     Active bool `json:"active"`
 }
@@ -632,15 +629,10 @@ type SetUnitActiveCommand struct {
 func (command *SetUnitActiveCommand) CommandType() string { return "set-unit-active" }
 
 func (command *SetUnitActiveCommand) Execute(context *CommandContext) error {
-    stack, err := context.ownStack(command.Stack)
+    unit, stack, err := context.Model.FindUnitById(context.Player, command.Unit)
     if err != nil {
         return err
     }
-    stackUnits := stack.Units()
-    if command.Unit < 0 || command.Unit >= len(stackUnits) {
-        return fmt.Errorf("no unit %v in the stack", command.Unit)
-    }
-    unit := stackUnits[command.Unit]
     // units in stasis can't be toggled
     if unit.GetBusy() == units.BusyStatusStasis {
         return errors.New("the unit is in stasis")
@@ -752,9 +744,9 @@ func (command *OfferTributeCommand) Execute(context *CommandContext) error {
     return context.Player.TributeSpell(other, context.Player.KnownSpells.FindByName(command.Spell))
 }
 
-// offer a spell in trade: if the wizard is willing, they give a spell of their choice back
-// (announced as a learned-spell event). Unlike the diplomacy screen there's no step to see their
-// offer and decline it.
+// offer a spell in trade: if the wizard is willing, they say which spell they'd give back (a
+// trade-offer event); answer-trade then makes the exchange or declines it, as on the diplomacy
+// screen
 type TradeSpellsCommand struct {
     Wizard string `json:"wizard"`
     Spell string `json:"spell"`
@@ -779,11 +771,44 @@ func (command *TradeSpellsCommand) Execute(context *CommandContext) error {
     if !ok {
         return fmt.Errorf("%v has no spell you don't know", other.Wizard.Name)
     }
-    if err := player.TradeSpells(other, give, received); err != nil {
+
+    offer := &GameEventTradeOffer{Player: player, Wizard: other, Give: give, Receive: received}
+    model := context.Model
+    if model.PendingTrades == nil {
+        model.PendingTrades = make(map[*playerlib.Player]*GameEventTradeOffer)
+    }
+    model.PendingTrades[player] = offer
+    select {
+        case model.Events <- offer:
+        default:
+    }
+    return nil
+}
+
+// accept or decline the spell trade a wizard offered (trade-offer)
+type AnswerTradeCommand struct {
+    Accept bool `json:"accept"`
+}
+
+func (command *AnswerTradeCommand) CommandType() string { return "answer-trade" }
+
+func (command *AnswerTradeCommand) Execute(context *CommandContext) error {
+    model := context.Model
+    player := context.Player
+    offer, ok := model.PendingTrades[player]
+    if !ok {
+        return errors.New("no spell trade is waiting for an answer")
+    }
+    delete(model.PendingTrades, player)
+
+    if !command.Accept {
+        return nil
+    }
+    if err := player.TradeSpells(offer.Wizard, offer.Give, offer.Receive); err != nil {
         return err
     }
     select {
-        case context.Model.Events <- &GameEventLearnedSpell{Player: player, Spell: received}:
+        case model.Events <- &GameEventLearnedSpell{Player: player, Spell: offer.Receive}:
         default:
     }
     return nil
@@ -816,6 +841,7 @@ var commandTypes = map[string]func() Command{
     "propose-treaty": func() Command { return &ProposeTreatyCommand{} },
     "offer-tribute": func() Command { return &OfferTributeCommand{} },
     "trade-spells": func() Command { return &TradeSpellsCommand{} },
+    "answer-trade": func() Command { return &AnswerTradeCommand{} },
     "battle-act": func() Command { return &BattleActCommand{} },
     "battle-done": func() Command { return &BattleDoneCommand{} },
     "battle-wait": func() Command { return &BattleWaitCommand{} },

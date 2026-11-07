@@ -21,6 +21,8 @@ func (model *GameModel) StartPlayerTurn(player *playerlib.Player, castSpell func
     if player.IsHuman() {
         model.ScrollEvents = nil
     }
+    // a spell trade offered last turn isn't on the table any more
+    delete(model.PendingTrades, player)
 
     if player.Skip {
         return false
@@ -277,6 +279,8 @@ func (model *GameModel) StartPlayerTurn(player *playerlib.Player, castSpell func
 // start (a player preference); logSummary: log a per-wizard summary (watch mode).
 func (model *GameModel) EndOfTurn(randomEvents bool, logSummary bool) {
     // put stuff here that should happen when all players have taken their turn
+
+    model.pruneUnitIds()
 
     for _, player := range model.Players {
         if !player.Defeated {

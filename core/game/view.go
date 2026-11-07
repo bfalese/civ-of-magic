@@ -66,6 +66,8 @@ type CityView struct {
 }
 
 type UnitView struct {
+    // the unit's id, for commands (see GameModel.UnitId)
+    Id int `json:"id"`
     Name string `json:"name"`
     Health int `json:"health"`
     MaxHealth int `json:"max-health"`
@@ -168,7 +170,7 @@ func unitAsset(unit units.StackUnit) string {
     return assets.Unit(raw.Race, raw.Name, unit.GetBanner())
 }
 
-func makeStackView(stack *playerlib.UnitStack) StackView {
+func (model *GameModel) makeStackView(stack *playerlib.UnitStack) StackView {
     view := StackView{
         Location: Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()},
         Units: []UnitView{},
@@ -178,6 +180,7 @@ func makeStackView(stack *playerlib.UnitStack) StackView {
     }
     for _, unit := range stack.Units() {
         view.Units = append(view.Units, UnitView{
+            Id: model.UnitId(unit),
             Name: unit.GetName(),
             Health: unit.GetHealth(),
             MaxHealth: unit.GetMaxHealth(),
@@ -245,7 +248,7 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
         view.Cities = append(view.Cities, model.makeCityView(city))
     }
     for _, stack := range player.Stacks {
-        view.Stacks = append(view.Stacks, makeStackView(stack))
+        view.Stacks = append(view.Stacks, model.makeStackView(stack))
     }
 
     for _, other := range model.Players {

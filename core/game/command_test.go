@@ -2,6 +2,7 @@ package game
 
 import (
     "errors"
+    "strings"
     "testing"
 
     "github.com/bfalese/civ-of-magic/core/artifact"
@@ -60,10 +61,10 @@ func TestCommandJSONRoundTrip(test *testing.T) {
         &AnswerOfferCommand{Accept: true},
         &PlanarTravelCommand{Stack: Location{X: 3, Y: 3}},
         &PatrolCommand{Stack: Location{X: 3, Y: 3}},
-        &DisbandUnitCommand{Stack: Location{X: 3, Y: 3}, Unit: 1},
+        &DisbandUnitCommand{Unit: 1},
         &SetPowerDistributionCommand{Mana: 0.5, Research: 0.25, Skill: 0.25},
         &AlchemyCommand{Direction: "gold-to-mana", Amount: 10},
-        &SetUnitActiveCommand{Stack: Location{X: 3, Y: 3}, Unit: 0, Active: true},
+        &SetUnitActiveCommand{Unit: 2, Active: true},
         &RenameCityCommand{City: Location{X: 5, Y: 5}, Name: "Newtown"},
         &RenameHeroCommand{Hero: 1, Name: "Bob"},
         &MoveItemCommand{From: ItemSlot{Vault: new(int)}, To: ItemSlot{Hero: new(int), Slot: 2}},
@@ -71,6 +72,7 @@ func TestCommandJSONRoundTrip(test *testing.T) {
         &ProposeTreatyCommand{Wizard: "green", Treaty: "alliance"},
         &OfferTributeCommand{Wizard: "green", Gold: true},
         &TradeSpellsCommand{Wizard: "green", Spell: "Fireball"},
+        &AnswerTradeCommand{Accept: true},
         &CastSpellCommand{Spell: "Create Artifact", Artifact: &artifact.Design{Type: "Staff", Powers: []string{"+1 Attack"}, Spell: "Fire Bolt", Charges: 2}},
         &BattleActCommand{X: 12, Y: 9},
         &BattleDoneCommand{},
@@ -218,7 +220,7 @@ func TestCastSpellCommandNow(test *testing.T) {
         test.Errorf("bless without a target: %v", err)
     }
 
-    unit := 0
+    unit := model.UnitId(player.FindStack(3, 3, data.PlaneArcanus).Units()[0])
     if err := model.Execute(context, &CastSpellCommand{Spell: "Bless", Target: &CommandSpellTarget{Location: &stackLocation, Unit: &unit}}); err != nil {
         test.Fatalf("bless: %v", err)
     }
@@ -260,8 +262,8 @@ func TestCastSpellCommandOverTurns(test *testing.T) {
         test.Fatalf("expected a choose-spell-target event, got %+v", chosen)
     }
 
-    unit := 1
-    target := CommandSpellTarget{Location: &Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, Unit: &unit}
+    unit := model.UnitId(player.FindStack(3, 3, data.PlaneArcanus).Units()[1])
+    target := CommandSpellTarget{Unit: &unit}
     if err := model.Execute(context, &CastSpellTargetCommand{Target: target}); err != nil {
         test.Fatalf("target: %v", err)
     }
@@ -321,14 +323,14 @@ func TestUnitOrderCommands(test *testing.T) {
     }
 
     before := len(stack.Units())
-    if err := model.Execute(context, &DisbandUnitCommand{Stack: here, Unit: 0}); err != nil {
+    if err := model.Execute(context, &DisbandUnitCommand{Unit: model.UnitId(stack.Units()[0])}); err != nil {
         test.Fatalf("disband: %v", err)
     }
     if len(stack.Units()) != before - 1 {
         test.Errorf("one unit should be gone: %v -> %v", before, len(stack.Units()))
     }
-    if err := model.Execute(context, &DisbandUnitCommand{Stack: here, Unit: 99}); err == nil {
-        test.Errorf("a unit index out of range should be refused")
+    if err := model.Execute(context, &DisbandUnitCommand{Unit: 9999}); err == nil {
+        test.Errorf("an unknown unit id should be refused")
     }
 
     // no tower, gate or plane shift here
@@ -378,8 +380,8 @@ func TestSetUnitActiveAndSplitMove(test *testing.T) {
     }
 
     // the first two drakes stay home
-    for index := range 2 {
-        if err := model.Execute(context, &SetUnitActiveCommand{Stack: here, Unit: index, Active: false}); err != nil {
+    for _, unit := range stack.Units()[:2] {
+        if err := model.Execute(context, &SetUnitActiveCommand{Unit: model.UnitId(unit), Active: false}); err != nil {
             test.Fatalf("set inactive: %v", err)
         }
     }
@@ -477,6 +479,71 @@ func TestDiplomacyCommands(test *testing.T) {
     }
 }
 
+// trade-spells shows the wizard's offer first; answer-trade makes or declines the exchange
+func TestTradeSpellsTwoSteps(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    enemy := model.Players[1]
+    context := &CommandContext{Player: player}
+    banner := enemy.GetBanner().String()
+    player.AwarePlayer(enemy)
+    enemy.AwarePlayer(player)
+    relation, _ := enemy.GetDiplomaticRelation(player)
+
+    give := spellbook.Spell{Name: "Fireball"}
+    receive := spellbook.Spell{Name: "Healing"}
+    player.KnownSpells.AddSpell(give)
+    enemy.KnownSpells.AddSpell(receive)
+
+    if err := model.Execute(context, &AnswerTradeCommand{Accept: true}); err == nil {
+        test.Errorf("nothing to answer yet")
+    }
+
+    offer := func() *GameEventTradeOffer {
+        relation.TradeInterest = 1000
+        for len(model.Events) > 0 {
+            <-model.Events
+        }
+        if err := model.Execute(context, &TradeSpellsCommand{Wizard: banner, Spell: "Fireball"}); err != nil {
+            test.Fatalf("trade: %v", err)
+        }
+        event, ok := (<-model.Events).(*GameEventTradeOffer)
+        if !ok || event.Receive.Name != "Healing" || event.Give.Name != "Fireball" || event.Wizard != enemy {
+            test.Fatalf("expected a trade-offer event, got %+v", event)
+        }
+        if player.KnownSpells.Contains(receive) {
+            test.Fatalf("nothing is exchanged before the answer")
+        }
+        return event
+    }
+
+    offer()
+    if err := model.Execute(context, &AnswerTradeCommand{Accept: false}); err != nil {
+        test.Fatalf("decline: %v", err)
+    }
+    if player.KnownSpells.Contains(receive) || enemy.KnownSpells.Contains(give) {
+        test.Errorf("declining shouldn't exchange spells")
+    }
+
+    offer()
+    if err := model.Execute(context, &AnswerTradeCommand{Accept: true}); err != nil {
+        test.Fatalf("accept: %v", err)
+    }
+    if !player.KnownSpells.Contains(receive) || !enemy.KnownSpells.Contains(give) {
+        test.Errorf("accepting should exchange the spells")
+    }
+    if learned, ok := (<-model.Events).(*GameEventLearnedSpell); !ok || learned.Spell.Name != "Healing" {
+        test.Errorf("expected a learned-spell event, got %+v", learned)
+    }
+    if err := model.Execute(context, &AnswerTradeCommand{Accept: true}); err == nil {
+        test.Errorf("the trade was already answered")
+    }
+
+    encoded, ok, err := model.EncodeEvent(&GameEventTradeOffer{Player: player, Wizard: enemy, Give: give, Receive: receive})
+    if !ok || err != nil || !strings.Contains(string(encoded), `"type":"trade-offer"`) || !strings.Contains(string(encoded), `"receive":"Healing"`) {
+        test.Errorf("trade-offer JSON: %s %v %v", encoded, ok, err)
+    }
+}
+
 func TestCreateArtifactCommand(test *testing.T) {
     model, player, _ := makeCommandTestModel()
     attack := artifact.Power{Type: artifact.PowerTypeAttack, Amount: 1, Name: "+1 Attack"}
@@ -502,5 +569,63 @@ func TestCreateArtifactCommand(test *testing.T) {
 
     if err := model.Execute(context, &CastSpellCommand{Spell: "Enchant Item"}); err == nil {
         test.Errorf("enchant item without a design should fail")
+    }
+}
+
+// a unit keeps its id when its stack splits; the view lists the ids commands take
+func TestUnitIds(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    player.LiftFogSquare(3, 3, 4, data.PlaneArcanus)
+    here := Location{Plane: data.PlaneArcanus, X: 3, Y: 3}
+    context := &CommandContext{Player: player, Handlers: &fakeMoveHandlers{}}
+    stack := player.FindStack(3, 3, data.PlaneArcanus)
+    for _, unit := range stack.Units() {
+        stack.SetActive(unit, true)
+    }
+
+    view := model.MakePlayerView(player)
+    ids := make(map[int]units.StackUnit)
+    for _, unitView := range view.Stacks[0].Units {
+        unit, _, err := model.FindUnitById(player, unitView.Id)
+        if err != nil || unit.GetName() != unitView.Name {
+            test.Fatalf("view id %v: %v %v", unitView.Id, unit, err)
+        }
+        ids[unitView.Id] = unit
+    }
+    if len(ids) != len(stack.Units()) {
+        test.Fatalf("ids should be distinct: %v", ids)
+    }
+
+    // the last unit stays behind, the rest walk off
+    last := view.Stacks[0].Units[len(view.Stacks[0].Units) - 1].Id
+    if err := model.Execute(context, &SetUnitActiveCommand{Unit: last, Active: false}); err != nil {
+        test.Fatalf("set inactive: %v", err)
+    }
+    if err := model.Execute(context, &MoveStackCommand{From: here, To: Location{Plane: data.PlaneArcanus, X: 3, Y: 5}}); err != nil {
+        test.Fatalf("move: %v", err)
+    }
+
+    for id, unit := range ids {
+        found, _, err := model.FindUnitById(player, id)
+        if err != nil || found != unit {
+            test.Errorf("unit %v should keep its id after the split: %v", id, err)
+        }
+    }
+    unit, stackNow, _ := model.FindUnitById(player, last)
+    if unit != ids[last] || stackNow.X() != 3 || stackNow.Y() != 3 {
+        test.Errorf("the inactive unit should still be at 3,3")
+    }
+
+    // disbanded units are forgotten at the end of the turn; ids aren't reused
+    if err := model.Execute(context, &DisbandUnitCommand{Unit: last}); err != nil {
+        test.Fatalf("disband: %v", err)
+    }
+    model.pruneUnitIds()
+    if _, _, err := model.FindUnitById(player, last); err == nil {
+        test.Errorf("a disbanded unit's id should be gone")
+    }
+    newUnit := player.AddUnit(units.MakeOverworldUnitFromUnit(units.GreatDrake, 3, 3, data.PlaneArcanus, player.Wizard.Banner, player.MakeExperienceInfo(), player.MakeUnitEnchantmentProvider()))
+    if id := model.UnitId(newUnit); ids[id] != nil {
+        test.Errorf("id %v was reused", id)
     }
 }
