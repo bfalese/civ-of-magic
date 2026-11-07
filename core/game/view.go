@@ -2,12 +2,16 @@ package game
 
 import (
     "encoding/json"
+    "image"
     "slices"
 
+    "github.com/bfalese/civ-of-magic/core/assets"
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/data"
+    "github.com/bfalese/civ-of-magic/core/maplib"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/units"
 )
 
 // Snapshots of the game as one player sees it, as plain data for JSON. A frontend that doesn't
@@ -38,6 +42,8 @@ type WizardView struct {
 
 type CityView struct {
     CityRef
+    // the city's sprite on the map
+    Asset string `json:"asset"`
     Population int `json:"population"`
     Citizens int `json:"citizens"`
     Farmers int `json:"farmers"`
@@ -65,10 +71,14 @@ type UnitView struct {
     MaxHealth int `json:"max-health"`
     MovesLeft float64 `json:"moves-left"`
     Hero bool `json:"hero,omitempty"`
+    // the overland sprite (core/assets)
+    Asset string `json:"asset"`
 }
 
 type StackView struct {
     Location Location `json:"location"`
+    // the square drawn behind the stack's leader (the first unit)
+    Background string `json:"background"`
     Units []UnitView `json:"units"`
     // remaining path, if the stack is walking somewhere
     Path []Location `json:"path,omitempty"`
@@ -82,6 +92,10 @@ type ForeignView struct {
     Name string `json:"name"`
     // citizens for a city, units for a stack
     Size int `json:"size"`
+    // the city's sprite, or the leading unit's
+    Asset string `json:"asset"`
+    // the square behind a stack's leader
+    Background string `json:"background,omitempty"`
 }
 
 type PlayerView struct {
@@ -100,6 +114,7 @@ type PlayerView struct {
 func (model *GameModel) makeCityView(city *citylib.City) CityView {
     view := CityView{
         CityRef: *MakeCityRef(city),
+        Asset: cityAsset(city),
         Population: city.Population,
         Citizens: city.Citizens(),
         Farmers: city.Farmers,
@@ -144,10 +159,22 @@ func sortedBuildings(city *citylib.City) []buildinglib.Building {
     return buildings
 }
 
+func cityAsset(city *citylib.City) string {
+    return assets.City(city.GetSize(), city.HasWall(), city.GetBanner())
+}
+
+func unitAsset(unit units.StackUnit) string {
+    raw := unit.GetRawUnit()
+    return assets.Unit(raw.Race, raw.Name, unit.GetBanner())
+}
+
 func makeStackView(stack *playerlib.UnitStack) StackView {
     view := StackView{
         Location: Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()},
         Units: []UnitView{},
+    }
+    if leader := stack.Leader(); leader != nil {
+        view.Background = assets.UnitBackground(leader.GetBanner())
     }
     for _, unit := range stack.Units() {
         view.Units = append(view.Units, UnitView{
@@ -156,6 +183,7 @@ func makeStackView(stack *playerlib.UnitStack) StackView {
             MaxHealth: unit.GetMaxHealth(),
             MovesLeft: unit.GetMovesLeft(true).ToFloat(),
             Hero: unit.IsHero(),
+            Asset: unitAsset(unit),
         })
     }
     for _, point := range stack.CurrentPath {
@@ -234,6 +262,7 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
                     Location: Location{Plane: city.Plane, X: city.X, Y: city.Y},
                     Name: city.Name,
                     Size: city.Citizens(),
+                    Asset: cityAsset(city),
                 })
             }
         }
@@ -244,6 +273,8 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
                     Location: Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()},
                     Name: stack.Units()[0].GetName(),
                     Size: len(stack.Units()),
+                    Asset: unitAsset(stack.Leader()),
+                    Background: assets.UnitBackground(stack.Leader().GetBanner()),
                 })
             }
         }
@@ -255,6 +286,11 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
 // one map tile as the player knows it
 type TileView struct {
     Terrain string `json:"terrain"`
+    // the terrain sprite (animated tiles have several frames in the asset manifest)
+    Asset string `json:"asset"`
+    // sprites drawn over the terrain, in order: road pieces, bonus, lair/node/tower, corruption,
+    // a melded node's zone
+    Overlays []string `json:"overlays,omitempty"`
     Road bool `json:"road,omitempty"`
     Bonus string `json:"bonus,omitempty"`
     Encounter string `json:"encounter,omitempty"`
@@ -280,6 +316,16 @@ func (model *GameModel) MakeMapView(player *playerlib.Player, plane data.Plane) 
         Height: mapUse.Height(),
     }
 
+    // melded nodes colour their zone with the melder's sparkles
+    zones := make(map[image.Point]data.BannerType)
+    for point, extras := range mapUse.ExtraMap {
+        if node, ok := extras[maplib.ExtraKindMagicNode].(*maplib.ExtraMagicNode); ok && node.MeldingWizard != nil {
+            for _, offset := range node.Zone {
+                zones[image.Pt(mapUse.WrapX(point.X + offset.X), point.Y + offset.Y)] = node.MeldingWizard.GetBanner()
+            }
+        }
+    }
+
     for y := range mapUse.Height() {
         row := make([]*TileView, mapUse.Width())
         for x := range mapUse.Width() {
@@ -289,6 +335,7 @@ func (model *GameModel) MakeMapView(player *playerlib.Player, plane data.Plane) 
             tile := mapUse.GetTile(x, y)
             tileView := &TileView{
                 Terrain: tile.Tile.Name(),
+                Asset: assets.TerrainTile(mapUse.Map.Terrain[x][y]),
                 Road: tile.HasRoad(),
                 Corrupted: tile.Corrupted(),
                 Visible: player.IsVisible(x, y, plane),
@@ -299,6 +346,7 @@ func (model *GameModel) MakeMapView(player *playerlib.Player, plane data.Plane) 
             if encounter := mapUse.GetEncounter(x, y); encounter != nil {
                 tileView.Encounter = encounter.Type.Name()
             }
+            tileView.Overlays = tileOverlays(mapUse, x, y, zones)
             row[x] = tileView
         }
         view.Tiles = append(view.Tiles, row)
@@ -313,4 +361,47 @@ func (model *GameModel) EncodePlayerView(player *playerlib.Player) ([]byte, erro
 
 func (model *GameModel) EncodeMapView(player *playerlib.Player, plane data.Plane) ([]byte, error) {
     return json.Marshal(model.MakeMapView(player, plane))
+}
+
+// the sprites over a tile's terrain, in drawing order (see TileView.Overlays)
+func tileOverlays(mapUse *maplib.Map, x int, y int, zones map[image.Point]data.BannerType) []string {
+    var out []string
+    extras := mapUse.ExtraMap[image.Pt(x, y)]
+
+    if road, ok := extras[maplib.ExtraKindRoad].(*maplib.ExtraRoad); ok {
+        neighbors := mapUse.GetRoadNeighbors(x, y)
+        connected := false
+        for _, direction := range []maplib.Direction{maplib.DirectionNorth, maplib.DirectionNorthEast, maplib.DirectionEast, maplib.DirectionSouthEast, maplib.DirectionSouth, maplib.DirectionSouthWest, maplib.DirectionWest, maplib.DirectionNorthWest} {
+            if neighbors[direction] {
+                out = append(out, assets.Road(assets.RoadDirection(direction), road.Enchanted))
+                connected = true
+            }
+        }
+        if !connected {
+            out = append(out, assets.Road("center", road.Enchanted))
+        }
+    }
+
+    _, corrupted := extras[maplib.ExtraKindCorruption]
+
+    // corruption cancels the bonus (as TileView.Bonus)
+    if bonus, ok := extras[maplib.ExtraKindBonus].(*maplib.ExtraBonus); ok && !corrupted && bonus.Bonus.LbxIndex() != -1 {
+        out = append(out, assets.Bonus(bonus.Bonus))
+    }
+
+    if encounter, ok := extras[maplib.ExtraKindEncounter].(*maplib.ExtraEncounter); ok && encounter.Type.LbxIndex() != -1 {
+        out = append(out, assets.Encounter(encounter.Type))
+    } else if _, ok := extras[maplib.ExtraKindOpenTower]; ok {
+        out = append(out, assets.OpenTower)
+    }
+
+    if corrupted {
+        out = append(out, assets.Corruption)
+    }
+
+    if banner, ok := zones[image.Pt(x, y)]; ok {
+        out = append(out, assets.NodeZone(banner))
+    }
+
+    return out
 }

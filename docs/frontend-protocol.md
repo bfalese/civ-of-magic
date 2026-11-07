@@ -154,6 +154,26 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   `foreign-cities` and `foreign-stacks` (only where the player's fog shows them).
 - **Map view** (`MakeMapView`, per plane): `width`, `height`, `tiles[y][x]` with `terrain`, `road`,
   `bonus`, `encounter`, `corrupted`, `visible`; `null` for unexplored tiles.
+- **Sprites**: views name their images with asset IDs (`core/assets`): a tile's `asset` (terrain)
+  and `overlays` (road pieces, bonus, lair/tower, corruption, a melded node's zone, in drawing
+  order); a unit's `asset`; a stack's `background` (the banner square behind its leader, who is
+  drawn 1 pixel right and down); a city's `asset`; a foreign stack's `asset` and `background`.
+
+## Assets
+
+`util/export-assets` writes the overland sprites from an original install (never committed):
+
+```sh
+go run ./util/export-assets -data "/path/to/Master of Magic" -out ~/.local/share/civ-of-magic/assets
+```
+
+`assets.json`: `{"version": 1, "tileWidth": 20, "tileHeight": 18, "sheets": ["sheet-0.png", ...],
+"sprites": {"<asset id>": [[sheet, x, y, width, height], ...]}}`, one rectangle per animation frame
+(animated terrain has 4). IDs: `terrain/<tile index>`, `unit/<race>/<unit>/<banner>`,
+`unit-background/<banner>`, `city/<hamlet|village|town|city|capital>/<open|walled>/<banner>`,
+`road/<center|n|ne|...>`, `road-enchanted/...`, `bonus/<name>`, `encounter/<name>`,
+`encounter/open-tower`, `corruption`, `node-zone/<banner>`. Replacing art = replacing the
+rectangle behind an ID.
 
 ## Trying it
 
