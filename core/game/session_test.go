@@ -2,6 +2,8 @@ package game
 
 import (
     "image"
+    "strings"
+    "time"
     "testing"
 
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
@@ -62,6 +64,29 @@ func TestSessionBattle(test *testing.T) {
     if encoded, err := session.Battle.EncodeView(); err != nil || len(encoded) == 0 {
         test.Errorf("battle view JSON: %v", err)
     }
+
+    // what a battle screen draws: the field, sprites, and where the selected unit can go
+    if len(view.Tiles) != view.Height || len(view.Tiles[0]) != view.Width || !strings.HasPrefix(view.Tiles[0][0].Asset, "battle-tile/") {
+        test.Errorf("battle tiles: %vx%v, first %+v", view.Width, view.Height, view.Tiles[0][0])
+    }
+    for _, unit := range view.Units {
+        if !strings.HasPrefix(unit.Asset, "battle-unit/") || unit.Banner == "" || unit.Facing == "" || len(unit.Figures) == 0 {
+            test.Errorf("battle unit: %+v", unit)
+        }
+    }
+    if len(view.Moves) == 0 {
+        test.Errorf("the selected drake should be able to move")
+    }
+    for _, target := range view.Targets {
+        if target.Kind != "melee" && target.Kind != "ranged" {
+            test.Errorf("target kind %q", target.Kind)
+        }
+    }
+    timer := time.Now()
+    for range 20 {
+        session.Battle.View()
+    }
+    test.Logf("battle view: %v each, %v moves, %v targets", time.Since(timer) / 20, len(view.Moves), len(view.Targets))
 
     if err := session.Execute(&SetTaxRateCommand{Numerator: 1, Denominator: 1}); err == nil {
         test.Errorf("other commands should wait until the battle is over")

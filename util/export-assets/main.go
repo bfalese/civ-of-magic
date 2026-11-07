@@ -18,6 +18,7 @@ import (
     "flag"
     "fmt"
     "image"
+    "image/color"
     "image/draw"
     "image/png"
     "log"
@@ -32,6 +33,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
     "github.com/bfalese/civ-of-magic/game/magic/unitview"
+    "github.com/bfalese/civ-of-magic/game/magic/util"
     "github.com/bfalese/civ-of-magic/lib/lbx"
 )
 
@@ -51,7 +53,18 @@ type Manifest struct {
     TileHeight int `json:"tileHeight"`
     Sheets []string `json:"sheets"`
     Sprites map[string][]Frame `json:"sprites"`
+    // battle-unit sprites carry these four colours where the banner colour goes; replace them
+    // with BannerColors[banner] (same order) to colour a unit for its owner
+    BannerMarker [][3]uint8 `json:"bannerMarker"`
+    BannerColors map[string][][3]uint8 `json:"bannerColors"`
 }
+
+// the banner palette entries units are recoloured in (unitview.MakeUpdateUnitColorsFunc)
+const bannerPaletteStart = 215
+const bannerPaletteCount = 4
+
+// colours no MoM palette uses, standing in for the banner colour in battle-unit sprites
+var bannerMarker = [][3]uint8{{255, 0, 254}, {254, 0, 253}, {253, 0, 252}, {252, 0, 251}}
 
 type sprite struct {
     id string
@@ -231,7 +244,98 @@ func (exporter *Exporter) collect() (int, int, error) {
         }
     }
 
+    if err := exporter.collectBattle(); err != nil {
+        return 0, 0, err
+    }
+
     return tileWidth, tileHeight, nil
+}
+
+func cropped(sprite *image.Paletted) image.Image {
+    return util.AutoCrop(sprite)
+}
+
+// the battlefield: ground tiles, trees/rocks/buildings (cropped, as the battle screen draws them),
+// mud, the town road and clouds; and every unit's combat figures for the 8 facings
+func (exporter *Exporter) collectBattle() error {
+    terrainFiles := []string{"cmbgrass.lbx", "cmbgrasc.lbx", "cmbdesrt.lbx", "cmbdesrc.lbx", "cmbmount.lbx", "cmbmounc.lbx", "cmbtundr.lbx", "cmbtundc.lbx"}
+    for _, file := range terrainFiles {
+        // 0-47 ground (the model picks from the first 32), 48-57 trees and rocks
+        for index := 0; index < 48; index++ {
+            if err := exporter.addLbx(assets.BattleTile(file, index), file, index, nil); err != nil {
+                return err
+            }
+        }
+        for index := 48; index < 58; index++ {
+            if err := exporter.addLbx(assets.BattleTop(file, index), file, index, cropped); err != nil {
+                return err
+            }
+        }
+    }
+
+    // water: cmbtcity 109-112 on Arcanus, chriver 12-15 on Myrror
+    for index := 109; index < 113; index++ {
+        if err := exporter.addLbx(assets.BattleTile("cmbtcity.lbx", index), "cmbtcity.lbx", index, nil); err != nil {
+            return err
+        }
+    }
+    for index := 12; index < 16; index++ {
+        if err := exporter.addLbx(assets.BattleTile("chriver.lbx", index), "chriver.lbx", index, nil); err != nil {
+            return err
+        }
+    }
+
+    // houses (2-6), lair/tower/ruins/keep/temples (19-23), nodes (65, 66)
+    for _, index := range []int{2, 3, 4, 5, 6, 19, 20, 21, 22, 23, 65, 66} {
+        if err := exporter.addLbx(assets.BattleTop("cmbtcity.lbx", index), "cmbtcity.lbx", index, cropped); err != nil {
+            return err
+        }
+    }
+    if err := exporter.addLbx(assets.BattleMud, "cmbtcity.lbx", 118, nil); err != nil {
+        return err
+    }
+    if err := exporter.addLbx(assets.BattleRoad, "cmbtcity.lbx", 0, cropped); err != nil {
+        return err
+    }
+    if err := exporter.addLbx(assets.BattleClouds, "cmbtcity.lbx", 113, nil); err != nil {
+        return err
+    }
+
+    markBanner := func(sprite *image.Paletted) image.Image {
+        palette := make(color.Palette, len(sprite.Palette))
+        copy(palette, sprite.Palette)
+        for i, marker := range bannerMarker {
+            palette[bannerPaletteStart + i] = color.RGBA{R: marker[0], G: marker[1], B: marker[2], A: 255}
+        }
+        sprite.Palette = palette
+        return sprite
+    }
+
+    for _, unit := range units.AllUnits {
+        if unit.CombatLbxFile == "" {
+            continue
+        }
+        for _, facing := range assets.Facings {
+            if err := exporter.addLbx(assets.BattleUnit(unit.Race, unit.Name, facing), unit.CombatLbxFile, unit.GetCombatIndex(facing), markBanner); err != nil {
+                return fmt.Errorf("battle unit %v: %v", unit.Name, err)
+            }
+        }
+    }
+    return nil
+}
+
+// the four banner colours the game puts in the banner palette entries, per banner
+func bannerColors() map[string][][3]uint8 {
+    out := make(map[string][][3]uint8)
+    for _, banner := range Banners {
+        sprite := image.NewPaletted(image.Rect(0, 0, 1, 1), lbx.GetDefaultPalette())
+        recolored := unitview.MakeUpdateUnitColorsFunc(banner)(sprite).(*image.Paletted)
+        for i := range bannerPaletteCount {
+            r, g, b, _ := recolored.Palette[bannerPaletteStart + i].RGBA()
+            out[banner.String()] = append(out[banner.String()], [3]uint8{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)})
+        }
+    }
+    return out
 }
 
 type placement struct {
@@ -346,6 +450,8 @@ func run(dataPath string, outPath string) (*Manifest, error) {
     }
     manifest.TileWidth = tileWidth
     manifest.TileHeight = tileHeight
+    manifest.BannerMarker = bannerMarker
+    manifest.BannerColors = bannerColors()
 
     for _, old := range oldSheets {
         if !slices.Contains(manifest.Sheets, filepath.Base(old)) {
