@@ -371,6 +371,8 @@ type BattleUnitView struct {
     Facing string `json:"facing"`
     // where its living figures stand, in pixels from the tile's centre (units.CombatPoints)
     Figures [][2]int `json:"figures"`
+    // flying units flap in place (the sprite's frames loop)
+    Flying bool `json:"flying,omitempty"`
 }
 
 // a battlefield tile: its ground, and a tree/rock/building on it
@@ -475,6 +477,7 @@ func (session *BattleSession) View() BattleView {
                 Banner: unit.Unit.GetBanner().String(),
                 Facing: assets.FacingName(unit.Facing),
                 Figures: figurePoints(unit.VisibleFigures()),
+                Flying: unit.Unit.IsFlying(),
             })
         }
     }

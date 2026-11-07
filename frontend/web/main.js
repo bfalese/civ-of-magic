@@ -4,6 +4,7 @@
 import { loadCore } from "./core.js";
 import { loadAssets } from "./assets.js";
 import { MapRenderer } from "./map.js";
+import { BattleScreen } from "./battle.js";
 
 const element = (id) => document.getElementById(id);
 
@@ -20,6 +21,7 @@ const state = {
     modalOpen: false,
     // the location of the city whose screen is open, or null
     cityOpen: null,
+    battle: null,
     lastDate: null,
 };
 
@@ -58,9 +60,17 @@ function describe(event) {
         case "vault": return `${body.artifact ? body.artifact.name : "An item"} went to your vault.`;
         case "hero-level-up": return `${body.hero.name} gained a level.`;
         case "banish": return `${body.defender.wizard} was banished by ${body.attacker.wizard}.`;
-        case "battle-ended":
+        case "battle-ended": {
             if (!mine(body.attacker) && !mine(body.defender)) return null;
-            return `Battle at ${body.location.x},${body.location.y}: ${body.result}.`;
+            const youAttacked = mine(body.attacker);
+            const outcome = {
+                "attacker-won": youAttacked ? "You won" : "You lost",
+                "defender-won": youAttacked ? "You lost" : "You won",
+                "attacker-fled": youAttacked ? "You fled" : "The enemy fled",
+                "defender-fled": youAttacked ? "The enemy fled" : "You fled",
+            }[body.result] || body.result;
+            return `${outcome} the battle at ${body.location.x},${body.location.y}.`;
+        }
     }
     return null;
 }
@@ -109,6 +119,9 @@ function execute(type, command = {}) {
 function afterCommand(status) {
     handleEvents();
     refresh();
+    if (status.waiting !== "battle" && state.battle.open) {
+        state.battle.hide();
+    }
     handleWaiting(status);
     if (status.gameOver) {
         ask(status.gameOver === "won" ? "You have won the game!" : "You have been defeated.", [["OK", () => {}]]);
@@ -187,12 +200,11 @@ function handleWaiting(status) {
             break;
         case "battle": {
             const battle = state.core.battle();
-            const yours = (battle.units || []).filter((unit) => unit.yours).length;
-            const theirs = (battle.units || []).length - yours;
-            ask(`Battle! Your ${yours} unit(s) against ${theirs}. (Tactical battles come later.)`, [
-                ["Fight (auto)", () => execute("battle-auto")],
-                ["Flee", () => execute("battle-flee")],
-            ]);
+            if (battle.error) {
+                log(battle.error, "dim");
+                break;
+            }
+            state.battle.show(battle);
             break;
         }
     }
@@ -478,6 +490,14 @@ function bindControls() {
         if (state.modalOpen) {
             return;
         }
+        if (state.battle.open) {
+            const keys = { d: "battle-done", w: "battle-wait", a: "battle-auto" };
+            const command = keys[event.key.toLowerCase()];
+            if (command) {
+                execute(command);
+            }
+            return;
+        }
         if (state.cityOpen) {
             if (event.key === "Escape") closeCity();
             return;
@@ -517,6 +537,10 @@ async function main() {
         }
 
         state.map = new MapRenderer(element("map"), assets, { onTileClick });
+        state.battle = new BattleScreen(element("battle"), assets, {
+            onAct: (x, y) => execute("battle-act", { x, y }),
+            onCommand: (type) => execute(type),
+        });
         element("loading").remove();
         for (const id of ["top", "log", "hint"]) {
             element(id).hidden = false;
@@ -532,7 +556,9 @@ async function main() {
             state.map.centerOn(capital.location.x, capital.location.y);
         }
         state.map.start();
+        // for tests and the console: the state, and commands through the same path as the UI
         window.civGame = state;
+        state.execute = execute;
     } catch (error) {
         console.error(error);
         element("loading").textContent = `Error: ${error.message}`;

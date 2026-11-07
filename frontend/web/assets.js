@@ -23,6 +23,55 @@ export class Assets {
         this.tileWidth = manifest.tileWidth;
         this.tileHeight = manifest.tileHeight;
         this.missing = new Set();
+        // recoloured frames of banner-neutral sprites (battle units), by id/frame/banner
+        this.recolored = new Map();
+    }
+
+    frameCount(id) {
+        const frames = this.frames(id);
+        return frames ? frames.length : 0;
+    }
+
+    // a frame with the banner marker colours replaced by the banner's (see util/export-assets),
+    // as a canvas; cached
+    bannerFrame(id, frame, banner) {
+        const frames = this.frames(id);
+        if (!frames) {
+            return null;
+        }
+        frame = frame % frames.length;
+        const key = `${id}/${frame}/${banner}`;
+        let canvas = this.recolored.get(key);
+        if (canvas) {
+            return canvas;
+        }
+        const [sheet, sourceX, sourceY, width, height] = frames[frame];
+        canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        context.drawImage(this.sheets[sheet], sourceX, sourceY, width, height, 0, 0, width, height);
+        const markers = this.manifest.bannerMarker || [];
+        const colors = (this.manifest.bannerColors || {})[banner];
+        if (colors && markers.length) {
+            const pixels = context.getImageData(0, 0, width, height);
+            const data = pixels.data;
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i + 3] === 0) continue;
+                for (let m = 0; m < markers.length; m++) {
+                    const marker = markers[m];
+                    if (data[i] === marker[0] && data[i + 1] === marker[1] && data[i + 2] === marker[2]) {
+                        data[i] = colors[m][0];
+                        data[i + 1] = colors[m][1];
+                        data[i + 2] = colors[m][2];
+                        break;
+                    }
+                }
+            }
+            context.putImageData(pixels, 0, 0);
+        }
+        this.recolored.set(key, canvas);
+        return canvas;
     }
 
     frames(id) {
