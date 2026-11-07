@@ -37,3 +37,7 @@ profile.mem.*
 /Master of Magic.zip
 
 **/key/key.txt
+
+# wasm core build output (make core-wasm) and local data for the test page
+/frontend/wasm/wasm_exec.js
+/frontend/wasm/gamedata.json

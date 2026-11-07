@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core Test Page</title>
+<!--
+    A bare test page for the wasm core: proves the JSON round trip before the Three.js renderer.
+    make core-wasm && python3 -m http.server -d frontend/wasm 8080   then open http://localhost:8080
+    Load your own gamedata.json (util/export-gamedata); it is never shipped.
+-->
+<style>
+    :root { --bg: #14110d; --panel: #221c15; --text: #e8dcc0; --dim: #9a8c70; --accent: #d9a441; --error: #e06050; }
+    body { background: var(--bg); color: var(--text); font: 13px/1.4 monospace; margin: 0; padding: 12px 16px; }
+    h1 { font-size: 16px; color: var(--accent); margin: 0 0 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+    .columns { display: flex; flex-wrap: wrap; gap: 12px; }
+    .panel { background: var(--panel); padding: 8px; border-radius: 4px; min-width: 0; }
+    button, input, select, textarea { font: inherit; background: #332a1f; color: var(--text); border: 1px solid #554633; border-radius: 3px; padding: 3px 8px; }
+    button:hover { border-color: var(--accent); }
+    button:disabled { opacity: 0.4; }
+    canvas { image-rendering: pixelated; cursor: crosshair; max-width: 100%; display: block; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 360px; overflow: auto; }
+    #status { color: var(--dim); }
+    .error { color: var(--error); }
+    #commandText { width: 100%; box-sizing: border-box; height: 60px; }
+</style>
+</head>
+<body>
+<h1>civ-of-magic core (wasm)</h1>
+
+<div class="row">
+    <label>gamedata.json <input type="file" id="gamedataFile" accept=".json"></label>
+    <label>opponents <select id="opponents"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></label>
+    <button id="newGame" disabled>New game</button>
+    <label><input type="checkbox" id="logging"> Go log</label>
+    <span id="status">loading core.wasm…</span>
+</div>
+
+<div class="row" id="actions">
+    <button data-command='{"type":"end-turn","command":{}}'>End turn</button>
+    <select id="plane"><option>Arcanus</option><option>Myrror</option></select>
+    <span id="questions"></span>
+</div>
+
+<div class="columns">
+    <div class="panel">
+        <canvas id="map" width="60" height="40"></canvas>
+        <div id="selection" style="color: var(--dim)">click one of your stacks (white), then a tile to move there</div>
+    </div>
+    <div class="panel" style="flex: 1 1 320px">
+        <pre id="summary"></pre>
+    </div>
+</div>
+
+<div class="columns" style="margin-top: 12px">
+    <div class="panel" style="flex: 1 1 320px">
+        <div>command (JSON, see docs/frontend-protocol.md)</div>
+        <textarea id="commandText">{"type": "set-tax-rate", "command": {"numerator": 1, "denominator": 1}}</textarea>
+        <button id="sendCommand">Send</button>
+    </div>
+    <div class="panel" style="flex: 2 1 400px">
+        <div>events</div>
+        <pre id="events"></pre>
+    </div>
+</div>
+
+<script src="wasm_exec.js"></script>
+<script>
+"use strict";
+
+const scale = 8;
+const element = (id) => document.getElementById(id);
+let gamedataText = null;
+let selectedStack = null;
+let lastResearch = null;
+let pendingTarget = null;
+let eventLines = [];
+
+function call(name, ...args) {
+    return JSON.parse(civ[name](...args));
+}
+
+function setStatus(text, isError) {
+    element("status").textContent = text;
+    element("status").className = isError ? "error" : "";
+}
+
+function terrainColor(name) {
+    const terrain = name.toLowerCase();
+    const colors = [
+        ["ocean", "#1d3a6e"], ["shore", "#2d5a8e"], ["lake", "#3a6ab0"], ["river", "#4a7fc0"],
+        ["volcano", "#a03020"], ["mountain", "#7a6a5a"], ["hill", "#8a7a4a"], ["forest", "#2e5a26"],
+        ["swamp", "#4a5a3a"], ["desert", "#c8b070"], ["tundra", "#c0c8d0"], ["node", "#c060c0"],
+        ["grass", "#5a8a3a"],
+    ];
+    for (const [key, color] of colors) {
+        if (terrain.includes(key)) return color;
+    }
+    return "#6a6a4a";
+}
+
+function drawMap(view) {
+    const plane = element("plane").value;
+    const map = call("map", plane);
+    if (map.error) return;
+    const canvas = element("map");
+    canvas.width = map.width * scale;
+    canvas.height = map.height * scale;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#000";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    map.tiles.forEach((row, y) => row.forEach((tile, x) => {
+        if (!tile) return;
+        context.fillStyle = terrainColor(tile.terrain);
+        context.globalAlpha = tile.visible ? 1 : 0.55;
+        context.fillRect(x * scale, y * scale, scale, scale);
+        if (tile.encounter) {
+            context.fillStyle = "#ff3030";
+            context.fillRect(x * scale + 3, y * scale + 3, 2, 2);
+        }
+    }));
+    context.globalAlpha = 1;
+    const mark = (location, color, inset) => {
+        if (location.plane !== plane) return;
+        context.strokeStyle = color;
+        context.strokeRect(location.x * scale + inset, location.y * scale + inset, scale - 2 * inset, scale - 2 * inset);
+    };
+    for (const city of view["foreign-cities"]) mark(city.location, "#ff8040", 0.5);
+    for (const stack of view["foreign-stacks"]) mark(stack.location, "#ff4040", 2);
+    for (const city of view.cities) mark(city.location, "#40ff80", 0.5);
+    for (const stack of view.stacks) mark(stack.location, "#ffffff", 2);
+    if (selectedStack) mark(selectedStack, "#ffd040", 1);
+}
+
+function showQuestions(status) {
+    const questions = element("questions");
+    questions.innerHTML = "";
+    const button = (label, command) => {
+        const item = document.createElement("button");
+        item.textContent = label;
+        item.onclick = () => execute(command);
+        questions.appendChild(item);
+    };
+    switch (status.waiting) {
+        case "confirm-encounter":
+            button("Enter lair", { type: "confirm-encounter", command: { enter: true } });
+            button("Stay out", { type: "confirm-encounter", command: { enter: false } });
+            break;
+        case "raze-city":
+            button("Keep city", { type: "raze-city", command: { raze: false } });
+            button("Raze city", { type: "raze-city", command: { raze: true } });
+            break;
+        case "battle":
+            button("Auto battle", { type: "battle-auto", command: {} });
+            button("Flee", { type: "battle-flee", command: {} });
+            break;
+    }
+    if (lastResearch && status.waiting === "") {
+        button(`Research ${lastResearch}`, { type: "set-research", command: { spell: lastResearch } });
+    }
+    if (status.gameOver) {
+        questions.textContent = `game over: ${status.gameOver}`;
+    }
+}
+
+function refresh(status) {
+    for (const event of call("events")) {
+        if (event.type === "choose-research" && event.event.player.human) {
+            lastResearch = event.event.candidates[0] || null;
+        }
+        if (event.type === "set-research" || (event.type === "learned-spell")) {
+            lastResearch = null;
+        }
+        eventLines.unshift(JSON.stringify(event));
+    }
+    eventLines = eventLines.slice(0, 300);
+    element("events").textContent = eventLines.join("\n");
+
+    const view = call("view");
+    if (view.error) {
+        setStatus(view.error, true);
+        return;
+    }
+    const you = view.you;
+    const lines = [
+        `${view.date} (turn ${view.turn})  ${you.player.wizard} [${you.player.banner}]`,
+        `gold ${you.gold} (${you["gold-per-turn"]}/turn)  mana ${you.mana} (${you["mana-per-turn"]}/turn)  food ${you["food-per-turn"]}/turn  fame ${you.fame}  tax ${you["tax-rate"]}`,
+        `researching ${you.researching || "-"}  casting ${you.casting || "-"}`,
+        "",
+        "cities:",
+        ...view.cities.map((city) => `  ${city.name} (${city.location.x},${city.location.y} ${city.location.plane}) pop ${city.citizens}  building ${city.producing || "-"}`),
+        "stacks:",
+        ...view.stacks.map((stack) => `  (${stack.location.x},${stack.location.y} ${stack.location.plane}) ${stack.units.map((unit) => unit.name).join(", ")}`),
+        "",
+        `known wizards: ${view["known-wizards"].map((wizard) => wizard.wizard).join(", ") || "none"}`,
+    ];
+    element("summary").textContent = lines.join("\n");
+    drawMap(view);
+    if (status) showQuestions(status);
+}
+
+function execute(command) {
+    const status = call("execute", JSON.stringify(command));
+    if (status.error) {
+        setStatus(`${command.type}: ${status.error}`, true);
+    } else {
+        setStatus(`${command.type}: ok${status.waiting ? `, waiting for ${status.waiting}` : ""}`);
+    }
+    refresh(status);
+    return status;
+}
+
+element("gamedataFile").addEventListener("change", async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    gamedataText = await file.text();
+    element("newGame").disabled = typeof civ === "undefined";
+    setStatus(`${file.name}: ${Math.round(gamedataText.length / 1024)} KB`);
+});
+
+element("newGame").addEventListener("click", () => {
+    const settings = { opponents: parseInt(element("opponents").value, 10), raiders: true };
+    const started = performance.now();
+    const status = call("newGame", gamedataText, JSON.stringify(settings));
+    if (status.error) {
+        setStatus(status.error, true);
+        return;
+    }
+    eventLines = [];
+    selectedStack = null;
+    setStatus(`new game in ${Math.round(performance.now() - started)} ms`);
+    refresh(status);
+});
+
+element("logging").addEventListener("change", (event) => {
+    if (typeof civ !== "undefined") call("setLogging", event.target.checked);
+});
+
+element("plane").addEventListener("change", () => refresh(null));
+
+element("actions").addEventListener("click", (event) => {
+    const text = event.target.dataset && event.target.dataset.command;
+    if (text) execute(JSON.parse(text));
+});
+
+element("sendCommand").addEventListener("click", () => {
+    try {
+        execute(JSON.parse(element("commandText").value));
+    } catch (error) {
+        setStatus(`bad JSON: ${error.message}`, true);
+    }
+});
+
+element("map").addEventListener("click", (event) => {
+    const canvas = element("map");
+    const bounds = canvas.getBoundingClientRect();
+    const x = Math.floor((event.clientX - bounds.left) * canvas.width / bounds.width / scale);
+    const y = Math.floor((event.clientY - bounds.top) * canvas.height / bounds.height / scale);
+    const location = { plane: element("plane").value, x, y };
+    const view = call("view");
+    const mine = view.stacks.find((stack) => stack.location.plane === location.plane && stack.location.x === x && stack.location.y === y);
+    if (mine && !selectedStack) {
+        selectedStack = location;
+        element("selection").textContent = `selected stack at ${x},${y}: ${mine.units.map((unit) => unit.name).join(", ")}`;
+        refresh(null);
+        return;
+    }
+    if (selectedStack) {
+        const from = selectedStack;
+        selectedStack = null;
+        element("selection").textContent = `move ${from.x},${from.y} → ${x},${y}`;
+        execute({ type: "move-stack", command: { from, to: location } });
+        return;
+    }
+    element("selection").textContent = `${x},${y}: not one of your stacks`;
+});
+
+// ?gamedata=<url> loads the data from the same server and starts a game (for development)
+window.onCivReady = async () => {
+    setStatus("core ready: choose gamedata.json");
+    element("newGame").disabled = gamedataText === null;
+    const url = new URLSearchParams(location.search).get("gamedata");
+    if (url) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            setStatus(`${url}: ${response.status}`, true);
+            return;
+        }
+        gamedataText = await response.text();
+        element("newGame").disabled = false;
+        element("newGame").click();
+    }
+};
+
+const go = new Go();
+WebAssembly.instantiateStreaming(fetch("core.wasm"), go.importObject)
+    .then((result) => go.run(result.instance))
+    .catch((error) => setStatus(`core.wasm: ${error}`, true));
+</script>
+</body>
+</html>

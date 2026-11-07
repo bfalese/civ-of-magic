@@ -56,45 +56,12 @@ type HeadlessSettings struct {
 
 // set up a new game with settings.Opponents AI wizards
 func MakeHeadlessGame(gameData *gamedata.GameData, settings HeadlessSettings) (*HeadlessGame, error) {
-    newGameSettings := setup.NewGameSettings{
-        Opponents: settings.Opponents,
-        Difficulty: settings.Difficulty,
-        Magic: settings.Magic,
-        LandSize: settings.LandSize,
-        DisableRaiders: !settings.Raiders,
-    }
+    headless := makeHeadlessModel(gameData, settings)
+    model := headless.Model
 
-    events := make(chan GameEvent, 1000)
-    model := MakeGameModel(gamedata.TerrainData(), newGameSettings, data.PlaneArcanus, events, gameData.HeroNames, gameData.Spells, gameData.ArtifactCatalog(), gameData.Buildings)
-    model.IsAggressiveAI = func() bool {
-        return false
-    }
-    model.ArtifactPowers = gameData.ArtifactPowers
-
-    headless := &HeadlessGame{
-        Model: model,
-        Data: gameData,
-    }
-
-    arcanusCityArea := model.MakeCityValidArea(data.PlaneArcanus)
-    myrrorCityArea := model.MakeCityValidArea(data.PlaneMyrror)
-
-    observerWizard, ok := ChooseUniqueWizard(nil, gameData.Spells)
-    if !ok {
-        return nil, fmt.Errorf("could not choose a wizard")
-    }
-    observer, _ := model.InitializePlayer(observerWizard, true, arcanusCityArea, myrrorCityArea, headless.suggestCityName)
-
-    for range settings.Opponents {
-        wizard, ok := ChooseUniqueWizard(model.Players, gameData.Spells)
-        if !ok {
-            return nil, fmt.Errorf("could not choose a wizard for every opponent")
-        }
-        model.InitializePlayer(wizard, false, arcanusCityArea, myrrorCityArea, headless.suggestCityName)
-    }
-
-    if settings.Raiders {
-        model.InitializeNeutralPlayer(arcanusCityArea, myrrorCityArea, headless.suggestCityName)
+    observer, err := headless.addPlayers(nil, settings)
+    if err != nil {
+        return nil, err
     }
 
     // the observer takes no part in the game (same as watch mode)
@@ -112,6 +79,65 @@ func MakeHeadlessGame(gameData *gamedata.GameData, settings HeadlessSettings) (*
     headless.drainEvents()
 
     return headless, nil
+}
+
+// the model and its data, no players yet
+func makeHeadlessModel(gameData *gamedata.GameData, settings HeadlessSettings) *HeadlessGame {
+    newGameSettings := setup.NewGameSettings{
+        Opponents: settings.Opponents,
+        Difficulty: settings.Difficulty,
+        Magic: settings.Magic,
+        LandSize: settings.LandSize,
+        DisableRaiders: !settings.Raiders,
+    }
+
+    events := make(chan GameEvent, 1000)
+    model := MakeGameModel(gamedata.TerrainData(), newGameSettings, data.PlaneArcanus, events, gameData.HeroNames, gameData.Spells, gameData.ArtifactCatalog(), gameData.Buildings)
+    model.IsAggressiveAI = func() bool {
+        return false
+    }
+    model.ArtifactPowers = gameData.ArtifactPowers
+
+    return &HeadlessGame{
+        Model: model,
+        Data: gameData,
+    }
+}
+
+// the human player (player 0; the given wizard, or a random one), settings.Opponents AI wizards and
+// the raiders. Returns the human player.
+func (headless *HeadlessGame) addPlayers(humanWizard *setup.WizardCustom, settings HeadlessSettings) (*playerlib.Player, error) {
+    model := headless.Model
+    gameData := headless.Data
+
+    arcanusCityArea := model.MakeCityValidArea(data.PlaneArcanus)
+    myrrorCityArea := model.MakeCityValidArea(data.PlaneMyrror)
+
+    var wizard setup.WizardCustom
+    if humanWizard != nil {
+        wizard = *humanWizard
+    } else {
+        chosen, ok := ChooseUniqueWizard(nil, gameData.Spells)
+        if !ok {
+            return nil, fmt.Errorf("could not choose a wizard")
+        }
+        wizard = chosen
+    }
+    human, _ := model.InitializePlayer(wizard, true, arcanusCityArea, myrrorCityArea, headless.suggestCityName)
+
+    for range settings.Opponents {
+        wizard, ok := ChooseUniqueWizard(model.Players, gameData.Spells)
+        if !ok {
+            return nil, fmt.Errorf("could not choose a wizard for every opponent")
+        }
+        model.InitializePlayer(wizard, false, arcanusCityArea, myrrorCityArea, headless.suggestCityName)
+    }
+
+    if settings.Raiders {
+        model.InitializeNeutralPlayer(arcanusCityArea, myrrorCityArea, headless.suggestCityName)
+    }
+
+    return human, nil
 }
 
 func (headless *HeadlessGame) suggestCityName(race data.Race) string {
@@ -230,37 +256,42 @@ func (headless *HeadlessGame) castSpell(player *playerlib.Player, spell spellboo
 
 // handle what the model sent: AI players answer offers and take treasure; screens are skipped
 func (headless *HeadlessGame) drainEvents() {
-    model := headless.Model
     for {
         select {
-            case event := <-model.Events:
+            case event := <-headless.Model.Events:
                 headless.encodeEvent(event)
-                switch event.(type) {
-                    case *GameEventHireHero:
-                        hire := event.(*GameEventHireHero)
-                        if !hire.Player.IsHuman() && hire.Player.AIBehavior != nil {
-                            hire.Player.AIBehavior.HandleHireHero(hire.Player, hire.Hero, 0, true, data.PlanePoint{})
-                        }
-                    case *GameEventHireMercenaries:
-                        hire := event.(*GameEventHireMercenaries)
-                        if !hire.Player.IsHuman() && hire.Player.AIBehavior != nil {
-                            hire.Player.AIBehavior.HandleHireMercenaries(hire.Player, hire.Units, hire.Cost)
-                        }
-                    case *GameEventMerchant:
-                        merchant := event.(*GameEventMerchant)
-                        if !merchant.Player.IsHuman() && merchant.Player.AIBehavior != nil {
-                            merchant.Player.AIBehavior.HandleMerchantItem(merchant.Player, merchant.Artifact, merchant.Cost)
-                        }
-                    case *GameEventTreasure:
-                        treasure := event.(*GameEventTreasure)
-                        if !treasure.Player.IsHuman() {
-                            headless.Stats.TreasuresFound += 1
-                            model.ApplyTreasure(nil, treasure.Player, treasure.Treasure, model.AllSpells)
-                        }
-                }
+                headless.handleAiEvent(event)
             default:
                 return
         }
+    }
+}
+
+// the AI players' part of an event: they answer offers and take treasure
+func (headless *HeadlessGame) handleAiEvent(event GameEvent) {
+    model := headless.Model
+    switch event.(type) {
+        case *GameEventHireHero:
+            hire := event.(*GameEventHireHero)
+            if !hire.Player.IsHuman() && hire.Player.AIBehavior != nil {
+                hire.Player.AIBehavior.HandleHireHero(hire.Player, hire.Hero, 0, true, data.PlanePoint{})
+            }
+        case *GameEventHireMercenaries:
+            hire := event.(*GameEventHireMercenaries)
+            if !hire.Player.IsHuman() && hire.Player.AIBehavior != nil {
+                hire.Player.AIBehavior.HandleHireMercenaries(hire.Player, hire.Units, hire.Cost)
+            }
+        case *GameEventMerchant:
+            merchant := event.(*GameEventMerchant)
+            if !merchant.Player.IsHuman() && merchant.Player.AIBehavior != nil {
+                merchant.Player.AIBehavior.HandleMerchantItem(merchant.Player, merchant.Artifact, merchant.Cost)
+            }
+        case *GameEventTreasure:
+            treasure := event.(*GameEventTreasure)
+            if !treasure.Player.IsHuman() {
+                headless.Stats.TreasuresFound += 1
+                model.ApplyTreasure(nil, treasure.Player, treasure.Treasure, model.AllSpells)
+            }
     }
 }
 

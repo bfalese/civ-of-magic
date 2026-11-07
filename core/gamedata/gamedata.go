@@ -166,6 +166,11 @@ func Load(directory string) (*GameData, error) {
         return nil, err
     }
 
+    return Parse(encoded)
+}
+
+// the contents of a gamedata.json (for frontends that load the file themselves, e.g. a web page)
+func Parse(encoded []byte) (*GameData, error) {
     var serialized serializedGameData
     if err := json.Unmarshal(encoded, &serialized); err != nil {
         return nil, fmt.Errorf("unable to parse %v: %v", FileName, err)
