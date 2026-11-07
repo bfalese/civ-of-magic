@@ -62,7 +62,8 @@ make wasm                           # GOOS=js GOARCH=wasm build
 - `frontend/` — web frontends over the wasm core: `frontend/wasm` (the `GOOS=js` entry point exposing
   `civ.*`, plus a bare protocol test page), `frontend/web` (the game in the browser: Three.js map,
   sprites from util/export-assets). Run with `go run ./util/serve-web` (builds the core, serves the
-  page and the user's exported data) and open http://localhost:8080.
+  page and the user's exported data) and open http://localhost:8080. Browser smoke test (Playwright):
+  `python3 frontend/web/smoke_test.py` against a running serve-web.
 - `test/` — small standalone test programs.
 
 ## Architecture rules (target)

@@ -2,6 +2,7 @@ package game
 
 import (
     "errors"
+    "slices"
     "strings"
     "testing"
 
@@ -149,6 +150,37 @@ func TestCityCommands(test *testing.T) {
     if err := model.Execute(context, &SetCityProductionCommand{City: Location{X: 9, Y: 9}, Building: "Housing"}); err == nil {
         test.Errorf("a city that isn't yours should be rejected")
     }
+
+    // the Armory needs Barracks first: refused until they stand, and listed only then
+    armory := model.BuildingInfo.GetBuildingIndex(buildinglib.BuildingArmory)
+    model.BuildingInfo[armory].Name = "Armory"
+    model.BuildingInfo[armory].ConstructionCost = 80
+    model.BuildingInfo[armory].BuildingDependency1 = model.BuildingInfo.GetBuildingIndex(buildinglib.BuildingBarracks)
+    lists := func() []string {
+        var names []string
+        for _, option := range model.MakePlayerView(player).Cities[0].CanBuild {
+            names = append(names, option.Name)
+        }
+        return names
+    }
+    if err := model.Execute(context, &SetCityProductionCommand{City: here, Building: "Armory"}); err == nil {
+        test.Errorf("the armory needs barracks first")
+    }
+    if slices.Contains(lists(), "Armory") || !slices.Contains(lists(), "Housing") || !slices.Contains(lists(), "Spearmen") {
+        test.Errorf("can-build before barracks: %v", lists())
+    }
+    city.Buildings.Insert(buildinglib.BuildingBarracks)
+    if err := model.Execute(context, &SetCityProductionCommand{City: here, Building: "Armory"}); err != nil {
+        test.Errorf("armory after barracks: %v", err)
+    }
+    if !slices.Contains(lists(), "Armory") || slices.Contains(lists(), "Barracks") {
+        test.Errorf("can-build after barracks: %v", lists())
+    }
+    cityView := model.MakePlayerView(player).Cities[0]
+    if cityView.SellValues["Barracks"] != 10 || cityView.SubsistenceFarmers < 1 {
+        test.Errorf("sell values %v, subsistence farmers %v", cityView.SellValues, cityView.SubsistenceFarmers)
+    }
+    city.Buildings.Remove(buildinglib.BuildingBarracks)
 
     city.Buildings.Insert(buildinglib.BuildingBarracks)
     gold := player.Gold
