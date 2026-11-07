@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Civ of Magic</title>
+<!--
+    The web frontend: the game core as wasm (frontend/wasm) driven through JSON, the map in
+    Three.js, sprites from the user's own export (util/export-assets). For development:
+        go run ./util/serve-web      then open http://localhost:8080
+-->
+<style>
+    :root {
+        --bg: #0d0a07; --panel: rgba(28, 22, 15, 0.92); --border: #5a4630; --text: #eadfc4;
+        --dim: #a3936f; --accent: #e0b04a; --good: #8fd06a; --bad: #e0705a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 "Courier New", monospace; overflow: hidden; }
+    #map { position: fixed; inset: 0; }
+    #map canvas { display: block; image-rendering: pixelated; }
+    .panel { position: fixed; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; }
+    #top { top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+    #top .spacer { flex: 1; }
+    #top b { color: var(--accent); font-weight: normal; }
+    #side { top: 56px; right: 8px; width: 260px; max-height: calc(100% - 230px); overflow: auto; }
+    #side:empty { display: none; }
+    #log { left: 8px; bottom: 8px; width: min(560px, calc(100% - 16px)); height: 150px; overflow: auto; font-size: 12px; }
+    #log div { border-bottom: 1px solid rgba(90, 70, 48, 0.4); padding: 1px 0; }
+    #log .turn { color: var(--accent); }
+    button { font: inherit; color: var(--text); background: #3a2d1d; border: 1px solid var(--border); border-radius: 3px; padding: 3px 10px; cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    button:disabled { opacity: 0.4; cursor: default; }
+    h3 { margin: 0 0 4px; font-size: 13px; color: var(--accent); font-weight: normal; }
+    .unit { display: flex; justify-content: space-between; gap: 8px; }
+    .dim { color: var(--dim); }
+    #modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.45); }
+    #modal.open { display: flex; }
+    #modal .panel { position: static; max-width: min(420px, calc(100% - 32px)); padding: 12px 14px; }
+    #modal .choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); }
+    #hint { right: 8px; bottom: 8px; font-size: 11px; color: var(--dim); }
+    @media (max-width: 640px) { #side { width: calc(100% - 16px); top: auto; bottom: 166px; max-height: 30%; } #hint { display: none; } }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="map"></div>
+<div id="loading">loading…</div>
+<div id="top" class="panel" hidden>
+    <span id="date"></span>
+    <span>gold <b id="gold"></b></span>
+    <span>mana <b id="mana"></b></span>
+    <span>food <b id="food"></b></span>
+    <span>research <b id="research"></b></span>
+    <span class="spacer"></span>
+    <button id="plane">Myrror</button>
+    <button id="nextUnit" title="N">Next unit</button>
+    <button id="endTurn" title="Enter">End turn</button>
+</div>
+<div id="side" class="panel"></div>
+<div id="log" class="panel" hidden></div>
+<div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a stack, then a tile: move · N: next unit · Enter: end turn</div>
+<div id="modal"><div class="panel"><div id="modalText"></div><div class="choices" id="modalChoices"></div></div></div>
+<script src="wasm_exec.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
