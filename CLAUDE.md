@@ -33,7 +33,7 @@ make wasm                           # GOOS=js GOARCH=wasm build
 ## Layout
 
 - `core/` — rendering-free, LBX-free game logic (CI-enforced): `ai`, `artifact`, `building`, `city`,
-  `combat`, `data`, `game` (the game model), `gamedata` (data tables as JSON), `hero`, `maplib`, `neural`,
+  `combat`, `data`, `assets` (asset IDs), `game` (the game model), `gamedata` (data tables as JSON), `hero`, `maplib`, `neural`,
   `pathfinding`, `player`, `setup`, `spellbook`, `terrain`, `units`.
   - `core/game/command.go`: player actions as commands (`GameModel.Execute`, JSON via `EncodeCommand` /
     `DecodeCommand`). `core/game/headless.go`: an AI-vs-AI game without a frontend.
@@ -54,6 +54,8 @@ make wasm                           # GOOS=js GOARCH=wasm build
 - `lib/` — loaders (lbx, fonts, midi…), vendored libs.
 - `ebitenui/` — vendored fork, wired via `replace` in `go.mod`.
 - `util/` — dev tools (sprite viewer, lbxdump, combat-simulator).
+  - `util/export-assets`: writes the overland sprites as PNG sheets + `assets.json` keyed by asset IDs
+    (`core/assets`), for web frontends; output outside the repo like export-gamedata's.
   - `util/export-gamedata`: writes the data tables from an original install to JSON (keep the output
     out of the repo, it's derived from copyrighted data). `util/headless-game`: plays AI vs AI with
     that data, no Ebitengine (`go run ./util/headless-game -years 200`), a quick regression run.
