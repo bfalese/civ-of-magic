@@ -11,9 +11,9 @@ Website - https://kazzmir.github.io/master-of-magic/
 * Master of Magic wiki: https://masterofmagic.fandom.com/
 * Discord channel: https://discord.gg/xCpHBKrU9c
 
-# Online demo
+# Online demo (upstream)
 
-Play a wasm build of this game
+Play a wasm build of the upstream game (kazzmir/master-of-magic, not this fork)
 https://kazzmir.itch.io/magic
 
 Also try the combat simulator, which lets you test different battle situations
