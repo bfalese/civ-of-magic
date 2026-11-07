@@ -70,6 +70,14 @@ type GameEventLearnedSpell struct {
     Spell spellbook.Spell
 }
 
+// a wizard's answer to a spell trade: they'd give Receive for Give (answer with answer-trade)
+type GameEventTradeOffer struct {
+    Player *playerlib.Player
+    Wizard *playerlib.Player
+    Give spellbook.Spell
+    Receive spellbook.Spell
+}
+
 type GameEventResearchSpell struct {
     Player *playerlib.Player
 }

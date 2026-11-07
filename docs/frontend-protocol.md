@@ -27,6 +27,8 @@ offer).
 
 ## Conventions
 
+- **Units** are identified by `id` (the player view lists it per unit). A unit keeps its id when
+  stacks split, merge or reorder; ids aren't reused within a game (they aren't saved with it).
 - **Players** are identified by banner: `{"banner": "blue", "wizard": "Merlin", "human": true}`.
   Banners are unique per player (`blue`, `green`, `purple`, `red`, `yellow`; `brown` = raiders).
 - **Locations**: `{"plane": "Arcanus" | "Myrror", "x": 12, "y": 7}`. A city is identified by its
@@ -57,8 +59,8 @@ command isn't legal (not your city, not enough gold, no path...).
 | `answer-offer` | `accept` | accept or decline the open `hire-hero` / `hire-mercenaries` / `merchant` offer (a bought item then comes as a `vault` event) |
 | `planar-travel` | `stack` | move the stack's active units to the other plane (tower, Astral Gate, Plane Shift) |
 | `patrol` | `stack` | the stack's active units patrol their tile |
-| `disband-unit` | `stack`, `unit` | dismiss the unit at that index in the stack |
-| `set-unit-active` | `stack`, `unit`, `active` | whether the unit moves with the stack; `move-stack` only moves active units, the others stay behind as their own stack (that's how stacks split; they merge when they stop on the same tile) |
+| `disband-unit` | `unit` (id) | dismiss the unit |
+| `set-unit-active` | `unit` (id), `active` | whether the unit moves with the stack; `move-stack` only moves active units, the others stay behind as their own stack (that's how stacks split; they merge when they stop on the same tile) |
 | `set-power-distribution` | `mana`, `research`, `skill` | shares of power, 0-1 each, adding up to 1 |
 | `alchemy` | `direction` (`mana-to-gold`, `gold-to-mana`), `amount` | convert at half rate (full rate with the Alchemy retort) |
 | `rename-city` | `city`, `name` | |
@@ -67,7 +69,8 @@ command isn't legal (not your city, not enough gold, no path...).
 | `destroy-item` | `item` (item slot) | destroy for mana (half its cost, full cost with Artificer) |
 | `propose-treaty` | `wizard`, `treaty` (`pact`, `alliance`, `peace`) | the other wizard currently always agrees |
 | `offer-tribute` | `wizard`, `gold: true` or `spell` | a tenth of your gold, or a spell they don't know |
-| `trade-spells` | `wizard`, `spell` | if they're willing, they give a spell of their choice back (`learned-spell` event) |
+| `trade-spells` | `wizard`, `spell` | if they're willing, they name the spell they'd give back (`trade-offer` event) |
+| `answer-trade` | `accept` | make the offered exchange (`learned-spell` event) or decline it; an offer lasts until your next turn |
 
 Item slots are `{"vault": 0-3}`, `{"hero": 0-5, "slot": 0-2}` or `{"new": i}` (an item that just
 arrived at the vault, announced by a `vault` event, waiting to be placed or destroyed). Create
@@ -95,8 +98,8 @@ max-health, moves-left, ranged-attacks) and `state`. Ask for it again after each
 
 A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
 fields the spell needs:
-- unit spells (enchantments, Black/Chaos Channels, Lycanthropy, Word of Recall): `location` of your
-  stack and `unit`, the unit's index in it (the order of the player view's stack units);
+- unit spells (enchantments, Black/Chaos Channels, Lycanthropy, Word of Recall): `unit`, the
+  unit's id (`location` may be left out; if given it must be the unit's tile);
 - city spells (enchantments, curses, Spell Ward, Wall of Stone, Summoning Circle, Move Fortress,
   Spell of Return, Earthquake, Call the Void): `location` of the city; Spell Ward also `choice`,
   the ward's name;
@@ -127,7 +130,8 @@ Not yet: the diplomacy steps the other wizard initiates.
 | `diplomacy` | `player`, `enemy` | first meeting with a wizard |
 | `choose-research` | `player`, `candidates` | pick research (answer with `set-research`) |
 | `choose-spell-target` | `player`, `spell`, `target` | a finished spell needs a target of kind `target` (`friendly-unit`, `enemy-unit`, `friendly-city`, `enemy-city`, `any`, `land`, `empty-water`, `change-terrain`, `transmute`, `raise-volcano`, `enemy-melded-node`, `disenchant`, `wizard`, `enemy-global-enchantment`, `dead-hero`); answer with `cast-spell-target` |
-| `learned-spell` | `player`, `spell`, `magic` | research finished |
+| `learned-spell` | `player`, `spell`, `magic` | research finished (or a spell trade, treasure) |
+| `trade-offer` | `player`, `wizard`, `give`, `receive` | the wizard would trade `receive` for your `give`: answer with `answer-trade` |
 | `new-building` | `player`, `city`, `building` | a building finished |
 | `new-outpost` | `player`, `city` | an outpost was settled |
 | `hire-hero` | `player`, `hero`, `cost` | hero for hire offer |
@@ -150,7 +154,7 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 - **Player view** (`MakePlayerView`): `turn`, `date`, `current-player`, `you` (gold, mana, per-turn
   income, fame, tax rate, casting skill, research and casting progress, known spells, global
   enchantments), `known-wizards`, `cities` (full detail: citizens, production, buy cost,
-  buildings, enchantments), `stacks` (units with health and moves, remaining path),
+  buildings, enchantments), `stacks` (units with id, health and moves, remaining path),
   `foreign-cities` and `foreign-stacks` (only where the player's fog shows them).
 - **Map view** (`MakeMapView`, per plane): `width`, `height`, `tiles[y][x]` with `terrain`, `road`,
   `bonus`, `encounter`, `corrupted`, `visible`; `null` for unexplored tiles.

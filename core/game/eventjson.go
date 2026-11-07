@@ -232,6 +232,15 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
                 Magic string `json:"magic"`
             }{MakePlayerRef(learned.Player), learned.Spell.Name, learned.Spell.Magic.String()}, true
 
+        case *GameEventTradeOffer:
+            offer := event.(*GameEventTradeOffer)
+            return "trade-offer", struct {
+                Player *PlayerRef `json:"player"`
+                Wizard *PlayerRef `json:"wizard"`
+                Give string `json:"give"`
+                Receive string `json:"receive"`
+            }{MakePlayerRef(offer.Player), MakePlayerRef(offer.Wizard), offer.Give.Name, offer.Receive.Name}, true
+
         case *GameEventResearchSpell:
             research := event.(*GameEventResearchSpell)
             candidates := []string{}

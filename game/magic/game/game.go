@@ -4595,7 +4595,7 @@ func (game *Game) MakeHudUI() *uilib.UI {
                 disband := func(){
                     index := slices.Index(stack.Units(), unit)
                     if index >= 0 {
-                        game.execute(player, &gamecore.DisbandUnitCommand{Stack: gamecore.Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()}, Unit: index})
+                        game.execute(player, &gamecore.DisbandUnitCommand{Unit: game.Model.UnitId(unit)})
                     }
                     game.RefreshUI()
                     if player.SelectedStack == nil {
@@ -4615,7 +4615,7 @@ func (game *Game) MakeHudUI() *uilib.UI {
                         }
 
                         if index := slices.Index(stack.Units(), unit); index >= 0 {
-                            game.execute(player, &gamecore.SetUnitActiveCommand{Stack: gamecore.Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()}, Unit: index, Active: !stack.IsActive(unit)})
+                            game.execute(player, &gamecore.SetUnitActiveCommand{Unit: game.Model.UnitId(unit), Active: !stack.IsActive(unit)})
                         }
 
                         // FIXME: explain why this is here. Commenting it out doesn't seem to hurt

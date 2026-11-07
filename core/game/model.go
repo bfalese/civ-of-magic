@@ -34,6 +34,10 @@ type GameModel struct {
     PendingOffers map[*playerlib.Player]GameEvent
     // items that arrived at a player's vault and weren't placed yet, for command frontends (vault.go)
     PendingItems map[*playerlib.Player][]*artifact.Artifact
+    // the spell trade a wizard offered each player, waiting for answer-trade
+    PendingTrades map[*playerlib.Player]*GameEventTradeOffer
+    // ids of overland units for command frontends (unitids.go)
+    unitIds unitIdRegistry
     // the artifact power table, set by the frontend (LBX) or headless game (gamedata); needed to
     // check item designs (artifact.BuildDesign)
     ArtifactPowers ArtifactPowersFunc
