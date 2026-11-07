@@ -1,6 +1,7 @@
 package game
 
 import (
+    "cmp"
     "encoding/json"
     "image"
     "slices"
@@ -61,6 +62,13 @@ type CityView struct {
     ProductionCost int `json:"production-cost"`
     BuyCost int `json:"buy-cost"`
     SoldBuildingThisTurn bool `json:"sold-building-this-turn,omitempty"`
+    // the fewest farmers that feed the city (set-city-farmers refuses fewer)
+    SubsistenceFarmers int `json:"subsistence-farmers"`
+    // what set-city-production accepts: buildings (prerequisites met, plus Trade Goods and
+    // Housing) in the game's order, then units by name
+    CanBuild []ProductionOption `json:"can-build"`
+    // gold each building sells for (only buildings that can be sold)
+    SellValues map[string]int `json:"sell-values"`
     Buildings []string `json:"buildings"`
     Enchantments []string `json:"enchantments,omitempty"`
 }
@@ -135,6 +143,14 @@ func (model *GameModel) makeCityView(city *citylib.City) CityView {
     }
 
     view.BuyCost, _ = city.BuyCost()
+    view.SubsistenceFarmers = city.ComputeSubsistenceFarmers()
+    view.CanBuild = model.productionOptions(city)
+    view.SellValues = make(map[string]int)
+    for _, building := range city.Buildings.Values() {
+        if city.CanSellBuilding(building) {
+            view.SellValues[model.BuildingInfo.Name(building)] = city.SellValue(building)
+        }
+    }
 
     if !city.ProducingUnit.IsNone() {
         view.Producing = city.ProducingUnit.Name
@@ -406,5 +422,37 @@ func tileOverlays(mapUse *maplib.Map, x int, y int, zones map[image.Point]data.B
         out = append(out, assets.NodeZone(banner))
     }
 
+    return out
+}
+
+// something a city can produce
+type ProductionOption struct {
+    Name string `json:"name"`
+    // a unit (otherwise a building)
+    Unit bool `json:"unit,omitempty"`
+    // production cost (0 for Trade Goods and Housing)
+    Cost int `json:"cost"`
+}
+
+// the buildings a city may start now, in the game's building order (as the build screen)
+func possibleBuildings(city *citylib.City) []buildinglib.Building {
+    return slices.SortedFunc(slices.Values(city.ComputePossibleBuildings(false).Values()), func(a, b buildinglib.Building) int {
+        return cmp.Compare(city.BuildingInfo.GetBuildingIndex(a), city.BuildingInfo.GetBuildingIndex(b))
+    })
+}
+
+// what the city can produce: buildings, then units by name (the build screen's lists)
+func (model *GameModel) productionOptions(city *citylib.City) []ProductionOption {
+    out := []ProductionOption{}
+    for _, building := range possibleBuildings(city) {
+        out = append(out, ProductionOption{Name: model.BuildingInfo.Name(building), Cost: model.BuildingInfo.ProductionCost(building)})
+    }
+    possibleUnits := city.ComputePossibleUnits()
+    slices.SortFunc(possibleUnits, func(a, b units.Unit) int {
+        return cmp.Compare(a.Name, b.Name)
+    })
+    for _, unit := range possibleUnits {
+        out = append(out, ProductionOption{Name: unit.Name, Unit: true, Cost: city.UnitProductionCost(&unit)})
+    }
     return out
 }

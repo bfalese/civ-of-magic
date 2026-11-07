@@ -194,7 +194,8 @@ func (command *SetCityProductionCommand) Execute(context *CommandContext) error 
         if building == buildinglib.BuildingNone {
             return fmt.Errorf("unknown building %v", command.Building)
         }
-        if building != buildinglib.BuildingTradeGoods && building != buildinglib.BuildingHousing && !city.GetBuildableBuildings().Contains(building) {
+        // what the build screen offers: allowed here, not built yet, prerequisites met
+        if !city.ComputePossibleBuildings(false).Contains(building) {
             return fmt.Errorf("%v can't build %v", city.Name, command.Building)
         }
         city.ProducingBuilding = building

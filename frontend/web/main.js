@@ -18,6 +18,8 @@ const state = {
     spellTarget: null,
     questions: [],
     modalOpen: false,
+    // the location of the city whose screen is open, or null
+    cityOpen: null,
     lastDate: null,
 };
 
@@ -229,6 +231,9 @@ function refresh() {
     state.map.setSelected(stack ? stack.location : null);
     updateHud();
     updateSide();
+    if (state.cityOpen) {
+        renderCityScreen();
+    }
 }
 
 function updateHud() {
@@ -281,14 +286,104 @@ function updateSide(extra) {
     }
 }
 
-function cityInfo(city) {
-    const escape = (text) => String(text).replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
-    return `<h3>${escape(city.name)}</h3>
-        <div>population ${city.population} (${city.citizens}/${city["maximum-size"]})</div>
-        <div>farmers ${city.farmers} · workers ${city.workers} · rebels ${city.rebels}</div>
-        <div>food ${city["food-surplus"]} · gold ${city["gold-surplus"]} · production ${city["production-per-turn"]}</div>
-        <div>building <b>${escape(city.producing || "nothing")}</b> ${Math.floor(city.production)}/${city["production-cost"]}</div>
-        <div class="dim">${city.buildings.map(escape).join(", ") || "no buildings"}</div>`;
+// ---- the city screen: production, buying, farmers, selling, the garrison
+
+const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
+
+function openCity(location) {
+    state.cityOpen = location;
+    renderCityScreen();
+}
+
+function closeCity() {
+    state.cityOpen = null;
+    element("city").classList.remove("open");
+}
+
+// a command from the city screen; the screen redraws from the new view
+function cityCommand(type, command) {
+    execute(type, { city: state.cityOpen, ...command });
+    renderCityScreen();
+}
+
+function renderCityScreen() {
+    const screen = element("city");
+    const city = state.cityOpen && state.view ? state.view.cities.find((city) => sameTile(city.location, state.cityOpen)) : null;
+    if (!city) {
+        closeCity();
+        return;
+    }
+    screen.classList.add("open");
+    const gold = state.view.you.gold;
+    const perTurn = city["production-per-turn"];
+    const remaining = Math.max(0, city["production-cost"] - city.production);
+    const turns = city["production-cost"] === 0 ? "" : perTurn > 0 ? `${Math.ceil(remaining / perTurn)} turn(s)` : "never";
+    const canBuy = city["buy-cost"] > 0 && city["buy-cost"] <= gold;
+    const workers = city.citizens - city.farmers - city.rebels;
+    const garrison = state.view.stacks.find((stack) => sameTile(stack.location, city.location));
+
+    const options = city["can-build"].map((option) => {
+        const current = option.name === city.producing;
+        const kind = option.unit ? "unit" : "building";
+        return `<button class="option${current ? " current" : ""}" data-kind="${kind}" data-name="${escapeHtml(option.name)}">${escapeHtml(option.name)}<span class="dim">${option.cost || ""}</span></button>`;
+    }).join("");
+
+    const buildings = city.buildings.map((name) => {
+        const value = city["sell-values"][name];
+        const sell = value === undefined ? "" : `<button class="small" data-sell="${escapeHtml(name)}" ${city["sold-building-this-turn"] ? "disabled" : ""}>sell ${value}</button>`;
+        return `<div class="row"><span>${escapeHtml(name)}</span>${sell}</div>`;
+    }).join("") || `<div class="dim">no buildings yet</div>`;
+
+    screen.innerHTML = `<div class="panel">
+        <div class="row"><h3>${escapeHtml(city.name)} <span class="dim">${escapeHtml(city.race)} · ${city.population.toLocaleString()} people</span></h3><button id="cityClose" title="Esc">Close</button></div>
+        <div class="columns">
+            <div>
+                <div class="row"><span>food</span><b>${city["food-surplus"] >= 0 ? "+" : ""}${city["food-surplus"]}</b></div>
+                <div class="row"><span>gold</span><b>${city["gold-surplus"] >= 0 ? "+" : ""}${city["gold-surplus"]}</b></div>
+                <div class="row"><span>production</span><b>${Math.round(perTurn * 10) / 10}</b></div>
+                <div class="row"><span>power · research</span><b>${city.power} · ${city.research}</b></div>
+                <h3 class="gap">Citizens ${city.citizens}/${city["maximum-size"]}</h3>
+                <div class="row"><span>farmers ${city.farmers} <span class="dim">(min ${city["subsistence-farmers"]})</span></span>
+                    <span><button class="small" id="fewerFarmers" ${city.farmers <= Math.min(city["subsistence-farmers"], city.citizens - city.rebels) ? "disabled" : ""}>−</button>
+                    <button class="small" id="moreFarmers" ${workers <= 0 ? "disabled" : ""}>+</button></span></div>
+                <div class="row"><span>workers ${workers}</span><span class="dim">rebels ${city.rebels}</span></div>
+                <h3 class="gap">Producing</h3>
+                <div><b>${escapeHtml(city.producing || "nothing")}</b> <span class="dim">${Math.floor(city.production)}/${city["production-cost"]} ${turns}</span></div>
+                <button id="buy" class="gap" ${canBuy ? "" : "disabled"}>${city["buy-cost"] > 0 ? `Buy for ${city["buy-cost"]} gold` : "Nothing to buy"}</button>
+                <h3 class="gap">Garrison</h3>
+                ${garrison ? `<div class="dim">${garrison.units.map((unit) => escapeHtml(unit.name)).join(", ")}</div><button id="selectGarrison" class="small gap">Select</button>` : `<div class="dim">none</div>`}
+            </div>
+            <div>
+                <h3>Change production</h3>
+                <div class="options">${options}</div>
+                <h3 class="gap">Buildings</h3>
+                ${buildings}
+            </div>
+        </div>
+    </div>`;
+
+    element("cityClose").onclick = closeCity;
+    screen.onclick = (event) => {
+        if (event.target === screen) {
+            closeCity();
+        }
+    };
+    element("fewerFarmers").onclick = () => cityCommand("set-city-farmers", { farmers: city.farmers - 1 });
+    element("moreFarmers").onclick = () => cityCommand("set-city-farmers", { farmers: city.farmers + 1 });
+    element("buy").onclick = () => cityCommand("buy-production", {});
+    for (const button of screen.querySelectorAll("button.option")) {
+        button.onclick = () => cityCommand("set-city-production", { [button.dataset.kind]: button.dataset.name });
+    }
+    for (const button of screen.querySelectorAll("button[data-sell]")) {
+        button.onclick = () => cityCommand("sell-building", { building: button.dataset.sell });
+    }
+    if (garrison) {
+        element("selectGarrison").onclick = () => {
+            state.selectedUnit = garrison.units[0].id;
+            closeCity();
+            refresh();
+        };
+    }
 }
 
 // ---- input
@@ -317,6 +412,13 @@ function onTileClick(tile) {
     const stackHere = view.stacks.find((stack) => sameTile(stack.location, tile) && stack.units.length > 0);
     const selected = selectedStack();
 
+    // your city opens its screen, unless a stack is selected (then the click moves it there)
+    const city = view.cities.find((city) => sameTile(city.location, tile));
+    if (city && !selected) {
+        openCity(city.location);
+        return;
+    }
+
     if (stackHere && (!selected || !sameTile(selected.location, tile))) {
         state.selectedUnit = stackHere.units[0].id;
         refresh();
@@ -332,11 +434,6 @@ function onTileClick(tile) {
         return;
     }
 
-    const city = view.cities.find((city) => sameTile(city.location, tile));
-    if (city) {
-        updateSide(cityInfo(city));
-        return;
-    }
     const foreign = view["foreign-cities"].find((city) => sameTile(city.location, tile));
     if (foreign) {
         updateSide(`<h3>${foreign.name}</h3><div class="dim">${foreign.owner.wizard} · ${foreign.size} citizens</div>`);
@@ -379,6 +476,10 @@ function bindControls() {
     };
     window.addEventListener("keydown", (event) => {
         if (state.modalOpen) {
+            return;
+        }
+        if (state.cityOpen) {
+            if (event.key === "Escape") closeCity();
             return;
         }
         if (event.key === "Enter") endTurn();

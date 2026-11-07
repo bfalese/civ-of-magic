@@ -47,7 +47,7 @@ command isn't legal (not your city, not enough gold, no path...).
 | `move-stack` | `from`, `to` (locations) | find a path, walk as far as moves go; battles/encounters on the way |
 | `set-research` | `spell` | must be one of the research candidates |
 | `set-tax-rate` | `numerator`, `denominator` | 0, 1/2, 1, 3/2, 2, 5/2 or 3 gold per citizen |
-| `set-city-production` | `city`, `building` or `unit` | what the city builds |
+| `set-city-production` | `city`, `building` or `unit` | what the city builds: one of the city view's `can-build` (prerequisites met) |
 | `set-city-farmers` | `city`, `farmers` | at least the subsistence farmers |
 | `buy-production` | `city` | pay gold to finish the current production |
 | `sell-building` | `city`, `building` | one sale per city per turn |
@@ -154,7 +154,9 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 - **Player view** (`MakePlayerView`): `turn`, `date`, `current-player`, `you` (gold, mana, per-turn
   income, fame, tax rate, casting skill, research and casting progress, known spells, global
   enchantments), `known-wizards`, `cities` (full detail: citizens, production, buy cost,
-  buildings, enchantments), `stacks` (units with id, health and moves, remaining path),
+  buildings, enchantments; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
+  `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
+  `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, remaining path),
   `foreign-cities` and `foreign-stacks` (only where the player's fog shows them).
 - **Map view** (`MakeMapView`, per plane): `width`, `height`, `tiles[y][x]` with `terrain`, `road`,
   `bonus`, `encounter`, `corrupted`, `visible`; `null` for unexplored tiles.
