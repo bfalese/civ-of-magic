@@ -1,5 +1,7 @@
 # Handoff 020: start here (state at end of 2026-11-06)
 
+> **Superseded by [027](027-start-here.md)**, the current start-here doc.
+
 This is the entry point for the next session. It replaces [009](009-start-here-next-session.md).
 Read `CLAUDE.md` first, then this file, then the newer handoffs ([021](021-wasm-core.md): the
 wasm core, steps 1–3 of the plan below, are done). The numbered handoffs 010–019 have the details of each
