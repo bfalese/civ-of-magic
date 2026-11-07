@@ -5,8 +5,9 @@ Previous: [023](023-protocol-gaps.md). Start-here doc: [020](020-start-here.md).
 
 ## State
 
-- Branch `frontend-web`, stacked on `protocol-gaps` (PR #29; it uses the unit ids).
-  **Don't merge without explicit approval.**
+- PRs #29 (unit ids, two-step trade) and #30 (`frontend-web`, this round) are merged.
+- Next round, as the user chose: the city screen in the web frontend (production, buying,
+  farmers).
 
 ## Running it
 
@@ -52,5 +53,5 @@ walks one, path dot left), end turn (February, research dialog); no console erro
 
 ## Next
 
-Pick between: the city screen (production/buy, most-used actions), tactical battles in the page,
+The city screen (production/buy/farmers, the most-used actions); later tactical battles in the page
 or the 3D/retro rendering step.
