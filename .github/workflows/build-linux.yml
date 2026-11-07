@@ -1,6 +1,9 @@
 name: Build Linux
 
-on: push
+on:
+  push:
+  # by hand from the Actions tab: also runs the arm64 job
+  workflow_dispatch:
 
 jobs:
   build:
@@ -69,6 +72,8 @@ jobs:
 
   build-arm64:
     name: Build code on arm64
+    # disabled on push for now; runs when the workflow is started by hand
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Check out code
