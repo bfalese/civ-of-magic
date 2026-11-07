@@ -49,9 +49,12 @@ screenshot of the test page.
 - `TakeEvents` returns every event, including the AI players' own (their offers, research);
   a per-player filter in the host would be cleaner for a network client.
 - The page doesn't show battles graphically; "Auto battle"/"Flee" only.
-- The open questions from 020 still stand: where the renderer lives (`frontend/web` in this repo
-  or a separate repo); placeholder art vs. requiring the user's MoM data for sprites (sprites need
-  asset IDs instead of LBX indexes, 001 step 2).
+- **Decided (2026-11-06)**: the renderer lives in this repo under `frontend/web`. It starts with
+  the existing MoM art (from the user's own install, never shipped) and replaces it piece by piece
+  over time. So sprites need asset IDs instead of LBX indexes (001 step 2), with a way to turn the
+  user's LBX files into those assets for the browser.
+- The upstream `itch.io/` folders (and `make itch.io` etc.) publish the Ebitengine game to
+  kazzmir's itch.io page; not used by us. Candidates for a cleanup PR.
 
 ## Next
 
