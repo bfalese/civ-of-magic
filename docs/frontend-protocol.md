@@ -161,3 +161,39 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 go run ./util/headless-game -years 100 -events     # every event as JSON
 go run ./util/headless-game -years 50 -view        # a wizard's view at the end
 ```
+
+## A whole game for one player: `GameHost` and the wasm core
+
+`core/game/host.go`: `MakeGameHost(gameData, HostSettings)` sets up a game where player 0 is a
+human who plays through commands, and owns the turn loop. `host.Execute` / `ExecuteJSON` runs a
+command through the player's `CommandSession`; an `end-turn` plays the AI wizards' turns and
+returns at the start of the human's next turn. `host.TakeEvents()` returns the events since the
+last call (all of the model's events, including the AI players': show the ones that concern you).
+Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `"won"` or `"lost"`.
+
+Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (default true),
+`difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
+`wizardName`.
+
+Battles an AI wizard starts against the human are fought automatically for now.
+
+`frontend/wasm` exposes a host to JavaScript as `globalThis.civ` (core only, no Ebitengine):
+
+| function | returns |
+|---|---|
+| `civ.newGame(gamedataJSON, settingsJSON)` | status |
+| `civ.execute(commandJSON)` | status |
+| `civ.events()` | JSON array of events since the last call |
+| `civ.view()`, `civ.map("Arcanus" \| "Myrror")`, `civ.battle()` | the view as JSON (`{"error": ...}` on failure) |
+| `civ.setLogging(bool)` | the Go log on the console (off by default) |
+
+Status is `{"error"?, "waiting", "gameOver"?}`. Every function returns a JSON string. The page
+calls `window.onCivReady` (if defined) once the API is there. The page loads the user's own
+`gamedata.json`; it is never shipped.
+
+```sh
+make core-wasm                                     # frontend/wasm/core.wasm + wasm_exec.js
+node frontend/wasm/smoke.cjs frontend/wasm/core.wasm ~/.local/share/civ-of-magic/gamedata/gamedata.json 30
+python3 -m http.server -d frontend/wasm 8080       # test page; pick gamedata.json, or
+                                                   # link it into frontend/wasm and open ?gamedata=gamedata.json
+```

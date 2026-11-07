@@ -33,6 +33,14 @@ jobs:
             echo "core/ imports rendering or LBX"; exit 1
           fi
 
+      - name: Wasm core (core only, no rendering)
+        run: |
+          if GOOS=js GOARCH=wasm go list -deps ./frontend/wasm | grep -E 'ebiten|/lbx'; then
+            echo "frontend/wasm imports rendering or LBX"; exit 1
+          fi
+          GOOS=js GOARCH=wasm go vet ./frontend/wasm
+          GOOS=js GOARCH=wasm go build -o core.wasm ./frontend/wasm
+
       - name: Vet
         run: go vet ./...
 
