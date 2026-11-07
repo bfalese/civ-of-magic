@@ -1,6 +1,7 @@
 name: Build Windows
 
-on: push
+# disabled for now (only Linux runs on push); start it by hand from the Actions tab
+on: workflow_dispatch
 
 jobs:
   build:
