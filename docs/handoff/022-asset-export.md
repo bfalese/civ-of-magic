@@ -5,10 +5,9 @@ Previous: [021](021-wasm-core.md). Start-here doc: [020](020-start-here.md).
 
 ## State
 
-- PR #25 (`wasm-bridge`, the wasm core) and PR #26 (`remove-itchio`) are open.
-  **Don't merge without explicit approval.** #26 touches the Makefile next to #25's `core-wasm`
-  target; a small conflict at most.
-- This round: branch `export-assets` on top of `wasm-bridge` (its PR is stacked on #25).
+- PR #25 (the wasm core) is merged. PR #26 (`remove-itchio`) is open, with `master` merged in
+  (Makefile conflict resolved). **Don't merge without explicit approval.**
+- This round: branch `export-assets`, PR #27 against `master` (`master` merged in after #25).
 - Decisions (see 021): the renderer goes in `frontend/web`; it starts with the existing MoM art
   (the user's own export) and replaces it over time.
 
