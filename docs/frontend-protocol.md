@@ -229,7 +229,9 @@ Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `
 
 Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (default true),
 `difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
-`wizardName`.
+`wizardName`, `scenario` (a setup for tests, `core/game/scenario.go`: `battle` puts a guarded
+lair next to the capital and gives the wizard Fire Bolt with mana; the web page takes
+`?scenario=battle`).
 
 When an AI player (a wizard or raiders) attacks the human during `end-turn`, the AI turns pause:
 `end-turn` returns with `WaitingFor()` = `battle` (and a `battle-started` event with the human as

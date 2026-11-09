@@ -78,6 +78,19 @@ func TestSessionBattle(test *testing.T) {
     if len(view.Moves) == 0 {
         test.Errorf("the selected drake should be able to move")
     }
+    // reach skips tiles too far to walk to; it must find what CanMoveTo finds on every tile
+    combatModel := session.Battle.Battle.Combat
+    var everyTile [][2]int
+    for y, row := range combatModel.Tiles {
+        for x := range row {
+            if combatModel.TileIsEmpty(x, y) && combatModel.CanMoveTo(combatModel.SelectedUnit, x, y, false) {
+                everyTile = append(everyTile, [2]int{x, y})
+            }
+        }
+    }
+    if !slices.Equal(view.Moves, everyTile) {
+        test.Errorf("reach found %v tiles, CanMoveTo on every tile %v", len(view.Moves), len(everyTile))
+    }
     for _, target := range view.Targets {
         if target.Kind != "melee" && target.Kind != "ranged" {
             test.Errorf("target kind %q", target.Kind)
@@ -486,11 +499,4 @@ func TestSessionBattleSteps(test *testing.T) {
     if !attacked {
         test.Errorf("the drakes never got to attack")
     }
-}
-
-func abs(value int) int {
-    if value < 0 {
-        return -value
-    }
-    return value
 }

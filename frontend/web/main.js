@@ -532,6 +532,10 @@ async function main() {
         }
 
         const settings = { opponents: parseInt(params.get("opponents") || "3", 10), raiders: true, difficulty: params.get("difficulty") || "average" };
+        // a setup for tests (core/game/scenario.go), e.g. ?scenario=battle
+        if (params.has("scenario")) {
+            settings.scenario = params.get("scenario");
+        }
         const status = core.newGame(gamedata, settings);
         if (status.error) {
             throw new Error(status.error);

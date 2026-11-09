@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "math"
     "slices"
     "strings"
 
@@ -688,8 +689,15 @@ func (session *BattleSession) reach(unit *combat.ArmyUnit) ([][2]int, []BattleTa
         return moves, targets
     }
 
+    // a step needs moves left and costs at least one (CanFollowPath), so no walk is longer than
+    // ceil(moves left) steps: skip the tiles farther than that before searching a path to each
+    // (a search for an unreachable tile explores the whole field)
+    maxSteps := int(math.Ceil(unit.MovesLeft.ToFloat()))
     for y, row := range model.Tiles {
         for x := range row {
+            if !unit.CanTeleport() && max(abs(x - unit.X), abs(y - unit.Y)) > maxSteps {
+                continue
+            }
             if model.TileIsEmpty(x, y) && model.CanMoveTo(unit, x, y, false) {
                 moves = append(moves, [2]int{x, y})
             }
@@ -834,4 +842,11 @@ func (session *BattleSession) castingView(pending *pendingCast) *BattleCastingVi
 
 func (session *BattleSession) EncodeView() ([]byte, error) {
     return json.Marshal(session.View())
+}
+
+func abs(value int) int {
+    if value < 0 {
+        return -value
+    }
+    return value
 }

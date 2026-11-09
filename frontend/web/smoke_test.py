@@ -1,8 +1,13 @@
 """Smoke test for the web frontend, in a real browser (Playwright, Chromium).
 
-Plays the first turns through the page the way a person would: opens the capital's city screen,
-changes production, moves a farmer, closes it, selects the garrison, moves it, ends the turn, and
-answers the research question. Fails on any page error.
+Plays the first turn through the page the way a person would: opens the capital's city screen,
+changes production, moves a farmer, sells a building, selects the garrison, moves it, ends the
+turn and answers the research question. Then starts the battle scenario (a guarded lair next to
+the capital, Fire Bolt known; see core/game/scenario.go), enters the lair, casts the spell, moves
+a unit, checks the replay and unit details, and lets auto finish the battle.
+
+It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
+step expects (the page answers in well under a second). On a failure it saves a screenshot.
 
     pip install --user playwright && python3 -m playwright install chromium
     go run ./util/serve-web &           # needs the exported gamedata and assets
@@ -10,132 +15,174 @@ answers the research question. Fails on any page error.
 """
 
 import json
+import os
 import sys
+import time
 
 from playwright.sync_api import sync_playwright
 
+# how long a step may take: clicks, a screen opening, a command's answer
+STEP_TIMEOUT = 5000
+# loading the wasm core and starting a game
+LOAD_TIMEOUT = 20000
+# work that really takes a while: auto fighting a whole battle
+BATTLE_TIMEOUT = 20000
+
+
+class Smoke:
+    def __init__(self, page, shots):
+        self.page = page
+        self.shots = shots
+        self.errors = []
+        page.on("pageerror", lambda error: self.errors.append(str(error)))
+        page.on("console", lambda message: self.errors.append(message.text) if message.type == "error" else None)
+
+    def shot(self, name):
+        if self.shots:
+            self.page.screenshot(path=os.path.join(self.shots, f"{name}.png"))
+
+    def fail(self, message):
+        path = os.path.join(self.shots or ".", "failure.png")
+        try:
+            self.page.screenshot(path=path)
+            message += f" (screenshot: {path})"
+        except Exception:
+            pass
+        if self.errors:
+            message += "\npage errors:\n  " + "\n  ".join(self.errors)
+        raise AssertionError(message)
+
+    def no_errors(self):
+        if self.errors:
+            self.fail("page error")
+
+    def check(self, condition, message):
+        self.no_errors()
+        if not condition:
+            self.fail(message)
+        print(f"ok  {message}")
+
+    def state(self, expression):
+        return self.page.evaluate(f"(() => {{ const s = window.civGame; return {expression}; }})()")
+
+    def wait(self, expression, what, timeout=STEP_TIMEOUT):
+        """Poll a JavaScript expression until it's truthy; fail at a page error or the timeout."""
+        deadline = time.monotonic() + timeout / 1000
+        while True:
+            self.no_errors()
+            value = self.page.evaluate(f"(() => {{ try {{ return {expression}; }} catch (error) {{ return null; }} }})()")
+            if value:
+                return value
+            if time.monotonic() > deadline:
+                self.fail(f"timed out after {timeout / 1000:g}s waiting for {what}")
+            self.page.wait_for_timeout(50)
+
+    def visible(self, selector, what, timeout=STEP_TIMEOUT):
+        self.wait(f"(() => {{ const element = document.querySelector({json.dumps(selector)}); return !!element && element.getClientRects().length > 0; }})()", what, timeout)
+
+    def load(self, url):
+        self.page.goto(url)
+        self.wait("window.civGame && window.civGame.view", "the game to load", LOAD_TIMEOUT)
+
 
 def main():
-    arguments = [argument for argument in sys.argv[1:] if not argument.startswith("--")]
-    url = arguments[0] if arguments else "http://localhost:8080"
+    arguments = [argument for index, argument in enumerate(sys.argv[1:], 1)
+                 if not argument.startswith("--") and sys.argv[index - 1] != "--shots"]
+    url = (arguments[0] if arguments else "http://localhost:8080").split("?")[0]
     shots = sys.argv[sys.argv.index("--shots") + 1] if "--shots" in sys.argv else None
-    errors = []
-
-    def shot(page, name):
-        if shots:
-            page.screenshot(path=f"{shots}/{name}.png")
-
-    def check(condition, message):
-        if not condition:
-            raise AssertionError(message)
-        print(f"ok  {message}")
+    began = time.monotonic()
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
         page = browser.new_page(viewport={"width": 1200, "height": 800})
-        page.on("pageerror", lambda error: errors.append(str(error)))
-        page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
+        page.set_default_timeout(STEP_TIMEOUT)
+        smoke = Smoke(page, shots)
+        try:
+            first_turn(smoke, url)
+            battle(smoke, url)
+        finally:
+            browser.close()
 
-        page.goto(url)
-        page.wait_for_function("window.civGame && window.civGame.view", timeout=60000)
-        state = lambda expression: page.evaluate(f"(() => {{ const s = window.civGame; return {expression}; }})()")
-        check(state("s.view.cities.length") == 1, "the game starts with a capital")
-        shot(page, "1-start")
-
-        # the camera starts on the capital: its tile is in the middle of the map area
-        page.mouse.click(600, 400)
-        page.wait_for_selector("#city.open")
-        check(state("s.cityOpen !== null"), "clicking the capital opens its city screen")
-        shot(page, "2-city")
-
-        options = state("s.view.cities[0]['can-build'].map(o => o.name)")
-        producing = state("s.view.cities[0].producing")
-        choice = next(name for name in options if name != producing and name not in ("Trade Goods", "Housing"))
-        page.click(f"#city button.option[data-name='{choice}']")
-        check(state("s.view.cities[0].producing") == choice, f"production changed to {choice}")
-
-        farmers = state("s.view.cities[0].farmers")
-        if page.is_enabled("#fewerFarmers"):
-            page.click("#fewerFarmers")
-            check(state("s.view.cities[0].farmers") == farmers - 1, "one farmer fewer (a worker more)")
-            page.click("#moreFarmers")
-            check(state("s.view.cities[0].farmers") == farmers, "and back")
-        elif page.is_enabled("#moreFarmers"):
-            page.click("#moreFarmers")
-            check(state("s.view.cities[0].farmers") == farmers + 1, "one more farmer")
-            page.click("#fewerFarmers")
-            check(state("s.view.cities[0].farmers") == farmers, "and back")
-        values = state("s.view.cities[0]['sell-values']")
-        if values:
-            name, value = sorted(values.items())[0]
-            gold = state("s.view.you.gold")
-            page.click(f"#city button[data-sell='{name}']")
-            check(state("s.view.you.gold") == gold + value and name not in state("s.view.cities[0].buildings"), f"sold {name} for {value} gold")
-            check(page.locator("#city button[data-sell]:enabled").count() == 0, "one sale per turn: the other sell buttons are off")
-        shot(page, "3-city-changed")
-
-        page.click("#selectGarrison")
-        check(not state("s.cityOpen") and state("s.selectedUnit !== null"), "the garrison is selected and the screen closed")
-
-        # maps are random: try the neighbouring tiles (80x72 screen pixels at the start zoom) until
-        # one can be entered
-        start = state("JSON.stringify(s.view.stacks)")
-        for dx, dy in [(80, 0), (-80, 0), (0, -72), (0, 72), (80, 72), (-80, -72), (80, -72), (-80, 72)]:
-            if state("s.selectedUnit") is None:
-                break
-            page.mouse.click(600 + dx, 400 + dy)
-            if state("JSON.stringify(s.view.stacks)") != start:
-                break
-        moved = state("JSON.stringify(s.view.stacks.map(stack => stack.location))")
-        check(state("JSON.stringify(s.view.stacks)") != start, f"the garrison moved ({moved})")
-        shot(page, "4-moved")
-
-        date = state("s.view.date")
-        page.keyboard.press("Enter")
-        page.wait_for_function(f"window.civGame.view.date !== {json.dumps(date)}")
-        check(True, f"end turn: {date} -> {state('s.view.date')}")
-        page.wait_for_selector("#modal.open")
-        page.click("#modalChoices button >> nth=0")
-        check(state("s.view.you.researching") is not None, f"research chosen: {state('s.view.you.researching')}")
-        shot(page, "5-next-turn")
-
-        battle(page, state, check, shot)
-        browser.close()
-
-    if errors:
-        print("page errors:\n  " + "\n  ".join(errors))
-        sys.exit(1)
-    print("smoke test passed")
+    print(f"smoke test passed in {time.monotonic() - began:.1f}s")
 
 
-# the nearest guarded site (lair, ruins, ...) to the first stack, in the explored map
-FIND_ENCOUNTER = """(() => {
+def first_turn(smoke, url):
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1")
+    check(state("s.view.cities.length") == 1, "the game starts with a capital")
+    smoke.shot("1-start")
+
+    # the camera starts on the capital: its tile is in the middle of the map area
+    page.mouse.click(600, 400)
+    smoke.visible("#city.open", "the city screen")
+    check(state("s.cityOpen !== null"), "clicking the capital opens its city screen")
+    smoke.shot("2-city")
+
+    options = state("s.view.cities[0]['can-build'].map(o => o.name)")
+    producing = state("s.view.cities[0].producing")
+    choice = next(name for name in options if name != producing and name not in ("Trade Goods", "Housing"))
+    page.click(f"#city button.option[data-name='{choice}']")
+    check(state("s.view.cities[0].producing") == choice, f"production changed to {choice}")
+
+    farmers = state("s.view.cities[0].farmers")
+    if page.is_enabled("#fewerFarmers"):
+        page.click("#fewerFarmers")
+        check(state("s.view.cities[0].farmers") == farmers - 1, "one farmer fewer (a worker more)")
+        page.click("#moreFarmers")
+        check(state("s.view.cities[0].farmers") == farmers, "and back")
+    elif page.is_enabled("#moreFarmers"):
+        page.click("#moreFarmers")
+        check(state("s.view.cities[0].farmers") == farmers + 1, "one more farmer")
+        page.click("#fewerFarmers")
+        check(state("s.view.cities[0].farmers") == farmers, "and back")
+    values = state("s.view.cities[0]['sell-values']")
+    if values:
+        name, value = sorted(values.items())[0]
+        gold = state("s.view.you.gold")
+        page.click(f"#city button[data-sell='{name}']")
+        check(state("s.view.you.gold") == gold + value and name not in state("s.view.cities[0].buildings"), f"sold {name} for {value} gold")
+        check(page.locator("#city button[data-sell]:enabled").count() == 0, "one sale per turn: the other sell buttons are off")
+    smoke.shot("3-city-changed")
+
+    page.click("#selectGarrison")
+    check(not state("s.cityOpen") and state("s.selectedUnit !== null"), "the garrison is selected and the screen closed")
+
+    # maps are random: try the neighbouring tiles (80x72 screen pixels at the start zoom) until
+    # one can be entered
+    start = state("JSON.stringify(s.view.stacks)")
+    for dx, dy in [(80, 0), (-80, 0), (0, -72), (0, 72), (80, 72), (-80, -72), (80, -72), (-80, 72)]:
+        if state("s.selectedUnit") is None:
+            break
+        page.mouse.click(600 + dx, 400 + dy)
+        if state("JSON.stringify(s.view.stacks)") != start:
+            break
+    moved = state("JSON.stringify(s.view.stacks.map(stack => stack.location))")
+    check(state("JSON.stringify(s.view.stacks)") != start, f"the garrison moved ({moved})")
+    smoke.shot("4-moved")
+
+    date = state("s.view.date")
+    page.keyboard.press("Enter")
+    smoke.wait(f"window.civGame.view.date !== {json.dumps(date)}", "the next turn")
+    check(True, f"end turn: {date} -> {state('s.view.date')}")
+    smoke.visible("#modal.open", "the research question")
+    page.click("#modalChoices button >> nth=0")
+    check(state("s.view.you.researching") is not None, f"research chosen: {state('s.view.you.researching')}")
+    smoke.shot("5-next-turn")
+
+
+# the lair the battle scenario puts next to the capital
+FIND_LAIR = """(() => {
     const s = window.civGame;
     const stack = s.view.stacks.find((stack) => stack.units.length);
     if (!stack) return null;
     const map = s.core.map(stack.location.plane);
-    let best = null;
-    map.tiles.forEach((row, y) => row.forEach((tile, x) => {
-        if (!tile || !tile.encounter || tile.encounter.includes("Node")) return;
-        const dx = Math.min(Math.abs(x - stack.location.x), map.width - Math.abs(x - stack.location.x));
-        const distance = Math.max(dx, Math.abs(y - stack.location.y));
-        if (!best || distance < best.distance) best = { x, y, distance, kind: tile.encounter };
-    }));
-    return best && { to: { plane: stack.location.plane, x: best.x, y: best.y }, distance: best.distance, kind: best.kind };
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const x = (stack.location.x + dx + map.width) % map.width, y = stack.location.y + dy;
+        const tile = map.tiles[y] && map.tiles[y][x];
+        if (tile && tile.encounter) return { from: stack.location, to: { plane: stack.location.plane, x, y }, kind: tile.encounter };
+    }
+    return null;
 })()"""
-
-
-def settle(page):
-    """After an end-turn: answer the dialogs, and let auto fight a battle an AI player started."""
-    while True:
-        if page.locator("#modal.open").count():
-            page.click("#modalChoices button >> nth=0")
-        elif page.evaluate("window.civGame.battle.open"):
-            print("an AI player attacked: auto")
-            page.click("#battle button[data-command='battle-auto']")
-            page.wait_for_function("!window.civGame.battle.open", timeout=60000)
-        else:
-            return
 
 
 def tile_point(page, x, y):
@@ -148,143 +195,96 @@ def tile_point(page, x, y):
     }})()""")
 
 
-def cast_spell(page, check, shot):
-    """Open the spell list and cast the wizard's first castable spell, picking its target on the
-    field (after cancelling once with Esc). False if the battle ended."""
-    view = page.evaluate("window.civGame.core.battle()")
-    magic = view.get("magic") or {}
+def battle_view(page):
+    return page.evaluate("window.civGame.core.battle()")
+
+
+def cast_spell(smoke):
+    """Open the spell list and cast Fire Bolt on an enemy: once cancelled with Esc, then on the field."""
+    page, check = smoke.page, smoke.check
+    magic = battle_view(page)["magic"]
     page.keyboard.press("s")
-    if not magic.get("spells"):
-        print("skip cast: the wizard knows no combat spells")
-        return True
-    page.wait_for_selector("#battle .battle-spells:not([hidden]) .battle-spell")
+    smoke.visible("#battle .battle-spells .battle-spell", "the spell list")
     listed = page.locator("#battle .battle-spells .battle-spell").count()
     check(listed >= len(magic["spells"]), f"S opens the spell list: {listed} spells, {magic['available']} mana available")
-    shot(page, "6b-spells")
+    smoke.shot("6b-spells")
 
-    castable = [spell for spell in magic["spells"] if spell["castable"]]
-    if not castable:
-        print(f"skip cast: nothing castable with {magic['available']} mana ({', '.join(spell['name'] + ' ' + str(spell['cost']) for spell in magic['spells'])})")
-        page.keyboard.press("Escape")
-        return True
-    spell = castable[0]
-    button = f"#battle .battle-spell[data-spell={json.dumps(spell['name'])}] >> nth=0"
+    spell = next((spell for spell in magic["spells"] if spell["name"] == "Fire Bolt"), None)
+    check(spell is not None and spell["castable"], "the scenario's Fire Bolt is castable")
+    button = "#battle .battle-spell[data-spell='Fire Bolt'] >> nth=0"
     page.click(button)
-    view = page.evaluate("window.civGame.core.battle()")
-    casting = view.get("casting")
+    casting = battle_view(page).get("casting")
+    check(casting is not None and casting["kind"] == "unit" and casting.get("units"), f"Fire Bolt waits for a unit target: {casting}")
+    smoke.shot("6c-casting")
 
-    if casting:
-        check(True, f"{spell['name']} waits for a {casting['kind']} target")
-        shot(page, "6c-casting")
-        page.keyboard.press("Escape")
-        view = page.evaluate("window.civGame.core.battle()")
-        check(not view.get("casting") and not view["magic"]["casted"], "Esc cancels it without paying")
-        if casting["kind"] != "choice" and not casting.get("units") and not casting.get("tiles"):
-            print(f"skip cast: {spell['name']} has nothing here to target")
-            return True
-        page.keyboard.press("s")
-        page.click(button)
-        casting = page.evaluate("window.civGame.core.battle()").get("casting")
-        if casting["kind"] == "choice":
-            page.click("#battle .battle-choice >> nth=0")
-        else:
-            if casting["kind"] == "unit":
-                unit = next(unit for unit in view["units"] if unit["id"] == casting["units"][0])
-                x, y = unit["x"], unit["y"]
-            else:
-                x, y = casting["tiles"][0]
-            point = tile_point(page, x, y)
-            page.mouse.click(point[0], point[1])
+    page.keyboard.press("Escape")
+    view = battle_view(page)
+    check(not view.get("casting") and not view["magic"]["casted"], "Esc cancels it without paying")
 
-    if not page.evaluate("window.civGame.battle.open"):
-        check(True, f"{spell['name']} ended the battle")
+    page.keyboard.press("s")
+    page.click(button)
+    casting = battle_view(page)["casting"]
+    target = next(unit for unit in view["units"] if unit["id"] == casting["units"][0])
+    point = tile_point(page, target["x"], target["y"])
+    page.mouse.click(point[0], point[1])
+    if not smoke.state("s.battle.open"):
+        check(True, "Fire Bolt ended the battle")
         return False
-    view = page.evaluate("window.civGame.core.battle()")
-    check(view["magic"]["casted"] and not view.get("casting"), f"cast {spell['name']} for {spell['cost']} mana: {page.inner_text('#battle .battle-hint')}")
-    shot(page, "6d-cast")
+    view = battle_view(page)
+    spell_step = next((step for step in view["steps"] if step["kind"] == "spell"), None)
+    check(view["magic"]["casted"] and not view.get("casting") and spell_step, f"cast Fire Bolt on {target['name']}: {page.inner_text('#battle .battle-hint')}")
+    smoke.shot("6d-cast")
     return True
 
 
-def battle(page, state, check, shot):
-    """March to a guarded site near a fresh capital, enter, cast a spell, fight one move by hand,
-    then auto."""
-    url = page.url.split("?")[0]
-    for _ in range(10):
-        page.goto(url + "?opponents=1")
-        page.wait_for_function("window.civGame && window.civGame.view", timeout=60000)
-        target = page.evaluate(FIND_ENCOUNTER)
-        if target and target["distance"] <= 4:
-            break
-    else:
-        print("skip: no guarded site near the capital in 10 games")
-        return
+def battle(smoke, url):
+    page, check = smoke.page, smoke.check
+    smoke.load(url + "?opponents=1&scenario=battle")
+    lair = page.evaluate(FIND_LAIR)
+    check(lair is not None, f"the scenario put a {lair and lair['kind']} next to the capital")
 
-    # bank some mana first, so the wizard can afford a combat spell in the battle
-    for _ in range(12):
-        if page.evaluate("window.civGame.view.you.mana") >= 30:
-            break
-        page.evaluate("window.civGame.execute('end-turn')")
-        settle(page)
-
-    for _ in range(12):
-        status = page.evaluate(f"""(() => {{
-            const s = window.civGame;
-            const stack = s.view.stacks.find((stack) => stack.units.length);
-            return s.execute("move-stack", {{ from: stack.location, to: {json.dumps(target["to"])} }});
-        }})()""")
-        if status.get("waiting") == "confirm-encounter":
-            break
-        page.evaluate("window.civGame.execute('end-turn')")
-        settle(page)
-    page.wait_for_selector("#modal.open")
+    status = page.evaluate(f"window.civGame.execute('move-stack', {json.dumps({'from': lair['from'], 'to': lair['to']})})")
+    check(status.get("waiting") == "confirm-encounter", "walking into it asks whether to enter")
     page.click("#modalChoices button:has-text('Enter')")
-    try:
-        page.wait_for_selector("#battle.open", timeout=10000)
-    except Exception:
-        print(f"skip: no battle at the {target['kind']} (unguarded?)")
-        return
-    check(True, f"entered the {target['kind']}: the battle screen is open")
-    shot(page, "6-battle")
+    smoke.visible("#battle.open", "the battle screen")
+    check(True, "entered: the battle screen is open")
+    smoke.shot("6-battle")
 
-    view = page.evaluate("window.civGame.core.battle()")
+    view = battle_view(page)
     check(len(view["moves"]) > 0 and view.get("selected") is not None, f"one of your units is up with {len(view['moves'])} tiles to move to")
 
-    if not cast_spell(page, check, shot):
+    if not cast_spell(smoke):
         return
-    view = page.evaluate("window.civGame.core.battle()")
-    if view.get("selected") is None or not view["moves"]:
-        print("skip: no unit up to move after the spell")
-        page.click("#battle button[data-command='battle-auto']")
-        page.wait_for_function("!window.civGame.battle.open", timeout=60000)
-        return
+    view = battle_view(page)
+    check(view.get("selected") is not None and view["moves"], "a unit is still up to move after the spell")
 
     # click the first reachable tile on the canvas
     x, y = view["moves"][0]
     point = tile_point(page, x, y)
     selected = view["selected"]
     page.mouse.click(point[0], point[1])
-    after = page.evaluate("window.civGame.core.battle()")
+    after = battle_view(page)
     moved = next((unit for unit in after.get("units", []) if unit["id"] == selected), None)
     check(moved is not None and (moved["x"], moved["y"]) == (x, y), f"clicked tile {x},{y}: the unit walked there")
-    shot(page, "7-battle-moved")
+    smoke.shot("7-battle-moved")
 
     walk = next((step for step in after.get("steps", []) if step["kind"] == "move" and step.get("unit") == selected), None)
     check(walk is not None and walk["path"][-1] == [x, y], f"the view's steps have the walk: {walk and walk['path']}")
-    check(page.evaluate("window.civGame.battle.replayCount") >= 1, f"the screen replays the {len(after['steps'])} steps")
-    page.wait_for_function("window.civGame.battle.replay === null", timeout=20000)
+    check(smoke.state("s.battle.replayCount") >= 1, f"the screen replays the {len(after['steps'])} steps")
+    smoke.wait("window.civGame.battle.replay === null", "the replay to end")
     check(True, "the replay ends")
 
     # hovering a unit shows its details
     enemy = next(unit for unit in after["units"] if not unit["yours"])
     point = tile_point(page, enemy["x"], enemy["y"])
     page.mouse.move(point[0], point[1])
-    page.wait_for_selector("#battle .battle-info:not([hidden])", timeout=5000)
+    smoke.visible("#battle .battle-info:not([hidden])", "the unit details")
     info = page.inner_text("#battle .battle-info")
     check(enemy["name"] in info and "defense" in info, f"hovering {enemy['name']} shows its details: {' / '.join(info.splitlines()[:3])}")
-    shot(page, "7b-battle-info")
+    smoke.shot("7b-battle-info")
 
     page.click("#battle button[data-command='battle-auto']")
-    page.wait_for_function("!window.civGame.battle.open", timeout=60000)
+    smoke.wait("!window.civGame.battle.open", "auto to finish the battle", BATTLE_TIMEOUT)
     check(True, "auto finished the battle and the screen closed")
     log = page.inner_text("#log")
     check("the battle at" in log, f"the log reports it: {next((line for line in log.splitlines() if 'battle at' in line), '')}")
