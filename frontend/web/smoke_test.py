@@ -12,7 +12,8 @@ choice dialog, a sword made with Create Artifact in the item designer, the tax r
 the capital and cancelling the ward, and diplomacy with the rival. Last, the items
 scenario: equips a hero from the items screen, destroys an item, renames the hero, and splits,
 inspects and disbands units in the stack panel. Last, the orders scenario: settles an outpost,
-starts a road (with its path shown while picking), travels through a tower and patrols. Then
+starts a road (with its path shown while picking), travels through a tower and patrols, and
+checks the city and army lists. Then
 saving: the autosave, a save, a downloaded file, loading each back, and Continue on the start
 screen.
 
@@ -669,7 +670,36 @@ def orders(smoke, url):
     selected = state("(() => { const stack = s.view.stacks.find(stack => stack.units.some(unit => unit.id === s.selectedUnit)); return stack ? stack.location : null; })()")
     check(selected is None or selected["plane"] != other or selected["x"] != start["x"], "Next unit skips the patrolling stack")
     smoke.shot("15-orders")
+
+    lists(smoke)
     smoke.no_errors()
+
+
+def lists(smoke):
+    """The city and army lists (C, A): every city and stack, a click opens or selects it."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    page.keyboard.press("Escape")
+    page.keyboard.press("c")
+    smoke.visible("#lists.open", "the city list")
+    cities = state("s.view.cities")
+    check(page.locator("#lists tbody tr").count() == len(cities) >= 2, f"C lists the {len(cities)} cities")
+    smoke.shot("17-city-list")
+    page.click("#lists tbody tr >> nth=1")
+    smoke.visible("#city.open", "the city screen from the list")
+    check(not state("s.lists.open") and cities[1]["name"] in page.inner_text("#city h3"), f"clicking {cities[1]['name']} opens its city screen")
+    page.keyboard.press("Escape")
+
+    page.keyboard.press("a")
+    smoke.visible("#lists.open", "the army list")
+    stacks = state("s.view.stacks.filter(stack => stack.units.length)")
+    check(page.locator("#lists tbody tr").count() == len(stacks) and "patrolling" in page.inner_text("#lists"), f"A lists the {len(stacks)} stacks, with their orders")
+    page.keyboard.press("c")
+    check(state("s.lists.tab") == "cities", "C switches to the cities tab")
+    page.keyboard.press("a")
+    last = stacks[-1]
+    page.click(f"#lists tbody tr >> nth={len(stacks) - 1}")
+    selected = state("(() => { const stack = s.view.stacks.find(stack => stack.units.some(unit => unit.id === s.selectedUnit)); return stack ? stack.location : null; })()")
+    check(selected == last["location"] and state("s.plane") == last["location"]["plane"] and not state("s.lists.open"), f"clicking a stack selects it and shows {last['location']}")
 
 
 

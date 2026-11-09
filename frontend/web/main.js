@@ -8,6 +8,7 @@ import { BattleScreen } from "./battle.js";
 import { MagicScreen } from "./magic.js";
 import { VaultScreen } from "./vault.js";
 import { DiplomacyScreen } from "./diplomacy.js";
+import { ListScreen } from "./lists.js";
 import { chooseStart } from "./start.js";
 import { storeSave, readSave, saveInfo, downloadSave, pickSaveFile, describeSave, slotNames, savedGames } from "./saves.js";
 
@@ -33,6 +34,7 @@ const state = {
     magic: null,
     vault: null,
     diplomacy: null,
+    lists: null,
     // the unit whose details the stack panel shows
     detailUnit: null,
     lastDate: null,
@@ -313,31 +315,49 @@ function pickSpellTarget(spell) {
     updateSide();
 }
 
+// the full-screen panels: one open at a time
+function hideScreens() {
+    closeCity();
+    closeGameMenu();
+    for (const screen of [state.magic, state.vault, state.diplomacy, state.lists]) {
+        screen.hide();
+    }
+}
+
 function openMagic() {
     if (state.view && !state.battle.open) {
-        closeCity();
-        state.vault.hide();
-        state.diplomacy.hide();
+        hideScreens();
         state.magic.show(state.view);
     }
 }
 
 function openVault() {
     if (state.view && !state.battle.open) {
-        closeCity();
-        state.magic.hide();
-        state.diplomacy.hide();
+        hideScreens();
         state.vault.show(state.view);
     }
 }
 
 function openDiplomacy() {
     if (state.view && !state.battle.open) {
-        closeCity();
-        state.magic.hide();
-        state.vault.hide();
+        hideScreens();
         state.diplomacy.show(state.view);
     }
+}
+
+function openList(tab) {
+    if (state.view && !state.battle.open) {
+        hideScreens();
+        state.lists.show(state.view, tab);
+    }
+}
+
+// select a stack (from the army list) and show it on the map
+function selectStack(stack) {
+    state.selectedUnit = stack.units[0].id;
+    state.plane = stack.location.plane;
+    refresh();
+    state.map.centerOn(stack.location.x, stack.location.y);
 }
 
 // ---- saving and loading
@@ -361,10 +381,7 @@ function loadGame(text) {
     if (status.error) {
         return status.error;
     }
-    closeCity();
-    for (const screen of [state.magic, state.vault, state.diplomacy]) {
-        screen.hide();
-    }
+    hideScreens();
     state.selectedUnit = null;
     state.detailUnit = null;
     state.spellTarget = null;
@@ -391,10 +408,7 @@ function openGameMenu(message = "") {
     if (!state.view || state.battle.open) {
         return;
     }
-    closeCity();
-    state.magic.hide();
-    state.vault.hide();
-    state.diplomacy.hide();
+    hideScreens();
     const root = element("game");
     const saved = saveInfo("save");
     const autosave = saveInfo("autosave");
@@ -477,6 +491,9 @@ function refresh() {
     }
     if (state.diplomacy) {
         state.diplomacy.update(state.view);
+    }
+    if (state.lists) {
+        state.lists.update(state.view);
     }
     if (state.cityOpen) {
         renderCityScreen();
@@ -926,6 +943,7 @@ function bindControls() {
     element("itemsButton").onclick = openVault;
     element("wizardsButton").onclick = openDiplomacy;
     element("gameButton").onclick = () => openGameMenu();
+    element("listsButton").onclick = () => openList(state.lists.tab);
     element("plane").onclick = () => {
         state.plane = state.plane === "Arcanus" ? "Myrror" : "Arcanus";
         refresh();
@@ -955,6 +973,13 @@ function bindControls() {
             if (event.key === "Escape" || event.key === "w" || event.key === "W") state.diplomacy.hide();
             return;
         }
+        if (state.lists.open) {
+            const key = event.key.toLowerCase();
+            const tab = { c: "cities", a: "armies" }[key];
+            if (event.key === "Escape" || tab === state.lists.tab) state.lists.hide();
+            else if (tab) state.lists.show(state.view, tab);
+            return;
+        }
         if (state.cityOpen) {
             if (event.key === "Escape") closeCity();
             return;
@@ -963,6 +988,8 @@ function bindControls() {
         if (event.key === "i" || event.key === "I") openVault();
         if (event.key === "w" || event.key === "W") openDiplomacy();
         if (event.key === "g" || event.key === "G") openGameMenu();
+        if (event.key === "c" || event.key === "C") openList("cities");
+        if (event.key === "a" || event.key === "A") openList("armies");
         if (event.key === "Enter") endTurn();
         if (event.key === "n" || event.key === "N") nextUnit();
         if (selectedStack() && !state.spellTarget && !state.roadPick) {
@@ -1050,6 +1077,10 @@ async function main() {
         });
         state.vault = new VaultScreen(element("vault"), assets, {
             onCommand: (type, command) => execute(type, command),
+        });
+        state.lists = new ListScreen(element("lists"), assets, {
+            onOpenCity: openCity,
+            onSelectStack: selectStack,
         });
         state.battle = new BattleScreen(element("battle"), assets, {
             onCommand: (type, command) => execute(type, command),

@@ -55,6 +55,24 @@
     #vault .item-slot.empty { color: var(--dim); justify-content: center; border-style: dashed; }
     #vault .item-slot.chosen { border-color: var(--accent); background: #5a4326; }
     #vault .item-slot.unfit { opacity: 0.4; }
+    #lists { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
+    #lists.open { display: flex; }
+    #lists > .panel { position: static; width: min(760px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; padding: 10px 12px; }
+    #lists .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    #lists button.small { padding: 0 6px; }
+    #lists .tabs { display: flex; gap: 4px; }
+    #lists .chosen { border-color: var(--accent); background: #5a4326; }
+    #lists table.list { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    #lists th { text-align: left; font-weight: normal; color: var(--dim); border-bottom: 1px solid var(--border); padding: 2px 6px; }
+    #lists td { padding: 2px 6px; vertical-align: middle; }
+    #lists tbody tr { cursor: pointer; }
+    #lists tbody tr:hover { background: #3a2d1d; }
+    #lists tfoot td { border-top: 1px solid var(--border); }
+    #lists .number { text-align: right; white-space: nowrap; }
+    #lists .bad { color: #ff7a50; }
+    #lists td.sprite { width: 1px; padding: 1px 4px; }
+    #lists td.sprite canvas { display: block; width: 40px; height: 36px; image-rendering: pixelated; }
+    #lists .list-heroes { margin-top: 4px; }
     #diplomacy { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
     #diplomacy.open { display: flex; }
     #diplomacy > .panel { position: static; width: min(680px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; padding: 10px 12px; }
@@ -185,16 +203,18 @@
     <span class="research">research <b id="research"></b></span>
     <span class="spacer"></span>
     <button id="plane">Myrror</button>
+    <button id="listsButton" title="cities (C) and armies (A)">Lists</button>
     <button id="magicButton" title="M">Magic</button>
     <button id="itemsButton" title="I">Items</button>
     <button id="wizardsButton" title="W">Wizards</button>
-    <button id="nextUnit" title="N">Next unit</button>
+    <button id="nextUnit" title="next unit (N)">Next</button>
     <button id="endTurn" title="Enter">End turn</button>
 </div>
 <div id="side" class="panel"></div>
 <div id="log" class="panel" hidden></div>
-<div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a city: city screen · click a stack, then a tile: move · N: next unit · M: magic · I: items · W: wizards · G: save/load · Enter: end turn</div>
+<div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a stack, then a tile: move · N next unit · C cities · A armies · M magic · I items · W wizards · G game · Enter: end turn</div>
 <div id="game"></div>
+<div id="lists"></div>
 <div id="city"></div>
 <div id="magic"></div>
 <div id="vault"></div>
