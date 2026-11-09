@@ -730,6 +730,19 @@ func (city *City) ComputePower() int {
     return power + int(religiousPower)
 }
 
+// the share of citizens a tax rate (gold per citizen) makes unrestful
+func TaxUnrest(taxRate fraction.Fraction) float64 {
+    switch {
+        case taxRate.Equals(fraction.Make(1, 2)): return 0.1
+        case taxRate.Equals(fraction.Make(1, 1)): return 0.2
+        case taxRate.Equals(fraction.Make(3, 2)): return 0.3
+        case taxRate.Equals(fraction.Make(2, 1)): return 0.45
+        case taxRate.Equals(fraction.Make(5, 2)): return 0.60
+        case taxRate.Equals(fraction.Make(3, 1)): return 0.75
+    }
+    return 0
+}
+
 func (city *City) UpdateUnrest() {
     rebels := city.ComputeUnrest()
 
@@ -942,22 +955,7 @@ func (city *City) ComputeUnrest() int {
     unrestPercent := float64(0)
 
     // unrest percent from taxes
-    taxRate := city.ReignProvider.GetTaxRate()
-    if taxRate.Equals(fraction.Zero()) {
-        unrestPercent = 0
-    } else if taxRate.Equals(fraction.Make(1,2)) {
-        unrestPercent = 0.1
-    } else if taxRate.Equals(fraction.Make(1, 1)) {
-        unrestPercent = 0.2
-    } else if taxRate.Equals(fraction.Make(3, 2)) {
-        unrestPercent = 0.3
-    } else if taxRate.Equals(fraction.Make(2, 1)) {
-        unrestPercent = 0.45
-    } else if taxRate.Equals(fraction.Make(5, 2)) {
-        unrestPercent = 0.60
-    } else if taxRate.Equals(fraction.Make(3, 1)) {
-        unrestPercent = 0.75
-    }
+    unrestPercent = TaxUnrest(city.ReignProvider.GetTaxRate())
 
     unrestPercent += city.InteracialUnrest()
 

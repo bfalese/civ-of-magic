@@ -19,8 +19,9 @@
     #map { position: fixed; inset: 0; }
     #map canvas { display: block; image-rendering: pixelated; }
     .panel { position: fixed; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; }
-    #top { top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+    #top { top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
     #top .spacer { flex: 1; }
+    #top .research { min-width: 0; max-width: 13em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #top b { color: var(--accent); font-weight: normal; }
     #side { top: 56px; right: 8px; width: 260px; max-height: calc(100% - 230px); overflow: auto; }
     #side:empty { display: none; }
@@ -82,6 +83,12 @@
     #magic .spell { display: flex; justify-content: space-between; gap: 6px; text-align: left; padding: 2px 6px; }
     #magic button.small { padding: 0 6px; }
     #magic .magic-message { margin-top: 8px; color: var(--accent); min-height: 1.2em; }
+    #tax { font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 0 2px; }
+    #city .rename { display: flex; gap: 4px; align-items: center; }
+    #city .rename input { font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 1px 4px; width: 12em; }
+    #city button.tiny { padding: 0 4px; font-size: 11px; line-height: 14px; }
+    #city .curse { color: #ff8a70; }
+    #magic .enchantment { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
     #magic .item-types, #magic .item-images { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
     #magic .chosen { border-color: var(--accent); background: #5a4326; }
     #magic .item-image { padding: 2px; line-height: 0; }
@@ -130,7 +137,8 @@
     <span>gold <b id="gold"></b></span>
     <span>mana <b id="mana"></b></span>
     <span>food <b id="food"></b></span>
-    <span>research <b id="research"></b></span>
+    <label title="tax: gold per citizen (unrest it causes)">tax <select id="tax"></select></label>
+    <span class="research">research <b id="research"></b></span>
     <span class="spacer"></span>
     <button id="plane">Myrror</button>
     <button id="magicButton" title="M">Magic</button>

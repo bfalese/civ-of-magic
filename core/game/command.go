@@ -836,6 +836,7 @@ var commandTypes = map[string]func() Command{
     "alchemy": func() Command { return &AlchemyCommand{} },
     "set-unit-active": func() Command { return &SetUnitActiveCommand{} },
     "rename-city": func() Command { return &RenameCityCommand{} },
+    "cancel-enchantment": func() Command { return &CancelEnchantmentCommand{} },
     "rename-hero": func() Command { return &RenameHeroCommand{} },
     "move-item": func() Command { return &MoveItemCommand{} },
     "destroy-item": func() Command { return &DestroyItemCommand{} },

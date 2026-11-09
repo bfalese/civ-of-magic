@@ -343,6 +343,15 @@ function updateHud() {
     element("gold").textContent = `${you.gold} (${signed(you["gold-per-turn"])})`;
     element("mana").textContent = `${you.mana} (${signed(you["mana-per-turn"])})`;
     element("food").textContent = signed(you["food-per-turn"]);
+    const tax = element("tax");
+    const rates = you["tax-rates"];
+    const current = rates.findIndex((rate) => `${rate.numerator}/${rate.denominator}` === you["tax-rate"] || (rate.numerator === 0 && you["tax-rate"].startsWith("0/")));
+    tax.innerHTML = rates.map((rate, index) => `<option value="${index}"${index === current ? " selected" : ""} title="${rate.label} gold per citizen, ${Math.round(rate.unrest * 100)}% unrest">${rate.label} (${Math.round(rate.unrest * 100)}%)</option>`).join("");
+    tax.onchange = () => {
+        const rate = rates[Number(tax.value)];
+        execute("set-tax-rate", { numerator: rate.numerator, denominator: rate.denominator });
+    };
+    element("research").parentElement.title = you.researching || "";
     element("research").textContent = you.researching ? `${you.researching} ${you["research-progress"]}/${you["research-cost"]}` : "-";
     element("plane").textContent = state.plane === "Arcanus" ? "Myrror" : "Arcanus";
     if (view.date !== state.lastDate) {
@@ -436,6 +445,7 @@ function openCity(location) {
 
 function closeCity() {
     state.cityOpen = null;
+    state.cityRenaming = false;
     element("city").classList.remove("open");
 }
 
@@ -473,8 +483,16 @@ function renderCityScreen() {
         return `<div class="row"><span>${escapeHtml(name)}</span>${sell}</div>`;
     }).join("") || `<div class="dim">no buildings yet</div>`;
 
+    const title = state.cityRenaming
+        ? `<span class="rename"><input id="cityName" maxlength="20" value="${escapeHtml(city.name)}"><button class="small" id="cityNameSave">Save</button><button class="small" id="cityNameCancel">Cancel</button></span>`
+        : `<h3>${escapeHtml(city.name)} <button class="tiny" id="cityRename" title="rename">✎</button> <span class="dim">${escapeHtml(city.race)} · ${city.population.toLocaleString()} people</span></h3>`;
+    const enchantments = city.enchantments.map((enchantment) => `<div class="row">
+            <span class="${enchantment.yours ? "" : "curse"}">${escapeHtml(enchantment.name)}${enchantment.yours ? "" : ` <span class="dim">(${escapeHtml(enchantment.owner)})</span>`}</span>
+            <span>${enchantment.yours && enchantment.upkeep ? `<span class="dim">${enchantment.upkeep} mana</span> ` : ""}${enchantment.yours ? `<button class="small" data-cancel-enchantment="${escapeHtml(enchantment.name)}">cancel</button>` : ""}</span>
+        </div>`).join("") || `<div class="dim">none</div>`;
+
     screen.innerHTML = `<div class="panel">
-        <div class="row"><h3>${escapeHtml(city.name)} <span class="dim">${escapeHtml(city.race)} · ${city.population.toLocaleString()} people</span></h3><button id="cityClose" title="Esc">Close</button></div>
+        <div class="row">${title}<button id="cityClose" title="Esc">Close</button></div>
         <div class="columns">
             <div>
                 <div class="row"><span>food</span><b>${city["food-surplus"] >= 0 ? "+" : ""}${city["food-surplus"]}</b></div>
@@ -497,11 +515,42 @@ function renderCityScreen() {
                 <div class="options">${options}</div>
                 <h3 class="gap">Buildings</h3>
                 ${buildings}
+                <h3 class="gap">Enchantments</h3>
+                ${enchantments}
             </div>
         </div>
     </div>`;
 
     element("cityClose").onclick = closeCity;
+    if (state.cityRenaming) {
+        const input = element("cityName");
+        input.focus();
+        input.select();
+        const save = () => {
+            state.cityRenaming = false;
+            const name = input.value.trim();
+            if (name && name !== city.name) {
+                cityCommand("rename-city", { name });
+            } else {
+                renderCityScreen();
+            }
+        };
+        element("cityNameSave").onclick = save;
+        element("cityNameCancel").onclick = () => { state.cityRenaming = false; renderCityScreen(); };
+        input.onkeydown = (event) => {
+            if (event.key === "Enter") save();
+            if (event.key === "Escape") { event.stopPropagation(); state.cityRenaming = false; renderCityScreen(); }
+        };
+    } else {
+        element("cityRename").onclick = () => { state.cityRenaming = true; renderCityScreen(); };
+    }
+    for (const button of screen.querySelectorAll("button[data-cancel-enchantment]")) {
+        const name = button.dataset.cancelEnchantment;
+        button.onclick = () => ask(`Cancel your ${name} on ${city.name}?`, [
+            ["Cancel it", () => cityCommand("cancel-enchantment", { enchantment: name })],
+            ["Keep it", () => {}],
+        ]);
+    }
     screen.onclick = (event) => {
         if (event.target === screen) {
             closeCity();
@@ -682,6 +731,7 @@ async function main() {
 
         state.map = new MapRenderer(element("map"), assets, { onTileClick });
         state.magic = new MagicScreen(element("magic"), assets, {
+            confirm: (text, yes) => ask(text, [["Yes", yes], ["No", () => {}]]),
             onCommand: (type, command) => execute(type, command),
             onPickTarget: pickSpellTarget,
             onPickChoice: (spell) => pickSpellChoice(spell.name, "cast-spell"),

@@ -7,7 +7,8 @@ the capital, Fire Bolt known; see core/game/scenario.go), enters the lair, casts
 a unit, checks the replay and unit details, and lets auto finish the battle. Last, the siege
 scenario: attacks an AI capital with city walls, a wall of fire and darkness, checks they are
 on the field, and flees. Then the spellbook scenario: Spell Ward and Resurrection through the
-choice dialog, and a sword made with Create Artifact in the item designer. Last, the items
+choice dialog, a sword made with Create Artifact in the item designer, the tax rate, renaming
+the capital and cancelling the ward. Last, the items
 scenario: equips a hero from the items screen, destroys an item, and splits, inspects and
 disbands units in the stack panel.
 
@@ -437,6 +438,34 @@ def spellbook(smoke, url):
     # the new item waits in the vault: whatever the page asks, leave it
     while page.locator("#modal.open").count():
         page.click("#modalChoices button >> nth=-1")
+    page.keyboard.press("Escape")
+
+    city_extras(smoke)
+
+
+def city_extras(smoke):
+    """The tax rate in the top bar; renaming the capital and cancelling the ward cast on it."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    page.select_option("#tax", "4")
+    rate = state("s.view.you['tax-rate']")
+    check(rate == "2/1", f"the top bar sets the tax rate: {rate}, {page.locator('#tax option:checked').inner_text()}")
+    check(page.evaluate("document.getElementById('top').getBoundingClientRect().height") < 50, "the top bar still fits on one line")
+
+    page.mouse.click(600, 400)
+    smoke.visible("#city.open", "the city screen")
+    page.click("#cityRename")
+    page.fill("#cityName", "Smoketown")
+    page.press("#cityName", "Enter")
+    check(state("s.view.cities[0].name") == "Smoketown" and "Smoketown" in page.inner_text("#city h3"), "renamed the capital to Smoketown")
+
+    wards = state("s.view.cities[0].enchantments")
+    check(len(wards) >= 1 and wards[0]["yours"], f"the city screen lists {', '.join(ward['name'] for ward in wards)}")
+    smoke.shot("13-city-extras")
+    page.click("#city button[data-cancel-enchantment] >> nth=0")
+    smoke.visible("#modal.open", "the cancel question")
+    page.click("#modalChoices button:has-text('Cancel it')")
+    left = state("s.view.cities[0].enchantments.length")
+    check(left == len(wards) - 1, f"cancelled {wards[0]['name']}")
     page.keyboard.press("Escape")
 
 

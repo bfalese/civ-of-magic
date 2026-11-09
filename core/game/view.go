@@ -36,7 +36,10 @@ type WizardView struct {
     Casting string `json:"casting,omitempty"`
     CastingProgress int `json:"casting-progress"`
     KnownSpells []string `json:"known-spells"`
-    GlobalEnchantments []string `json:"global-enchantments,omitempty"`
+    // yours can be cancelled (cancel-enchantment)
+    GlobalEnchantments []EnchantmentView `json:"global-enchantments"`
+    // the rates set-tax-rate takes
+    TaxRates []TaxRateView `json:"tax-rates"`
     Banished bool `json:"banished,omitempty"`
     Defeated bool `json:"defeated,omitempty"`
 
@@ -120,7 +123,8 @@ type CityView struct {
     // gold each building sells for (only buildings that can be sold)
     SellValues map[string]int `json:"sell-values"`
     Buildings []string `json:"buildings"`
-    Enchantments []string `json:"enchantments,omitempty"`
+    // with who cast them; yours can be cancelled (cancel-enchantment)
+    Enchantments []EnchantmentView `json:"enchantments"`
 }
 
 type UnitView struct {
@@ -217,8 +221,10 @@ func (model *GameModel) makeCityView(city *citylib.City) CityView {
         view.Buildings = append(view.Buildings, model.BuildingInfo.Name(building))
     }
 
-    for _, enchantment := range city.Enchantments.Values() {
-        view.Enchantments = append(view.Enchantments, enchantment.Enchantment.Name())
+    if owner := model.GetPlayerByBanner(city.GetBanner()); owner != nil {
+        view.Enchantments = makeCityEnchantmentViews(city, owner)
+    } else {
+        view.Enchantments = []EnchantmentView{}
     }
 
     return view
@@ -296,9 +302,11 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
     for _, spell := range player.KnownSpells.Spells {
         you.KnownSpells = append(you.KnownSpells, spell.Name)
     }
+    you.GlobalEnchantments = []EnchantmentView{}
     for _, enchantment := range player.GlobalEnchantments.Values() {
-        you.GlobalEnchantments = append(you.GlobalEnchantments, enchantment.String())
+        you.GlobalEnchantments = append(you.GlobalEnchantments, EnchantmentView{Name: enchantment.String(), Upkeep: enchantment.UpkeepMana(), Owner: player.GetBanner().String(), Yours: true})
     }
+    you.TaxRates = makeTaxRates(player)
 
     you.Power = power
     you.PowerDistribution = PowerDistributionView{Mana: player.PowerDistribution.Mana, Research: player.PowerDistribution.Research, Skill: player.PowerDistribution.Skill}

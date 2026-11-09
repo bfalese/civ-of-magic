@@ -583,3 +583,90 @@ func TestHostItemsScenario(test *testing.T) {
         test.Errorf("the disbanded unit is still there")
     }
 }
+
+// city screen extras: tax rates, renaming, and cancelling your own enchantments (the spellbook
+// scenario casts a ward on a city of yours; the rival's Detect Magic isn't yours to cancel)
+func TestHostCityExtras(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "spellbook"})
+    if err != nil {
+        test.Fatalf("setup: %v", err)
+    }
+    view := host.Model.MakePlayerView(host.Human)
+
+    rates := view.You.TaxRates
+    if len(rates) != 7 || rates[0].Label != "0" || rates[0].Unrest != 0 || rates[6].Label != "3" || rates[6].Unrest != 0.75 {
+        test.Fatalf("tax rates: %+v", rates)
+    }
+    for _, rate := range rates {
+        if err := host.Execute(&SetTaxRateCommand{Numerator: rate.Numerator, Denominator: rate.Denominator}); err != nil {
+            test.Errorf("tax rate %+v: %v", rate, err)
+        }
+    }
+    if host.Model.MakePlayerView(host.Human).You.TaxRate != "3/1" {
+        test.Errorf("tax rate now %v", host.Model.MakePlayerView(host.Human).You.TaxRate)
+    }
+
+    city := view.Cities[0]
+    if err := host.Execute(&RenameCityCommand{City: city.Location, Name: "Testburg"}); err != nil {
+        test.Fatalf("rename: %v", err)
+    }
+    if host.Model.MakePlayerView(host.Human).Cities[0].Name != "Testburg" {
+        test.Errorf("the city wasn't renamed")
+    }
+
+    ward := ""
+    for _, spell := range view.You.Spells {
+        if spell.Name == "Spell Ward" {
+            for _, choice := range spell.Choices {
+                if *choice.Location == city.Location {
+                    ward = choice.Name
+                }
+            }
+        }
+    }
+    if err := host.Execute(&CastSpellCommand{Spell: "Spell Ward", Target: &CommandSpellTarget{Location: &city.Location, Choice: ward}}); err != nil {
+        test.Fatalf("Spell Ward: %v", err)
+    }
+    enchantments := host.Model.MakePlayerView(host.Human).Cities[0].Enchantments
+    if len(enchantments) != 1 || enchantments[0].Name != ward || !enchantments[0].Yours || enchantments[0].Upkeep <= 0 {
+        test.Fatalf("city enchantments: %+v", enchantments)
+    }
+    if err := host.Execute(&CancelEnchantmentCommand{Enchantment: ward, City: &city.Location}); err != nil {
+        test.Fatalf("cancel %v: %v", ward, err)
+    }
+    if len(host.Model.MakePlayerView(host.Human).Cities[0].Enchantments) != 0 {
+        test.Errorf("%v is still on the city", ward)
+    }
+
+    // a global enchantment of yours, cancelled; Detect Magic of the rival's isn't yours
+    host.Human.GlobalEnchantments.Insert(data.EnchantmentNatureAwareness)
+    globals := host.Model.MakePlayerView(host.Human).You.GlobalEnchantments
+    if len(globals) != 1 || globals[0].Name != "Nature Awareness" || !globals[0].Yours {
+        test.Fatalf("global enchantments: %+v", globals)
+    }
+    if err := host.Execute(&CancelEnchantmentCommand{Enchantment: "Nature Awareness"}); err != nil || host.Human.GlobalEnchantments.Contains(data.EnchantmentNatureAwareness) {
+        test.Errorf("cancel Nature Awareness: %v", err)
+    }
+    if err := host.Execute(&CancelEnchantmentCommand{Enchantment: "Detect Magic"}); err == nil {
+        test.Errorf("cancelled a global enchantment you don't have")
+    }
+
+    // through JSON, as the page sends it
+    encoded := []byte(`{"type": "set-tax-rate", "command": {"numerator": 1, "denominator": 2}}`)
+    if err := host.ExecuteJSON(encoded); err != nil || host.Model.MakePlayerView(host.Human).You.TaxRate != "1/2" {
+        test.Errorf("set-tax-rate from JSON: %v", err)
+    }
+}
