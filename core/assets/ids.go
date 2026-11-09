@@ -140,6 +140,12 @@ func FogEdge(index int) string {
     return fmt.Sprintf("fog/%v", index)
 }
 
+// a combat spell's effect on its target (the impact or glow, all frames), by spell name; summons
+// share the summoning circle (SpellEffect("Summoning Circle"))
+func SpellEffect(spell string) string {
+    return "spell-effect/" + Slug(spell)
+}
+
 // an item picture (items.lbx at index; artifact.Artifact.Image)
 func Item(index int) string {
     return fmt.Sprintf("item/%v", index)

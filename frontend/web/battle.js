@@ -39,12 +39,8 @@ function facedAsset(asset, facing) {
     return facing ? asset.replace(/[^/]+$/, facing) : asset;
 }
 
-function stepDuration(step) {
-    if (step.kind === "move") {
-        return Math.max(1, (step.path || []).length) * stepMilliseconds.tile;
-    }
-    return stepMilliseconds[step.kind] || stepMilliseconds.effect;
-}
+// how long a frame of a spell's effect animation shows
+const effectFrameMilliseconds = 70;
 
 const realmColors = {
     Life: "#f4f0d8", Death: "#b07ae0", Chaos: "#ff7a50", Nature: "#7ed06a", Sorcery: "#6ab4ff", Arcane: "#c8c0b0",
@@ -186,10 +182,10 @@ export class BattleScreen {
         }
         while (replay.index < replay.steps.length) {
             const step = replay.steps[replay.index];
-            if (now - replay.start < stepDuration(step)) {
+            if (now - replay.start < this.stepDuration(step)) {
                 return;
             }
-            replay.start += stepDuration(step);
+            replay.start += this.stepDuration(step);
             this.finishStep(step, replay.start);
             replay.index += 1;
         }
@@ -210,6 +206,31 @@ export class BattleScreen {
         }
         this.replay = null;
         this.updateInfo();
+    }
+
+    // how long a step takes to replay: a spell as long as its effect animation (at least the usual)
+    stepDuration(step) {
+        if (step.kind === "move") {
+            return Math.max(1, (step.path || []).length) * stepMilliseconds.tile;
+        }
+        if (step.kind === "spell" && step.effect && this.assets.has(step.effect)) {
+            return Math.max(stepMilliseconds.spell, this.assets.frameCount(step.effect) * effectFrameMilliseconds);
+        }
+        return stepMilliseconds[step.kind] || stepMilliseconds.effect;
+    }
+
+    // where a spell step plays its effect: its target (unit or tile) and every unit it touched
+    effectSpots(step) {
+        const replay = this.replay;
+        const spots = new Map();
+        const addUnit = (id) => {
+            const unit = replay.units.get(id);
+            if (unit) spots.set(`${unit.x},${unit.y}`, [unit.x, unit.y]);
+        };
+        if (step.target !== undefined) addUnit(step.target);
+        else if (step.tile) spots.set(`${step.tile[0]},${step.tile[1]}`, step.tile);
+        for (const change of step.changes || []) addUnit(change.unit);
+        return [...spots.values()];
     }
 
     // a step's result on the replayed units
@@ -262,7 +283,7 @@ export class BattleScreen {
         if (step.unit !== unit.id) {
             return [unit.x, unit.y, unit.asset, standing];
         }
-        const progress = Math.max(0, Math.min(1, (now - replay.start) / stepDuration(step)));
+        const progress = Math.max(0, Math.min(1, (now - replay.start) / this.stepDuration(step)));
         const walking = frames > 1 ? Math.floor(now / 110) % Math.max(1, frames - 1) : 0;
         if (step.kind === "move" && step.path && step.path.length > 0) {
             const position = progress * step.path.length;
@@ -294,7 +315,7 @@ export class BattleScreen {
             return;
         }
         const step = replay.steps[replay.index];
-        const progress = Math.max(0, Math.min(1, (now - replay.start) / stepDuration(step)));
+        const progress = Math.max(0, Math.min(1, (now - replay.start) / this.stepDuration(step)));
         if (step.kind === "ranged" && replay.units.has(step.unit) && replay.units.has(step.target)) {
             const shooter = replay.units.get(step.unit);
             const target = replay.units.get(step.target);
@@ -305,6 +326,17 @@ export class BattleScreen {
             const y = fromY + (toY - fromY) * along - Math.sin(Math.PI * along) * 12 - 8;
             this.context.fillStyle = "#ffe08a";
             this.context.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3);
+        }
+        // the spell's own animation (as the desktop battle screen plays it), centred on the units
+        if (step.kind === "spell" && step.effect && this.assets.has(step.effect)) {
+            const frames = this.assets.frameCount(step.effect);
+            const frame = Math.min(frames - 1, Math.floor(progress * frames));
+            const [width, height] = this.assets.size(step.effect);
+            for (const [x, y] of this.effectSpots(step)) {
+                const [cx, cy] = this.center(x, y);
+                this.assets.draw(this.context, step.effect, Math.round(cx - width / 2), Math.round(cy - height / 2 - 8), frame);
+            }
+            return;
         }
         if (step.kind === "spell" || step.kind === "effect") {
             const alpha = Math.sin(Math.PI * progress) * 0.7;
@@ -637,7 +669,7 @@ export class BattleScreen {
             button.innerHTML = `<span></span><span class="dim"></span>`;
             button.children[0].textContent = spell.name;
             button.children[1].textContent = cost;
-            button.title = `${spell.magic}${button.disabled ? " · not castable now" : ""}`;
+            button.title = `${spell.magic}${spell["no-target"] ? " · nothing to cast it on here" : button.disabled ? " · not castable now" : ""}`;
             button.onclick = () => this.cast(spell, caster);
             list.appendChild(button);
         }

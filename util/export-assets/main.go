@@ -251,6 +251,20 @@ func (exporter *Exporter) collect() (int, int, error) {
         }
     }
 
+    // combat spell effects (the frames the desktop battle screen plays on the target)
+    for _, effect := range spellEffects {
+        frames, err := exporter.readFrames(effect.lbx, effect.index, nil)
+        if err != nil {
+            return 0, 0, fmt.Errorf("spell effect %v: %v", effect.spell, err)
+        }
+        if effect.first < len(frames) {
+            frames = frames[effect.first:]
+        }
+        if err := exporter.add(assets.SpellEffect(effect.spell), frames); err != nil {
+            return 0, 0, err
+        }
+    }
+
     // item pictures for the item designer and hero equipment (artifact.Artifact.Image)
     for index := 0; index <= 115; index++ {
         if err := exporter.addLbx(assets.Item(index), "items.lbx", index, nil); err != nil {
@@ -263,6 +277,40 @@ func (exporter *Exporter) collect() (int, int, error) {
     }
 
     return tileWidth, tileHeight, nil
+}
+
+// which frames of cmbtfx.lbx / specfx.lbx a spell plays on its target, as the desktop battle
+// screen (game/magic/combatview Create*Projectile: the explode part; first skips the flight)
+type spellEffect struct {
+    spell string
+    lbx string
+    index int
+    first int
+}
+
+var spellEffects = []spellEffect{
+    {"Ice Bolt", "cmbtfx.lbx", 11, 3}, {"Fire Bolt", "cmbtfx.lbx", 0, 3}, {"Fireball", "cmbtfx.lbx", 23, 11},
+    {"Star Fires", "cmbtfx.lbx", 9, 0}, {"Dispel Evil", "cmbtfx.lbx", 10, 0}, {"Psionic Blast", "cmbtfx.lbx", 16, 0},
+    {"Doom Bolt", "cmbtfx.lbx", 5, 3}, {"Lightning Bolt", "cmbtfx.lbx", 24, 0}, {"Warp Lightning", "cmbtfx.lbx", 3, 0},
+    {"Life Drain", "cmbtfx.lbx", 6, 0}, {"Flame Strike", "cmbtfx.lbx", 33, 0}, {"Recall Hero", "specfx.lbx", 5, 0},
+    {"Healing", "specfx.lbx", 3, 0}, {"Mass Healing", "specfx.lbx", 3, 0}, {"Heroism", "specfx.lbx", 3, 0},
+    {"Holy Armor", "specfx.lbx", 3, 0}, {"Invulnerability", "specfx.lbx", 3, 0}, {"Lionheart", "specfx.lbx", 3, 0},
+    {"True Sight", "specfx.lbx", 3, 0}, {"Elemental Armor", "specfx.lbx", 0, 0}, {"Giant Strength", "specfx.lbx", 0, 0},
+    {"Iron Skin", "specfx.lbx", 0, 0}, {"Stone Skin", "specfx.lbx", 0, 0}, {"Regeneration", "specfx.lbx", 0, 0},
+    {"Resist Elements", "specfx.lbx", 0, 0}, {"Righteousness", "specfx.lbx", 3, 0}, {"Holy Weapon", "specfx.lbx", 3, 0},
+    {"Flight", "specfx.lbx", 1, 0}, {"Guardian Wind", "specfx.lbx", 1, 0}, {"Haste", "specfx.lbx", 1, 0},
+    {"Invisiblity", "specfx.lbx", 1, 0}, {"Magic Immunity", "specfx.lbx", 1, 0}, {"Resist Magic", "specfx.lbx", 1, 0},
+    {"Spell Lock", "specfx.lbx", 1, 0}, {"Eldritch Weapon", "specfx.lbx", 2, 0}, {"Flame Blade", "specfx.lbx", 2, 0},
+    {"Immolation", "specfx.lbx", 2, 0}, {"Berserk", "specfx.lbx", 4, 0}, {"Cloak of Fear", "specfx.lbx", 4, 0},
+    {"Wraith Form", "specfx.lbx", 4, 0}, {"Chaos Channels", "specfx.lbx", 2, 0}, {"Bless", "specfx.lbx", 3, 0},
+    {"Weakness", "specfx.lbx", 5, 0}, {"Creature Binding", "specfx.lbx", 1, 0}, {"Petrify", "cmbtfx.lbx", 12, 0},
+    {"Possession", "cmbtfx.lbx", 8, 0}, {"Confusion", "cmbtfx.lbx", 20, 0}, {"Black Sleep", "specfx.lbx", 5, 0},
+    {"Vertigo", "cmbtfx.lbx", 17, 0}, {"Shatter", "cmbtfx.lbx", 17, 0}, {"Warp Creature", "cmbtfx.lbx", 17, 0},
+    {"Holy Word", "specfx.lbx", 3, 0}, {"Web", "cmbtfx.lbx", 13, 0}, {"Death Spell", "specfx.lbx", 14, 0},
+    {"Word of Death", "specfx.lbx", 14, 0}, {"Warp Wood", "cmbtfx.lbx", 2, 0}, {"Disintegrate", "cmbtfx.lbx", 4, 0},
+    {"Word of Recall", "specfx.lbx", 1, 0}, {"Dispel Magic", "cmbtfx.lbx", 26, 0}, {"Dispel Magic True", "cmbtfx.lbx", 26, 0},
+    {"Cracks Call", "cmbtfx.lbx", 15, 0}, {"Banish", "cmbtfx.lbx", 19, 0}, {"Mind Storm", "cmbtfx.lbx", 21, 0},
+    {"Disrupt", "cmbtfx.lbx", 1, 0}, {"Summoning Circle", "cmbtfx.lbx", 22, 0},
 }
 
 func cropped(sprite *image.Paletted) image.Image {

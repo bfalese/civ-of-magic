@@ -2335,6 +2335,8 @@ type CombatLogEvent struct {
 }
 
 type CombatModel struct {
+    // set while SpellHasTarget probes a spell (see probe.go)
+    probe *spellProbe
     SelectedUnit *ArmyUnit
     DefendingArmy *Army
     AttackingArmy *Army
@@ -4819,6 +4821,11 @@ func (model *CombatModel) DoTargetUnitSpell(army *Army, spell spellbook.Spell, t
         teamAttacked = TeamEither
     }
 
+    if model.probe != nil {
+        model.probeUnits(teamAttacked, canTarget)
+        return
+    }
+
     if army.IsAI() {
         model.DoAITargetUnitSpell(army.Player, spell, selecter, teamAttacked, canTarget, onTarget)
     } else {
@@ -4897,6 +4904,11 @@ func (model *CombatModel) DoAITargetTileSpell(player ArmyPlayer, spell spellbook
 }
 
 func (model *CombatModel) DoTargetTileSpell(army *Army, spell spellbook.Spell, canTarget func(int, int) bool, onTarget func(int, int)){
+    if model.probe != nil {
+        model.probeTiles(canTarget)
+        return
+    }
+
     selecter := TeamAttacker
     if army == model.DefendingArmy {
         selecter = TeamDefender
@@ -5212,7 +5224,8 @@ func (model *CombatModel) doAnimateDeadUnit(army *Army, killedUnit *ArmyUnit, x 
 // playerCasted is true if the player cast the spell, or false if a unit cast the spell
 func (model *CombatModel) InvokeSpell(spellSystem SpellSystem, army *Army, unitCaster *ArmyUnit, spell spellbook.Spell, castedCallback func(bool)){
 
-    if model.CheckDispel(spell, army.Player) {
+    // a probe (SpellHasTarget) doesn't roll the dispel
+    if model.probe == nil && model.CheckDispel(spell, army.Player) {
         if !army.IsAI() {
             model.Events <- &CombatEventMessage{
                 Message: fmt.Sprintf("%v fizzled", spell.Name),

@@ -295,6 +295,9 @@ def cast_spell(smoke):
 
     spell = next((spell for spell in magic["spells"] if spell["name"] == "Fire Bolt"), None)
     check(spell is not None and spell["castable"], "the scenario's Fire Bolt is castable")
+    disrupt = page.locator("#battle .battle-spell[data-spell='Disrupt'] >> nth=0")
+    check(disrupt.is_disabled() and "nothing to cast it on" in (disrupt.get_attribute("title") or ""),
+          "Disrupt is greyed out at a lair (no walls): nothing to cast it on")
     button = "#battle .battle-spell[data-spell='Fire Bolt'] >> nth=0"
     page.click(button)
     casting = battle_view(page).get("casting")
@@ -317,6 +320,9 @@ def cast_spell(smoke):
     view = battle_view(page)
     spell_step = next((step for step in view["steps"] if step["kind"] == "spell"), None)
     check(view["magic"]["casted"] and not view.get("casting") and spell_step, f"cast Fire Bolt on {target['name']}: {page.inner_text('#battle .battle-hint')}")
+    effect = spell_step.get("effect")
+    check(effect == "spell-effect/fire-bolt" and spell_step.get("target") == target["id"] and page.evaluate(f"window.civGame.battle.assets.has({json.dumps(effect)})"),
+          f"the spell step plays {effect} on {target['name']} (re-export the assets if it's missing)")
     smoke.shot("6d-cast")
     return True
 
