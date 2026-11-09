@@ -155,6 +155,13 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
     if err := applyScenario(host, settings.Scenario); err != nil {
         return nil, err
     }
+    // the first research (the turn loop asks only from the second turn on)
+    if !human.ResearchingSpell.Valid() && len(human.ResearchCandidateSpells.Spells) > 0 {
+        select {
+            case host.Model.Events <- &GameEventResearchSpell{Player: human}:
+            default:
+        }
+    }
     host.drainEvents()
 
     return host, nil

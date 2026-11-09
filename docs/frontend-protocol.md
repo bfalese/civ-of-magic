@@ -179,7 +179,13 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 
 - **Player view** (`MakePlayerView`): `turn`, `date`, `current-player`, `you` (gold, mana, per-turn
   income, fame, tax rate, casting skill, research and casting progress, known spells, global
-  enchantments), `known-wizards`, `cities` (full detail: citizens, production, buy cost,
+  enchantments; for the magic screen `power`, `power-distribution` {mana, research, skill},
+  `research-per-turn`, `skill-per-turn`, `remaining-casting-skill` (left this turn),
+  `casting-cost`, `research-candidates`, `alchemy-full-rate`, and `spells`: the overland spells
+  `cast-spell` takes, `{name, magic, section, cost, target?, now, needs-design?}` (`target` uses
+  `choose-spell-target`'s names; `now`: mana and the skill left this turn cover it, so it's cast
+  at once and a target must come with it; otherwise cast-spell starts it over the next turns)),
+  `known-wizards`, `cities` (full detail: citizens, production, buy cost,
   buildings, enchantments; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
   `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, remaining path),
@@ -230,8 +236,12 @@ Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `
 Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (default true),
 `difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
 `wizardName`, `scenario` (a setup for tests, `core/game/scenario.go`: `battle` puts a guarded
-lair next to the capital and gives the wizard Fire Bolt with mana; the web page takes
-`?scenario=battle`).
+lair next to the capital and gives the wizard Fire Bolt, Wall of Stone, mana and skill; `siege`
+puts a human army next to an AI capital with walls, a wall of fire and darkness; the web page
+takes `?scenario=...`).
+
+A new game asks for the first research at once (`choose-research`); the turn loop asks again
+when a spell is learned.
 
 When an AI player (a wizard or raiders) attacks the human during `end-turn`, the AI turns pause:
 `end-turn` returns with `WaitingFor()` = `battle` (and a `battle-started` event with the human as
