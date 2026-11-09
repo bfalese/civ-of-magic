@@ -71,6 +71,11 @@ export class Core {
         return this.call("startOptions");
     }
 
+    // the custom wizard builder's choices so far: {picks-left, error?, retorts: {name: why not}, ready}
+    checkWizard(custom) {
+        return this.call("checkWizard", JSON.stringify(custom));
+    }
+
     setLogging(on) {
         this.call("setLogging", on);
     }

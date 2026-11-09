@@ -1099,7 +1099,7 @@ async function main() {
             }
         } else {
             element("loading").hidden = true;
-            const choice = await chooseStart(element("start"), core.startOptions(), assets, savedGames());
+            const choice = await chooseStart(element("start"), core.startOptions(), assets, savedGames(), (custom) => core.checkWizard(custom));
             element("loading").hidden = false;
             if (choice.saveSlot) {
                 saveText = await readSave(choice.saveSlot);
