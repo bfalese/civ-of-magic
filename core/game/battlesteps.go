@@ -3,16 +3,18 @@ package game
 import (
     "slices"
 
+    "github.com/bfalese/civ-of-magic/core/assets"
     "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/core/pathfinding"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
     "github.com/bfalese/civ-of-magic/lib/fraction"
 )
 
 // What happened in a battle, step by step, so a frontend can replay it: the core resolves moves
 // and attacks at once, and the view after a command only shows the result.
 type BattleStepView struct {
-    // "move", "teleport", "melee", "ranged", "spell" (cast by your wizard or unit), or "effect"
-    // (health changed otherwise: the AI's spells, a wall of fire, a magic vortex, ...)
+    // "move", "teleport", "melee", "ranged", "spell" (cast by a wizard or a unit, yours or the
+    // AI's), or "effect" (health changed otherwise: a wall of fire, a magic vortex, ...)
     Kind string `json:"kind"`
     Unit *uint64 `json:"unit,omitempty"`
     // move: the tiles walked, in order; teleport: the destination
@@ -97,6 +99,31 @@ func (recorder *battleRecorder) current() []BattleStepView {
 func (recorder *battleRecorder) reset() {
     recorder.flush()
     recorder.steps = nil
+}
+
+// the AI may cast: changes so far belong to earlier steps (combat.SpellCastObserver)
+func (recorder *battleRecorder) BeforeSpellCast() {
+    recorder.flush()
+}
+
+// the AI cast a spell: a named spell step with what it changed, like the player's
+func (recorder *battleRecorder) SpellCast(cast combat.SpellCast) {
+    step := BattleStepView{Kind: "spell", Unit: unitIdRef(cast.Caster), Spell: cast.Spell.Name, Effect: spellStepEffect(cast.Spell)}
+    if cast.Target != nil {
+        step.Target = unitIdRef(cast.Target)
+    }
+    if cast.HasTile {
+        step.Tile = &[2]int{cast.TileX, cast.TileY}
+    }
+    recorder.add(step)
+}
+
+// the animation a spell step plays (core/assets SpellEffect); summons share the summoning circle
+func spellStepEffect(spell spellbook.Spell) string {
+    if spell.IsSummoning() {
+        return assets.SpellEffect("Summoning Circle")
+    }
+    return assets.SpellEffect(spell.Name)
 }
 
 func unitIdRef(unit *combat.ArmyUnit) *uint64 {

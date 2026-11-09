@@ -35,9 +35,16 @@ func doAI(model *CombatModel, spellSystem SpellSystem, aiActions AIUnitActionsIn
 
     // for now, disallow confused enemies from casting spells
     if !isConfused && aiUnit.CanCast() && rand.N(100) < 20 {
+        observer, observing := aiActions.(SpellCastObserver)
+        if observing {
+            observer.BeforeSpellCast()
+        }
         for spell, charges := range aiUnit.SpellCharges {
             if charges > 0 {
                 casted := false
+                worked := false
+                cast := &SpellCast{Army: army, Caster: aiUnit, Spell: spell}
+                model.aiCast = cast
                 // try to cast this spell
                 // FIXME: what to do if the unit is confused?
                 // TODO: explain why nil is passed as the caster if the aiUnit is casting the spell
@@ -48,15 +55,20 @@ func doAI(model *CombatModel, spellSystem SpellSystem, aiActions AIUnitActionsIn
                     aiUnit.SpellCharges[spell] -= 1
 
                     if success {
+                        worked = true
                         log.Debug("AI unit %v cast %v with strength %v", aiUnit.Unit.GetName(), spell.Name, spell.Cost(false))
                         spellSystem.PlaySound(spell)
                     }
                 })
 
+                model.aiCast = nil
                 if casted {
                     aiUnit.MovesLeft = fraction.FromInt(0)
                     model.RemoteUnitMovesLeft(aiUnit, aiUnit.MovesLeft)
                     aiActions.DoProjectiles()
+                    if observing && worked {
+                        observer.SpellCast(*cast)
+                    }
                     return
                 }
             }

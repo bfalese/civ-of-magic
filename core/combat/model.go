@@ -2337,6 +2337,10 @@ type CombatLogEvent struct {
 type CombatModel struct {
     // set while SpellHasTarget probes a spell (see probe.go)
     probe *spellProbe
+    // the AI cast in progress, filled in as it picks a target, and the last one that worked (see
+    // SpellCast)
+    aiCast *SpellCast
+    lastAICast *SpellCast
     SelectedUnit *ArmyUnit
     DefendingArmy *Army
     AttackingArmy *Army
@@ -4880,6 +4884,7 @@ func (model *CombatModel) DoAITargetUnitSpell(player ArmyPlayer, spell spellbook
     for _, i := range rand.Perm(len(units)) {
         unit := units[i]
         if shouldAITargetUnit(unit, spell) && canTarget(unit) && canSee(unit) {
+            model.noteAITarget(unit, unit.X, unit.Y, true)
             onTarget(unit)
             return
         }
@@ -4895,6 +4900,7 @@ func (model *CombatModel) DoAITargetTileSpell(player ArmyPlayer, spell spellbook
 
             if tx >= 0 && tx < model.MaxWidth() && ty >= 0 && ty < model.MaxHeight() {
                 if canTarget(tx, ty) {
+                    model.noteAITarget(nil, tx, ty, true)
                     onTarget(tx, ty)
                     return
                 }
@@ -4944,6 +4950,16 @@ func (model *CombatModel) DoAllUnitsSpell(army *Army, spell spellbook.Spell, tar
         units = model.DefendingArmy.units
     } else if army == model.AttackingArmy && targetKind == TargetFriend {
         units = model.AttackingArmy.units
+    }
+
+    if model.probe != nil {
+        model.probe.asked = true
+        for _, unit := range units {
+            if unit.GetHealth() > 0 && canTarget(unit) {
+                model.probe.found = true
+            }
+        }
+        return
     }
 
     for _, unit := range units {
@@ -6455,7 +6471,9 @@ func (model *CombatModel) doAiCast(spellSystem SpellSystem, army *Army) bool {
         minimumMana := min(army.ManaPool, int(float64(army.Player.GetMana()) / army.Range.ToFloat()))
         if minimumMana >= spellCost {
 
-            if model.shouldAICastSpell(army, spell) {
+            // skip spells that would do nothing now (no target, already in effect, ...)
+            canWork, _ := model.SpellCanWork(spellSystem, army, nil, spell)
+            if canWork && model.shouldAICastSpell(army, spell) {
 
                 if spell.IsVariableCost() {
                     extraStrength := spell.Cost(false) * 4
@@ -6471,7 +6489,12 @@ func (model *CombatModel) doAiCast(spellSystem SpellSystem, army *Army) bool {
                 }
 
                 // try to cast this spell
+                cast := &SpellCast{Army: army, Spell: spell}
+                model.aiCast = cast
                 model.InvokeSpell(spellSystem, army, nil, spell, func(success bool){
+                    if success {
+                        model.lastAICast = cast
+                    }
                     mana := int(float64(spellCost) * army.Range.ToFloat())
                     army.ManaPool -= spellCost
                     army.Player.UseMana(mana)
@@ -6754,10 +6777,20 @@ func (model *CombatModel) Update(spellSystem SpellSystem, actions CombatActionsI
 
         // don't let a single auto unit cast wizard spells
         if model.IsAIControlled(aiUnit) {
+            observer, observing := actions.(SpellCastObserver)
+            if observing {
+                observer.BeforeSpellCast()
+            }
+            model.lastAICast = nil
             casted := model.doAiCast(spellSystem, aiArmy)
+            model.aiCast = nil
             if casted {
                 actions.DoProjectiles()
+                if observing && model.lastAICast != nil {
+                    observer.SpellCast(*model.lastAICast)
+                }
             }
+            model.lastAICast = nil
         }
 
         // keep making choices until the unit runs out of moves

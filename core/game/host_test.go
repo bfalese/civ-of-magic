@@ -14,6 +14,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/gamedata"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
+    "github.com/bfalese/civ-of-magic/core/spellbook"
 )
 
 func TestHostSettings(test *testing.T) {
@@ -267,7 +268,7 @@ func TestHostBattleScenario(test *testing.T) {
         }
         // no walls at a lair: Disrupt has nothing to hit
         for _, spell := range view.Magic.Spells {
-            if spell.Name == "Disrupt" && (spell.Castable || !spell.NoTarget) {
+            if spell.Name == "Disrupt" && (spell.Castable || spell.Unusable != "nothing to cast it on here") {
                 test.Errorf("Disrupt at a lair: %+v", spell)
             }
         }
@@ -870,5 +871,80 @@ func TestHostStartChoice(test *testing.T) {
         if _, err := MakeGameHost(gameData, bad); err == nil {
             test.Errorf("%+v should be refused", bad)
         }
+    }
+}
+
+// the AI's spells replay as named spell steps (with their effect), not anonymous health changes
+func TestHostAISpellSteps(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    found := false
+    for attempt := 0; attempt < 10 && !found; attempt++ {
+        host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "siege"})
+        if err != nil {
+            test.Fatalf("setup: %v", err)
+        }
+        // the defending wizard knows only Fire Bolt, with mana to spare
+        var enemy *playerlib.Player
+        for _, player := range host.Model.Players {
+            if player != host.Human && player.AIBehavior != nil && !player.IsNeutral() {
+                enemy = player
+            }
+        }
+        enemy.KnownSpells = spellbook.Spells{}
+        enemy.KnownSpells.AddSpell(host.Model.AllSpells.FindByName("Fire Bolt"))
+        enemy.Mana = 10000
+        enemy.CastingSkillPower = max(enemy.CastingSkillPower, 100000)
+
+        capital := enemy.FindFortressCity()
+        var army *playerlib.UnitStack
+        for _, stack := range host.Human.Stacks {
+            width := host.Model.GetMap(capital.Plane).Width()
+            dx := min(abs(capital.X - stack.X()), width - abs(capital.X - stack.X()))
+            if stack.Plane() == capital.Plane && max(dx, abs(capital.Y - stack.Y())) <= 1 {
+                army = stack
+            }
+        }
+        if err := host.Execute(&MoveStackCommand{From: Location{Plane: army.Plane(), X: army.X(), Y: army.Y()}, To: Location{Plane: capital.Plane, X: capital.X, Y: capital.Y}}); err != nil || host.WaitingFor() != WaitingBattle {
+            test.Fatalf("attack: %v, waiting for %q", err, host.WaitingFor())
+        }
+        enemyArmy := host.Session.Battle.Battle.Combat.GetArmyForPlayer(enemy)
+        enemyArmy.ManaPool = 1000
+
+        check := func() {
+            for _, step := range host.Session.Battle.View().Steps {
+                if step.Kind == "effect" && len(step.Changes) > 0 {
+                    // health changed by something else (walls of fire): fine
+                    continue
+                }
+                if step.Kind == "spell" {
+                    if step.Spell != "Fire Bolt" || step.Effect != "spell-effect/fire-bolt" || step.Target == nil {
+                        test.Errorf("the AI's spell step: %+v", step)
+                    }
+                    found = true
+                }
+            }
+        }
+        check()
+        for turn := 0; turn < 40 && !found && host.WaitingFor() == WaitingBattle; turn++ {
+            if err := host.Execute(&BattleDoneCommand{}); err != nil {
+                break
+            }
+            check()
+        }
+    }
+    if !found {
+        test.Errorf("the AI never cast Fire Bolt in 10 sieges")
     }
 }
