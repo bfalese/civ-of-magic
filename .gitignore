@@ -41,3 +41,7 @@ profile.mem.*
 # wasm core build output (make core-wasm) and local data for the test page
 /frontend/wasm/wasm_exec.js
 /frontend/wasm/gamedata.json
+
+# build and test leftovers
+*.test
+__pycache__/
