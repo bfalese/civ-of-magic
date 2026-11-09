@@ -139,6 +139,8 @@ type UnitView struct {
     Asset string `json:"asset"`
     // moves with the stack (set-unit-active); inactive units stay behind when it moves
     Active bool `json:"active"`
+    // a standing order: "patrolling", "building road", "purifying land", "stasis"; omitted when none
+    Busy string `json:"busy,omitempty"`
     Details UnitDetailsView `json:"details"`
 }
 
@@ -149,6 +151,13 @@ type StackView struct {
     Units []UnitView `json:"units"`
     // remaining path, if the stack is walking somewhere
     Path []Location `json:"path,omitempty"`
+    // what build-action does for the active units here: "settle", "meld", "purify", or "road"
+    // (engineers: build-road takes the destination); omitted when nothing
+    Build string `json:"build,omitempty"`
+    // the active units include engineers: build-road works (even when build is something else)
+    Road bool `json:"road,omitempty"`
+    // planar-travel would take the active units to the other plane now
+    PlanarTravel bool `json:"planar-travel,omitempty"`
 }
 
 // another player's city or stack, as far as the player can see it
@@ -247,15 +256,22 @@ func unitAsset(unit units.StackUnit) string {
     return assets.Unit(raw.Race, raw.Name, unit.GetBanner())
 }
 
-func (model *GameModel) makeStackView(stack *playerlib.UnitStack) StackView {
+func (model *GameModel) makeStackView(player *playerlib.Player, stack *playerlib.UnitStack) StackView {
     view := StackView{
         Location: Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()},
         Units: []UnitView{},
+        Build: model.StackBuildAction(stack),
+        Road: ComputeUnitBuildPowers(stack).BuildRoad,
+        PlanarTravel: model.CanPlanarTravel(player, stack),
     }
     if leader := stack.Leader(); leader != nil {
         view.Background = assets.UnitBackground(leader.GetBanner())
     }
     for _, unit := range stack.Units() {
+        busy := ""
+        if status := unit.GetBusy(); status != units.BusyStatusNone {
+            busy = status.String()
+        }
         view.Units = append(view.Units, UnitView{
             Id: model.UnitId(unit),
             Name: unit.GetName(),
@@ -265,6 +281,7 @@ func (model *GameModel) makeStackView(stack *playerlib.UnitStack) StackView {
             Hero: unit.IsHero(),
             Asset: unitAsset(unit),
             Active: stack.IsActive(unit),
+            Busy: busy,
             Details: makeUnitDetails(unit),
         })
     }
@@ -373,7 +390,7 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
         view.Cities = append(view.Cities, model.makeCityView(city))
     }
     for _, stack := range player.Stacks {
-        view.Stacks = append(view.Stacks, model.makeStackView(stack))
+        view.Stacks = append(view.Stacks, model.makeStackView(player, stack))
     }
 
     view.Diplomacy = model.makeDiplomacyViews(player)

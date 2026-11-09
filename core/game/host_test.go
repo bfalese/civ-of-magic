@@ -948,3 +948,101 @@ func TestHostAISpellSteps(test *testing.T) {
         test.Errorf("the AI never cast Fire Bolt in 10 sieges")
     }
 }
+
+// the orders scenario: settle an outpost, start a road, travel through a tower and patrol, all
+// through commands, as the stack panel sends them (5 games, the maps are random)
+func TestHostOrdersScenario(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    for range 5 {
+        host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "orders"})
+        if err != nil {
+            test.Fatalf("setup: %v", err)
+        }
+        view := host.Model.MakePlayerView(host.Human)
+        find := func(view PlayerView, check func(StackView) bool) *StackView {
+            for index := range view.Stacks {
+                if check(view.Stacks[index]) {
+                    return &view.Stacks[index]
+                }
+            }
+            return nil
+        }
+        settlers := find(view, func(stack StackView) bool { return stack.Build == "settle" })
+        engineers := find(view, func(stack StackView) bool { return stack.Road })
+        traveller := find(view, func(stack StackView) bool { return stack.PlanarTravel })
+        if settlers == nil || engineers == nil || traveller == nil {
+            test.Fatalf("the view should offer settle, road and planar travel: %+v", view.Stacks)
+        }
+        host.TakeEvents()
+
+        cities := len(host.Human.Cities)
+        if err := host.Execute(&BuildActionCommand{Stack: settlers.Location}); err != nil {
+            test.Fatalf("settle: %v", err)
+        }
+        if len(host.Human.Cities) != cities + 1 {
+            test.Errorf("settling should found an outpost")
+        }
+        outpost := false
+        for _, event := range host.TakeEvents() {
+            if strings.Contains(string(event), `"new-outpost"`) {
+                outpost = true
+            }
+        }
+        if !outpost {
+            test.Errorf("settling should send a new-outpost event")
+        }
+
+        // a road two tiles away from the engineers, on explored land
+        var road []Location
+        for _, offset := range [][2]int{{2, 0}, {-2, 0}, {0, 2}, {0, -2}, {2, 2}, {-2, -2}, {2, -2}, {-2, 2}} {
+            to := Location{Plane: engineers.Location.Plane, X: host.Model.GetMap(engineers.Location.Plane).WrapX(engineers.Location.X + offset[0]), Y: engineers.Location.Y + offset[1]}
+            if path, err := host.Model.RoadPathFor(host.Human, engineers.Location, to); err == nil {
+                road = path
+                break
+            }
+        }
+        if road == nil {
+            test.Fatalf("no road path from the engineers")
+        }
+        if err := host.Execute(&BuildRoadCommand{Stack: engineers.Location, To: road[len(road) - 1]}); err != nil {
+            test.Fatalf("build-road: %v", err)
+        }
+
+        start := traveller.Location
+        if err := host.Execute(&PlanarTravelCommand{Stack: start}); err != nil {
+            test.Fatalf("planar travel: %v", err)
+        }
+        arrived := host.Human.FindStack(start.X, start.Y, start.Plane.Opposite())
+        if arrived == nil || host.Human.FindStack(start.X, start.Y, start.Plane) != nil {
+            test.Fatalf("the swordsmen should be on the other plane")
+        }
+
+        there := Location{Plane: start.Plane.Opposite(), X: start.X, Y: start.Y}
+        if err := host.Execute(&PatrolCommand{Stack: there}); err != nil {
+            test.Fatalf("patrol: %v", err)
+        }
+        view = host.Model.MakePlayerView(host.Human)
+        patrol := find(view, func(stack StackView) bool { return stack.Location == there })
+        if patrol == nil || patrol.Units[0].Busy != "patrolling" {
+            test.Errorf("the swordsmen should patrol: %+v", patrol)
+        }
+        building := find(view, func(stack StackView) bool {
+            return slices.ContainsFunc(stack.Units, func(unit UnitView) bool { return unit.Busy == "building road" })
+        })
+        if building == nil {
+            test.Errorf("the engineers should be building the road")
+        }
+    }
+}
