@@ -194,11 +194,17 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   allowed}`; one per group, abilities one from `Ability 1`, one from `Ability 2`, any from
   `Ability 3`), `spells` for staffs and wands (`{name, magic, charge-cost}`), `max-powers`,
   `enchant-item-limit`. An item costs `(base-cost + powers × power-factor + charges × charge-cost)
-  × cost-factor`, rounded down),
+  × cost-factor`, rounded down), and `items`: the vault and the heroes' equipment, `{vault: [4 ×
+  item or null], new: [items waiting to be placed], heroes: [{index, unit, name, title, level,
+  location, asset, slots: [{kind, takes, item}]}], teleport-cost, fortress}` with items `{name,
+  type, asset, cost, value (mana from destroy-item), powers}`; the slots are what `move-item` and
+  `destroy-item` name),
   `known-wizards`, `cities` (full detail: citizens, production, buy cost,
   buildings, enchantments; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
-  `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, remaining path),
+  `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, `active` (moves with the stack, see
+  `set-unit-active`), `details` {melee, ranged, ranged-type?, defense, resistance, hit-points,
+  figures, moves, level?, upkeep-gold/food/mana?, abilities, enchantments}; remaining path),
   `foreign-cities` and `foreign-stacks` (only where the player's fog shows them).
 - **Map view** (`MakeMapView`, per plane): `width`, `height`, `tiles[y][x]` with `terrain`, `road`,
   `bonus`, `encounter`, `corrupted`, `visible`; `null` for unexplored tiles.

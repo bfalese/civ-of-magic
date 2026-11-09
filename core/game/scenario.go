@@ -6,6 +6,7 @@ import (
 
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/core/city"
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/data"
     herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
@@ -23,6 +24,8 @@ import (
 //   spellbook: a wizard with the spells that take a choice (Spell Ward, Spell Binding,
 //           Disjunction, Resurrection) and the item spells (Create Artifact, Enchant Item), mana
 //           and casting skill for them this turn, a dead hero, and a known rival with Detect Magic
+//   items:  a hero who can wield a sword and a shield at the human's fortress, a plain sword in the vault and a shield just arrived
+//           (waiting to be placed), and mana to teleport items
 //   siege:  an AI wizard's capital with city walls, a wall of fire and a wall of darkness, and a
 //           human army next to it: one move-stack starts a battle at the walls
 func applyScenario(host *GameHost, name string) error {
@@ -35,6 +38,8 @@ func applyScenario(host *GameHost, name string) error {
             return scenarioSiege(host)
         case "spellbook":
             return scenarioSpellbook(host)
+        case "items":
+            return scenarioItems(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
 }
@@ -163,6 +168,52 @@ func scenarioSpellbook(host *GameHost) error {
         }
     }
     return fmt.Errorf("spellbook scenario: no AI wizard")
+}
+
+// whether one of the hero's equipment slots takes the item type
+func heroTakes(hero *herolib.Hero, kind artifact.ArtifactType) bool {
+    for _, slot := range hero.GetArtifactSlots() {
+        if slot.CompatibleWith(kind) {
+            return true
+        }
+    }
+    return false
+}
+
+func scenarioItems(host *GameHost) error {
+    model := host.Model
+    human := host.Human
+
+    hired := false
+    for _, hero := range human.HeroPool {
+        if hero != nil && hero.Status == herolib.StatusAvailable && hero.HeroType != herolib.HeroTorin && heroTakes(hero, artifact.ArtifactTypeSword) && heroTakes(hero, artifact.ArtifactTypeShield) {
+            if !human.AddHeroToFortress(hero) {
+                return fmt.Errorf("items scenario: the hero didn't join")
+            }
+            hero.SetStatus(herolib.StatusEmployed)
+            hired = true
+            break
+        }
+    }
+    if !hired {
+        return fmt.Errorf("items scenario: no hero to hire")
+    }
+
+    makeItem := func(kind string, name string) (*artifact.Artifact, error) {
+        return artifact.BuildDesign(artifact.Design{Type: kind, Name: name}, false, &human.Wizard, human.KnownSpells, nil, nil)
+    }
+    sword, err := makeItem("Sword", "Scenario Sword")
+    if err != nil {
+        return err
+    }
+    human.VaultEquipment[0] = sword
+    shield, err := makeItem("Shield", "Scenario Shield")
+    if err != nil {
+        return err
+    }
+    model.recordVaultItem(&GameEventVault{CreatedArtifact: shield, Player: human})
+    human.Mana = max(human.Mana, 200)
+    return nil
 }
 
 var scenarioNeighbours = []image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}}

@@ -474,3 +474,112 @@ func TestHostSpellbookScenario(test *testing.T) {
         test.Errorf("the sword didn't go to the vault")
     }
 }
+
+// the items scenario: place a new item and a vault item on a hero, destroy one, and split and
+// disband units through the view's ids
+func TestHostItemsScenario(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "items"})
+    if err != nil {
+        test.Fatalf("setup: %v", err)
+    }
+    items := func() VaultView {
+        return host.Model.MakePlayerView(host.Human).You.Items
+    }
+    view := items()
+    if len(view.Vault) != 4 || view.Vault[0] == nil || view.Vault[0].Type != "Sword" || view.Vault[1] != nil {
+        test.Fatalf("vault: %+v", view.Vault)
+    }
+    if len(view.New) != 1 || view.New[0].Type != "Shield" || view.New[0].Asset == "" {
+        test.Fatalf("new items: %+v", view.New)
+    }
+    if len(view.Heroes) != 1 || len(view.Heroes[0].Slots) != 3 || view.Fortress == nil || view.Heroes[0].Location != *view.Fortress {
+        test.Fatalf("heroes: %+v", view.Heroes)
+    }
+    hero := view.Heroes[0]
+    slotFor := func(kind string) int {
+        for index, slot := range hero.Slots {
+            if slot.Item == nil && slices.Contains(slot.Takes, kind) {
+                return index
+            }
+        }
+        return -1
+    }
+    armor, weapon := slotFor("Shield"), slotFor("Sword")
+    if armor < 0 || weapon < 0 {
+        test.Fatalf("%v has no slot for a shield or a sword: %+v", hero.Name, hero.Slots)
+    }
+
+    zero, heroIndex := 0, hero.Index
+    mana := host.Human.Mana
+    if err := host.Execute(&MoveItemCommand{From: ItemSlot{New: &zero}, To: ItemSlot{Hero: &heroIndex, Slot: armor}}); err != nil {
+        test.Fatalf("place the shield: %v", err)
+    }
+    if err := host.Execute(&MoveItemCommand{From: ItemSlot{Vault: &zero}, To: ItemSlot{Hero: &heroIndex, Slot: weapon}}); err != nil {
+        test.Fatalf("equip the sword: %v", err)
+    }
+    view = items()
+    hero = view.Heroes[0]
+    if len(view.New) != 0 || view.Vault[0] != nil || hero.Slots[armor].Item == nil || hero.Slots[weapon].Item == nil || host.Human.Mana != mana {
+        test.Errorf("after equipping at the fortress (free): new %v, vault %v, slots %+v, mana %v -> %v", view.New, view.Vault[0], hero.Slots, mana, host.Human.Mana)
+    }
+    if err := host.Execute(&MoveItemCommand{From: ItemSlot{Hero: &heroIndex, Slot: weapon}, To: ItemSlot{Hero: &heroIndex, Slot: armor}}); err == nil {
+        test.Errorf("a sword shouldn't fit the armor slot")
+    }
+
+    value := hero.Slots[weapon].Item.Value
+    if err := host.Execute(&DestroyItemCommand{Item: ItemSlot{Hero: &heroIndex, Slot: weapon}}); err != nil {
+        test.Fatalf("destroy: %v", err)
+    }
+    if host.Human.Mana != mana + value || items().Heroes[0].Slots[weapon].Item != nil {
+        test.Errorf("destroying the sword should give %v mana: %v -> %v", value, mana, host.Human.Mana)
+    }
+
+    // the hero and the garrison share the fortress tile: leave the hero behind, then disband another unit
+    var stack StackView
+    for _, candidate := range host.Model.MakePlayerView(host.Human).Stacks {
+        if candidate.Location == hero.Location {
+            stack = candidate
+        }
+    }
+    if len(stack.Units) < 2 {
+        test.Fatalf("the fortress stack: %+v", stack)
+    }
+    for _, unit := range stack.Units {
+        if !unit.Active || unit.Details.Defense <= 0 || unit.Details.Figures <= 0 {
+            test.Errorf("unit %v: active %v, details %+v", unit.Name, unit.Active, unit.Details)
+        }
+    }
+    if err := host.Execute(&SetUnitActiveCommand{Unit: hero.Unit, Active: false}); err != nil {
+        test.Fatalf("set-unit-active: %v", err)
+    }
+    other := -1
+    for _, candidate := range host.Model.MakePlayerView(host.Human).Stacks {
+        for _, unit := range candidate.Units {
+            if unit.Id == hero.Unit && unit.Active {
+                test.Errorf("the hero is still active")
+            }
+            if unit.Id != hero.Unit && candidate.Location == hero.Location {
+                other = unit.Id
+            }
+        }
+    }
+    if err := host.Execute(&DisbandUnitCommand{Unit: other}); err != nil {
+        test.Fatalf("disband: %v", err)
+    }
+    if _, _, err := host.Model.FindUnitById(host.Human, other); err == nil {
+        test.Errorf("the disbanded unit is still there")
+    }
+}
