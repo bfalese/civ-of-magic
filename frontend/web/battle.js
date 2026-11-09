@@ -3,22 +3,32 @@
 // in their owner's colours. Clicking a tile sends battle-act (move there, or attack the enemy on
 // it); the buttons send battle-done / battle-wait / battle-auto / battle-flee.
 //
+// Spells: the Spells button lists the wizard's combat spells (view.magic) and the selected unit's
+// (view["unit-magic"]); picking one sends battle-cast without a target. A spell that needs one
+// waits in view.casting, which lists the units, tiles or choices it accepts: the field highlights
+// them, a click sends battle-target, Esc sends battle-cancel.
+//
 // Geometry, as the Ebitengine battle screen: a tile's centre is S * R(-45deg) * (x, y) with
 // S = (w*3/4 - 2, h*3/4 - 1) for the ground tile size w x h; the selection diamond, units and
 // tops are placed relative to that centre.
 
 const animationMilliseconds = 160;
 
+const realmColors = {
+    Life: "#f4f0d8", Death: "#b07ae0", Chaos: "#ff7a50", Nature: "#7ed06a", Sorcery: "#6ab4ff", Arcane: "#c8c0b0",
+};
+
 export class BattleScreen {
-    constructor(root, assets, { onAct, onCommand }) {
+    constructor(root, assets, { onCommand }) {
         this.root = root;
         this.assets = assets;
-        this.onAct = onAct;
         this.onCommand = onCommand;
         this.view = null;
         this.hover = null;
         this.frame = 0;
         this.running = false;
+        this.spellsOpen = false;
+        this.message = "";
 
         const [tileWidth, tileHeight] = assets.size("battle-tile/cmbgrass/0");
         this.tileWidth = tileWidth || 30;
@@ -30,23 +40,34 @@ export class BattleScreen {
             <div class="battle-bar panel">
                 <span class="battle-title"></span>
                 <span class="battle-unit"></span>
+                <span class="battle-mana"></span>
                 <span class="spacer"></span>
+                <button class="battle-spells-button" title="S">Spells</button>
                 <button data-command="battle-done" title="D">Done</button>
                 <button data-command="battle-wait" title="W">Wait</button>
                 <button data-command="battle-auto" title="A">Auto</button>
                 <button data-command="battle-flee">Flee</button>
             </div>
-            <canvas class="battle-field"></canvas>
-            <div class="battle-hint panel">click a highlighted tile to move · a red one to attack · D done · W wait · A auto</div>`;
+            <div class="battle-stage">
+                <canvas class="battle-field"></canvas>
+                <div class="battle-spells panel" hidden></div>
+            </div>
+            <div class="battle-hint panel"></div>`;
         this.canvas = root.querySelector("canvas");
         this.context = this.canvas.getContext("2d");
         for (const button of root.querySelectorAll("button[data-command]")) {
-            button.onclick = () => this.onCommand(button.dataset.command);
+            button.onclick = () => this.command(button.dataset.command);
         }
+        root.querySelector(".battle-spells-button").onclick = () => this.toggleSpells();
         this.canvas.addEventListener("click", (event) => {
             const tile = this.tileAt(event);
-            if (tile) {
-                this.onAct(tile.x, tile.y);
+            if (!tile) {
+                return;
+            }
+            if (this.view && this.view.casting) {
+                this.pickTarget(tile);
+            } else {
+                this.command("battle-act", { x: tile.x, y: tile.y });
             }
         });
         this.canvas.addEventListener("mousemove", (event) => {
@@ -78,6 +99,83 @@ export class BattleScreen {
         this.root.classList.remove("open");
         this.running = false;
         this.view = null;
+        this.spellsOpen = false;
+        this.message = "";
+    }
+
+    // send a battle command; a refusal shows on the screen (the log is behind it)
+    command(type, command = {}) {
+        this.message = "";
+        const waiting = this.view && this.view.casting ? this.view.casting.spell : null;
+        const status = this.onCommand(type, command);
+        if (status && this.open) {
+            if (status.error) {
+                this.message = status.error;
+            } else if (type === "battle-target" && waiting) {
+                this.message = `${waiting} cast`;
+            }
+            this.updateBar();
+        }
+        return status;
+    }
+
+    // keys while the battle is open; true if the key was used
+    key(key) {
+        if (key === "Escape") {
+            if (this.view && this.view.casting) {
+                this.command("battle-cancel");
+            } else if (this.spellsOpen) {
+                this.toggleSpells();
+            }
+            return true;
+        }
+        if (key === "s" || key === "S") {
+            this.toggleSpells();
+            return true;
+        }
+        const commands = { d: "battle-done", w: "battle-wait", a: "battle-auto" };
+        const type = commands[key.toLowerCase()];
+        if (type) {
+            this.command(type);
+            return true;
+        }
+        return false;
+    }
+
+    toggleSpells() {
+        this.spellsOpen = !this.spellsOpen && !!this.view;
+        this.updateBar();
+    }
+
+    cast(spell, caster) {
+        this.spellsOpen = false;
+        const command = { spell: spell.name };
+        if (caster !== undefined) {
+            command.caster = caster;
+        }
+        const status = this.command("battle-cast", command);
+        if (status && !status.error && this.open && !(this.view && this.view.casting)) {
+            this.message = `${spell.name} cast`;
+            this.updateBar();
+        }
+    }
+
+    // a click on the field while a spell waits for its target
+    pickTarget(tile) {
+        const casting = this.view.casting;
+        if (casting.kind === "tile") {
+            this.command("battle-target", { x: tile.x, y: tile.y });
+            return;
+        }
+        if (casting.kind === "unit") {
+            const unit = this.view.units.find((candidate) => candidate.x === tile.x && candidate.y === tile.y && casting.units.includes(candidate.id));
+            if (unit) {
+                this.command("battle-target", { unit: unit.id });
+            } else {
+                this.message = `${casting.spell} can't target that`;
+                this.updateBar();
+            }
+        }
     }
 
     // a tile centre in battlefield pixels (before the canvas offset)
@@ -137,15 +235,126 @@ export class BattleScreen {
 
     updateBar() {
         const view = this.view;
+        if (!view) {
+            return;
+        }
         const side = view["you-attack"] ? "you attack" : "you defend";
         this.root.querySelector(".battle-title").textContent = `Battle · turn ${view.turn} · ${side}`;
         const unit = this.selectedUnit();
         this.root.querySelector(".battle-unit").textContent = unit
             ? `${unit.name}: ${unit.health}/${unit["max-health"]} hp · ${unit["moves-left"]} moves${unit["ranged-attacks"] ? ` · ${unit["ranged-attacks"]} shots` : ""}`
             : "waiting…";
+        const magic = view.magic;
+        this.root.querySelector(".battle-mana").textContent = magic
+            ? `skill ${magic["mana-pool"]} · mana ${magic.mana}${magic.range > 1 ? ` · range ×${magic.range}` : ""}${magic.casted ? " · cast" : ""}`
+            : "";
         for (const button of this.root.querySelectorAll("button[data-command='battle-done'], button[data-command='battle-wait']")) {
             button.disabled = !unit;
         }
+        const anySpells = (magic && magic.spells.length > 0) || view["unit-magic"];
+        this.root.querySelector(".battle-spells-button").disabled = !unit || !anySpells;
+        this.updateSpells();
+        this.updateHint();
+    }
+
+    updateHint() {
+        const view = this.view;
+        const hint = this.root.querySelector(".battle-hint");
+        let text;
+        if (view.casting) {
+            const what = { unit: "click a highlighted unit", tile: "click a highlighted tile", choice: "pick one above" }[view.casting.kind] || "";
+            text = `${view.casting.spell}: ${what} · Esc cancels`;
+        } else {
+            text = "click a highlighted tile to move · a red one to attack · S spells · D done · W wait · A auto";
+        }
+        hint.textContent = this.message ? `${this.message} — ${text}` : text;
+        hint.classList.toggle("battle-message", !!this.message);
+    }
+
+    // the spell list, or the units a spell with a choice offers
+    updateSpells() {
+        const view = this.view;
+        const panel = this.root.querySelector(".battle-spells");
+        panel.innerHTML = "";
+        const casting = view.casting;
+        if (casting && casting.kind === "choice") {
+            panel.hidden = false;
+            this.addHeading(panel, casting.title || casting.spell);
+            const row = document.createElement("div");
+            row.className = "battle-spell-list";
+            for (const choice of casting.choices) {
+                const button = document.createElement("button");
+                button.className = "battle-choice";
+                button.dataset.choice = choice.id;
+                const picture = document.createElement("canvas");
+                if (this.assets.frameCount(choice.asset) > 0) {
+                    const image = this.assets.bannerFrame(choice.asset, 0, choice.banner);
+                    picture.width = image.width;
+                    picture.height = image.height;
+                    picture.getContext("2d").drawImage(image, 0, 0);
+                }
+                button.append(picture, document.createTextNode(choice.name));
+                button.onclick = () => this.command("battle-target", { unit: choice.id });
+                row.appendChild(button);
+            }
+            panel.appendChild(row);
+            this.addButton(panel, "Cancel", () => this.command("battle-cancel"));
+            return;
+        }
+        if (!this.spellsOpen || casting || view.selected === undefined) {
+            panel.hidden = true;
+            return;
+        }
+        panel.hidden = false;
+        const magic = view.magic;
+        if (magic) {
+            const note = magic.casted ? "already cast this turn" : `up to ${magic.available} mana`;
+            this.addHeading(panel, `Wizard · ${note}`);
+            this.addSpellList(panel, magic.spells, undefined, "no combat spells");
+        }
+        const unitMagic = view["unit-magic"];
+        if (unitMagic) {
+            const caster = view.units.find((candidate) => candidate.id === unitMagic.caster);
+            this.addHeading(panel, `${caster ? caster.name : "Unit"} · skill ${unitMagic["casting-skill"]}`);
+            this.addSpellList(panel, unitMagic.spells, unitMagic.caster, "no spells");
+        }
+        this.addButton(panel, "Close", () => this.toggleSpells());
+    }
+
+    addHeading(panel, text) {
+        const heading = document.createElement("h3");
+        heading.textContent = text;
+        panel.appendChild(heading);
+    }
+
+    addButton(panel, label, action) {
+        const button = document.createElement("button");
+        button.textContent = label;
+        button.onclick = action;
+        panel.appendChild(button);
+    }
+
+    addSpellList(panel, spells, caster, emptyText) {
+        const list = document.createElement("div");
+        list.className = "battle-spell-list";
+        if (spells.length === 0) {
+            list.innerHTML = `<span class="dim">${emptyText}</span>`;
+        }
+        for (const spell of spells) {
+            const button = document.createElement("button");
+            button.className = "battle-spell";
+            button.dataset.spell = spell.name;
+            button.disabled = !spell.castable;
+            button.style.color = realmColors[spell.magic] || "";
+            const cost = spell.charges ? `${spell.charges} charge${spell.charges === 1 ? "" : "s"}` : `${spell.cost}`;
+            button.innerHTML = `<span></span><span class="dim"></span>`;
+            button.children[0].textContent = spell.name;
+            button.children[1].textContent = cost;
+            button.title = `${spell.magic}${button.disabled ? " · not castable now" : ""}`;
+            button.onclick = () => this.cast(spell, caster);
+            list.appendChild(button);
+        }
+        panel.appendChild(list);
     }
 
     loop() {
@@ -164,7 +373,7 @@ export class BattleScreen {
         requestAnimationFrame(step);
     }
 
-    diamond(x, y, stroke, fill) {
+    diamond(x, y, stroke, fill, lineWidth = 1) {
         const [cx, cy] = this.center(x, y);
         const context = this.context;
         const halfWidth = this.tileWidth / 2;
@@ -181,7 +390,7 @@ export class BattleScreen {
         }
         if (stroke) {
             context.strokeStyle = stroke;
-            context.lineWidth = 1;
+            context.lineWidth = lineWidth;
             context.stroke();
         }
     }
@@ -219,12 +428,27 @@ export class BattleScreen {
             assets.draw(context, "battle-clouds", Math.round(cx), Math.round(cy + this.tileHeight / 2));
         }
 
-        // where the selected unit can go and what it can hit
+        // where the selected unit can go and what it can hit, or what the waiting spell accepts
         const pulse = (Math.sin(now / 160) + 1) / 2;
-        for (const [x, y] of view.moves) {
+        const casting = view.casting;
+        const spellColor = `rgba(190, 120, 255, ${0.55 + pulse * 0.45})`;
+        if (casting && casting.kind === "unit") {
+            const accepted = new Set(casting.units);
+            for (const unit of view.units) {
+                if (accepted.has(unit.id)) {
+                    this.diamond(unit.x, unit.y, spellColor, `rgba(190, 120, 255, ${0.2 + pulse * 0.2})`, 2);
+                }
+            }
+        } else if (casting && casting.kind === "tile") {
+            for (const [x, y] of casting.tiles) {
+                this.diamond(x, y, spellColor, `rgba(190, 120, 255, ${0.12 + pulse * 0.12})`, 2);
+            }
+        }
+        const moves = casting ? [] : view.moves;
+        for (const [x, y] of moves) {
             this.diamond(x, y, "rgba(255, 255, 255, 0.35)", "rgba(255, 255, 255, 0.08)");
         }
-        const targets = new Map(view.targets.map((target) => [target.id, target.kind]));
+        const targets = new Map(casting ? [] : view.targets.map((target) => [target.id, target.kind]));
         for (const unit of view.units) {
             if (targets.has(unit.id)) {
                 const color = targets.get(unit.id) === "ranged" ? `rgba(255, 170, 40, ${0.5 + pulse / 2})` : `rgba(255, 50, 40, ${0.5 + pulse / 2})`;

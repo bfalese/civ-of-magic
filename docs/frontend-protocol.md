@@ -90,7 +90,9 @@ Answers while a command is paused (see Sessions):
 | `battle-wait` | | the selected unit waits, the next one is up |
 | `battle-flee` | | your army flees |
 | `battle-auto` | | the AI fights the rest of the battle for you |
-| `battle-cast` | `spell`, `caster?`, `target?` | cast a combat spell: the wizard's (no `caster`; once per turn, within the army's mana pool and your mana over the range) or the selected unit's (`caster` = its id; its spells within its casting skill, or item charges). `target` is `{"unit": id}` or `{"x", "y"}` when the spell needs one (also for picking from the units Raise/Animate Dead offer). Nothing is paid if the target is refused |
+| `battle-cast` | `spell`, `caster?`, `target?` | cast a combat spell: the wizard's (no `caster`; once per turn, within the army's mana pool and your mana over the range) or the selected unit's (`caster` = its id; its spells within its casting skill, or item charges). `target` is `{"unit": id}` or `{"x", "y"}` when the spell needs one (also for picking from the units Raise/Animate Dead offer). Nothing is paid if the target is refused. Without `target`, a spell that needs one waits for it: the view's `casting` lists what it accepts |
+| `battle-target` | `unit?`, `x?`, `y?` | the target for the spell waiting in `casting`; a refused target leaves it waiting |
+| `battle-cancel` | | drop the spell waiting for a target (nothing is paid); any other battle command drops it too |
 
 During a battle, `session.Battle.View()` gives the battlefield: `turn`, `selected` (the id of your
 unit that is up), `you-attack`, `width`, `height`, `units` (id, name, owner, yours, x, y, health,
@@ -99,6 +101,15 @@ max-health, moves-left, ranged-attacks, `asset`/`banner`/`facing` for its combat
 and `top-align` for a tree/rock/building, `mud`), `road`/`clouds` for a town, `moves` (tiles the
 selected unit can walk to), `targets` (`{id, kind}`, enemies it can attack: `ranged` or `melee`)
 and `state`. Ask for it again after each battle command.
+
+Magic in the battle view: `magic` is the wizard's (`mana-pool`, `mana`, `range`, `available` = the
+most a spell can cost now, `casted` this turn, `spells`); `unit-magic` the selected unit's when it
+has spells or item charges (`caster` id, `casting-skill`, `spells`). A spell is `{name, magic
+(realm), cost, castable, charges?}`; `castable` means a battle-cast would be accepted now.
+`casting` is the spell waiting for a target: `spell`, `caster?`, `kind` and the targets it accepts,
+by the model's own checks: `units` (ids, for `kind: "unit"`), `tiles` (`[x, y]`, for `"tile"`) or
+`choices` (`{id, name, asset, banner}` with a `title`, for `"choice"`: Raise/Animate Dead, which
+offer killed units).
 
 A spell target is `{"location": {...}, "unit": 2, "wizard": "green", "choice": "..."}`, with the
 fields the spell needs:

@@ -63,7 +63,8 @@ func (session *CommandSession) WaitingFor() string {
 func isAnswerCommand(command Command) bool {
     switch command.(type) {
         case *ConfirmEncounterCommand, *RazeCityCommand, *BattleActCommand, *BattleDoneCommand,
-             *BattleWaitCommand, *BattleFleeCommand, *BattleAutoCommand, *BattleCastCommand:
+             *BattleWaitCommand, *BattleFleeCommand, *BattleAutoCommand, *BattleCastCommand,
+             *BattleTargetCommand, *BattleCancelCommand:
             return true
     }
     return false
