@@ -72,6 +72,19 @@ browser smoke test against serve-web.
 
 ## Next
 
-The "Later" list of 043: the diplomacy decisions in `docs/core-review.md`, the custom wizard
-builder, Spell of Mastery, and `SpellCanWork` for Disenchant Area / Call Chaos / summons. Then 034
-step 7: the 3D/retro look, Ebitengine xdotool smoke tests, the upstream side programs.
+The web frontend is the target; the Ebitengine game is a legacy frontend.
+
+1. The "Later" list of 043: the diplomacy decisions in `docs/core-review.md`, AI wizards starting
+   diplomacy, the custom wizard builder, Spell of Mastery, and `SpellCanWork` for Disenchant
+   Area / Call Chaos / summons.
+2. **Port the smoke-test checklist** (`docs/smoke-test.md`, 55 hand checks for the desktop game).
+   Most of them check game rules that now live in the core, and the web game shares those. Go
+   through it and, for each check not covered yet, add a host test with the real data
+   (`CIV_GAMEDATA`, rules and turn effects) or a step in `frontend/web/smoke_test.py` (screens),
+   with a test scenario where one helps. Mark the check with the test that covers it. Checks that
+   only concern Ebitengine screens are dropped. This replaces the Ebitengine xdotool suite (027
+   step 6), which is no longer planned.
+3. 034 step 7: the 3D/retro look.
+4. Decide on the upstream side programs (`game/arena`, `android/`, `game/network-combat`, the
+   LBX-only tools in `util/`) and on the desktop game itself: drop it once the web game covers
+   what's needed, or keep it as a reference with at most a "starts under Xvfb" check in CI.

@@ -3,6 +3,11 @@
 Everything the refactor rounds (PRs #7–#15) moved that hasn't been checked by hand yet,
 ordered so one playthrough covers it. Tick items as you go; note anything odd under **Problems**.
 
+**Plan (handoff 044):** the web frontend is the target, so this list is being ported, not played
+through. Each check about a game rule becomes a host test (`core/game`, with `CIV_GAMEDATA`) or a
+step in `frontend/web/smoke_test.py`. Mark it `[x]` with the test's name once covered. Checks that
+only concern Ebitengine screens are dropped (strike them through). No xdotool suite is planned.
+
 ```sh
 go run ./game/magic -data "/home/bernardo/ROMs/ms-dos/Master of Magic"
 ```
