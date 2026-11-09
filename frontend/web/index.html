@@ -137,6 +137,20 @@
     #battle .battle-choice { display: flex; align-items: center; gap: 6px; text-align: left; padding: 2px 6px; }
     #battle .battle-choice canvas { image-rendering: pixelated; width: 40px; height: auto; }
     #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--dim); }
+    [hidden] { display: none !important; }
+    #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 8px; }
+    #start > .panel { position: static; width: min(760px, 100%); max-height: 100%; overflow: auto; padding: 12px 14px; }
+    #start h2 { margin: 0 0 8px; color: var(--accent); font-weight: normal; }
+    #start .start-wizards { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 4px; margin: 4px 0 10px; }
+    #start .start-wizard { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; padding: 3px 7px; }
+    #start .chosen { border-color: var(--accent); background: #5a4326; }
+    #start .start-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 14px; margin-bottom: 10px; }
+    #start label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    #start input, #start select { font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 1px 4px; width: 10em; }
+    #start .start-banners { display: flex; gap: 4px; }
+    #start .swatch { width: 22px; height: 22px; padding: 0; }
+    #start .swatch.chosen { outline: 2px solid var(--text); outline-offset: 1px; }
+    #start .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     #hint { right: 8px; bottom: 8px; font-size: 11px; color: var(--dim); }
     @media (max-width: 640px) { #side { width: calc(100% - 16px); top: auto; bottom: 166px; max-height: 30%; } #hint { display: none; } }
 </style>
@@ -147,6 +161,7 @@
 <body>
 <div id="map"></div>
 <div id="loading">loading…</div>
+<div id="start" hidden></div>
 <div id="top" class="panel" hidden>
     <span id="date"></span>
     <span>gold <b id="gold"></b></span>

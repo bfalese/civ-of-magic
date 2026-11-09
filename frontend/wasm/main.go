@@ -173,6 +173,15 @@ func battle(arguments []js.Value) string {
     return viewResult(host.BattleView())
 }
 
+// the choices for a new game (wizards, races, banners, difficulties, ...): core StartOptions
+func startOptions(arguments []js.Value) string {
+    encoded, err := json.Marshal(gamecore.MakeStartOptions())
+    if err != nil {
+        return errorJSON(err)
+    }
+    return string(encoded)
+}
+
 func setLogging(arguments []js.Value) string {
     if len(arguments) > 0 && arguments[0].Truthy() {
         log.SetOutput(os.Stderr)
@@ -193,6 +202,7 @@ func main() {
     api.Set("map", export("map", mapView, errorJSON))
     api.Set("battle", export("battle", battle, errorJSON))
     api.Set("setLogging", export("setLogging", setLogging, errorJSON))
+    api.Set("startOptions", export("startOptions", startOptions, errorJSON))
     js.Global().Set("civ", api)
 
     // tell the page the API is there

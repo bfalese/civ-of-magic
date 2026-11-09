@@ -763,3 +763,74 @@ func TestHostDiplomacy(test *testing.T) {
         test.Errorf("didn't learn %v from the trade", offer.Receive)
     }
 }
+
+// a new game with a chosen premade wizard, race and banner (the start screen's settings)
+func TestHostStartChoice(test *testing.T) {
+    options := MakeStartOptions()
+    if len(options.Wizards) != 14 || len(options.Races) != 14 || len(options.Banners) != 5 || len(options.Difficulties) != 6 {
+        test.Fatalf("start options: %v wizards, %v races, %v banners, %v difficulties", len(options.Wizards), len(options.Races), len(options.Banners), len(options.Difficulties))
+    }
+    if options.Wizards[0].Name != "Merlin" || options.Wizards[0].Books["Life"] != 5 || options.Wizards[0].Retort == "" {
+        test.Errorf("Merlin: %+v", options.Wizards[0])
+    }
+    myrran := ""
+    for _, wizard := range options.Wizards {
+        if wizard.Myrran {
+            myrran = wizard.Name
+        }
+    }
+    if myrran == "" {
+        test.Errorf("no wizard with the Myrran retort")
+    }
+
+    decoded, err := DecodeHostSettings([]byte(`{"opponents": 1, "wizard": "Merlin", "race": "High Elf", "banner": "red", "difficulty": "easy"}`))
+    if err != nil || decoded.WizardChoice != "Merlin" || decoded.Race != "High Elf" || decoded.Banner != "red" {
+        test.Fatalf("decode: %+v %v", decoded, err)
+    }
+
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    host, err := MakeGameHost(gameData, decoded)
+    if err != nil {
+        test.Fatalf("setup: %v", err)
+    }
+    human := host.Human
+    if human.Wizard.Name != "Merlin" || human.Wizard.Race != data.RaceHighElf || human.GetBanner() != data.BannerRed || human.Wizard.MagicLevel(data.LifeMagic) != 5 {
+        test.Errorf("the human wizard: %+v", human.Wizard)
+    }
+    if capital := human.FindFortressCity(); capital == nil || capital.Race != data.RaceHighElf {
+        test.Errorf("the capital should be High Elf")
+    }
+    for _, other := range host.Model.Players {
+        if other != human && other.GetBanner() == data.BannerRed {
+            test.Errorf("an opponent also has the red banner")
+        }
+    }
+
+    // random race and banner; a Myrran race only for a Myrran wizard
+    if _, err := MakeGameHost(gameData, HostSettings{Opponents: 1, WizardChoice: "Raven"}); err != nil {
+        test.Errorf("random race and banner: %v", err)
+    }
+    if _, err := MakeGameHost(gameData, HostSettings{Opponents: 1, WizardChoice: "Merlin", Race: "Dwarf"}); err == nil {
+        test.Errorf("Merlin can't play Dwarves")
+    }
+    if host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, WizardChoice: myrran, Race: "Dwarf"}); err != nil || host.Human.FindFortressCity().Plane != data.PlaneMyrror {
+        test.Errorf("%v with Dwarves should start on Myrror: %v", myrran, err)
+    }
+    for _, bad := range []HostSettings{{Opponents: 1, WizardChoice: "Nobody"}, {Opponents: 1, WizardChoice: "Merlin", Banner: "pink"}, {Opponents: 1, Race: "Orc"}} {
+        if _, err := MakeGameHost(gameData, bad); err == nil {
+            test.Errorf("%+v should be refused", bad)
+        }
+    }
+}

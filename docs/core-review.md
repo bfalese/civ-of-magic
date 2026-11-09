@@ -25,13 +25,16 @@ if needed).
 ### The other wizard always accepts treaties
 
 - **Now**: `Player.ProposeTreaty` (`core/player/diplomacy.go`) sets a pact or alliance on both
-  sides, or 50 turns of peace, with no check: the other wizard always agrees. The `Relationship`
-  already has `TreatyInterest` and `PeaceInterest` (and `Hostility`, `WarningCounter`), and the AI
-  doesn't look at them for proposals. Spell trades, by contrast, do depend on the other side
+  sides, or 50 turns of peace, with no check: the other wizard always agrees. The core already
+  tracks how interested each wizard is in treaties, `Relationship.TreatyInterest` and
+  `PeaceInterest`, but nothing reads them: they are only raised each turn
+  (`Relationship.UpdateTurn`) and saved / loaded (`game/magic/load`). `Hostility` and
+  `WarningCounter` are never even set. Spell trades, by contrast, do depend on the other side
   (`WillTradeSpells`: a roll against `TradeInterest`).
 - **Check against the original game** (not verified): there the AI answers from its relation to
   you, its personality and objective, and existing treaties, and refuses or breaks treaties.
-- **Decide**: make `ProposeTreaty` ask the AI (a hook on `AIBehavior`, using relation, interest
-  and personality) and return a refusal the frontend can show (a `treaty-refused` result or event),
-  plus the rules for which treaties can follow which. The command already returns an error, so
-  the page shows a refusal as a message without changes.
+- **Decide**: whether to let the AI decide and refuse. If so: make `ProposeTreaty` ask the AI (a
+  hook on `AIBehavior`, using relation, interest and personality) and return a refusal the
+  frontend can show (a `treaty-refused` result or event), plus the rules for which treaties can
+  follow which. No page change would be needed: the command
+  already returns an error, and the page shows a refusal as a message.

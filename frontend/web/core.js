@@ -42,6 +42,11 @@ export class Core {
         return this.call("battle");
     }
 
+    // the choices for a new game: {wizards, races, banners, difficulties, magic, land-sizes, ...}
+    startOptions() {
+        return this.call("startOptions");
+    }
+
     setLogging(on) {
         this.call("setLogging", on);
     }

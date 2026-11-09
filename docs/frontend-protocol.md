@@ -279,6 +279,12 @@ next turn has started. Until then only battle commands are accepted.
 | `civ.events()` | JSON array of events since the last call |
 | `civ.view()`, `civ.map("Arcanus" \| "Myrror")`, `civ.battle()` | the view as JSON (`{"error": ...}` on failure) |
 | `civ.setLogging(bool)` | the Go log on the console (off by default) |
+| `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
+
+Settings for `newGame`: `opponents` (1-4), `difficulty`, `magic` (weak/normal/powerful),
+`landSize` (0-2), `raiders`, `wizardName`, and a premade `wizard` by name with `race` and
+`banner` (each random when left out; a Myrror race only for a wizard with the Myrran retort, who
+then starts on Myrror); `scenario` for tests.
 
 Status is `{"error"?, "waiting", "gameOver"?}`. Every function returns a JSON string. The page
 calls `window.onCivReady` (if defined) once the API is there. The page loads the user's own
