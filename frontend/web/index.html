@@ -109,6 +109,13 @@
     #diplomacy .magic-message { margin-top: 8px; color: var(--accent); min-height: 1.2em; }
     #vault .magic-message { margin-top: 8px; color: var(--accent); min-height: 1.2em; }
     .dim { color: var(--dim); }
+    #ending { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.7); z-index: 30; }
+    #ending.open { display: flex; }
+    #ending > .panel { position: static; width: min(460px, calc(100% - 32px)); padding: 16px 18px; text-align: center; }
+    #ending h2 { margin: 6px 0; color: var(--accent); font-weight: normal; }
+    #ending .ending-portrait { line-height: 0; }
+    #ending .ending-portrait canvas { border: 1px solid var(--border); }
+    #ending .choices { display: flex; gap: 8px; justify-content: center; }
     #modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.45); }
     #modal.open { display: flex; }
     #modal .panel { position: static; max-width: min(420px, calc(100% - 32px)); padding: 12px 14px; }
@@ -251,6 +258,7 @@
 <div id="vault"></div>
 <div id="diplomacy"></div>
 <div id="battle"></div>
+<div id="ending"></div>
 <div id="modal"><div class="panel"><div id="modalText"></div><div class="choices" id="modalChoices"></div></div></div>
 <script src="wasm_exec.js"></script>
 <script type="module" src="main.js"></script>

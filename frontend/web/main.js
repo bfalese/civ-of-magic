@@ -68,6 +68,12 @@ const mine = (player) => player && player.human;
 // a log line for an event, or null for events that don't concern the player
 function describe(event) {
     const body = event.event || {};
+    if (event.type === "spell-of-mastery") {
+        const who = mine(body.player) ? "You" : body.player.wizard;
+        return body.started
+            ? (mine(body.player) ? "You begin casting the Spell of Mastery." : `${who} has begun casting the Spell of Mastery!`)
+            : `${who} cast the Spell of Mastery.`;
+    }
     if (body.player && !body.player.human && event.type !== "random-event") {
         return null;
     }
@@ -156,8 +162,9 @@ function afterCommand(status) {
         state.battle.hide();
     }
     handleWaiting(status);
-    if (status.gameOver) {
-        ask(status.gameOver === "won" ? "You have won the game!" : "You have been defeated.", [["OK", () => {}]]);
+    if (status.gameOver && !state.ended) {
+        state.ended = true;
+        showEnding(status.gameOver);
     }
 }
 
@@ -202,6 +209,13 @@ function handleEvents() {
             case "choose-spell-target":
                 if (mine(body.player)) {
                     chooseSpellTarget(body.spell, body.target);
+                }
+                break;
+            case "spell-of-mastery":
+                if (!body.started) {
+                    state.masteryWinner = body.player;
+                } else if (!mine(body.player)) {
+                    ask(`${body.player.wizard} has begun casting the Spell of Mastery! If the casting finishes, ${body.player.wizard} wins the game.`, [["OK", () => {}]]);
                 }
                 break;
             case "trade-offer":
@@ -362,6 +376,49 @@ function selectStack(stack) {
     state.map.centerOn(stack.location.x, stack.location.y);
 }
 
+// ---- the end of the game
+
+// the winner's portrait asset, when known: yours, or a wizard you met
+function portraitOf(player) {
+    if (!player || !state.view) return null;
+    if (player.human) return state.view.you.mirror.portrait;
+    const known = state.view.diplomacy.find((wizard) => wizard.wizard.banner === player.banner);
+    return known ? known.mirror.portrait : null;
+}
+
+function showEnding(result) {
+    hideScreens();
+    const root = element("ending");
+    const winner = state.masteryWinner;
+    let title;
+    let text;
+    if (winner && result === "won") {
+        title = "The Spell of Mastery";
+        text = "Your Spell of Mastery is cast. The other wizards are banished from the world, and it is yours to rule.";
+    } else if (winner) {
+        title = "The Spell of Mastery";
+        text = `${winner.wizard} has cast the Spell of Mastery. You are banished from the world.`;
+    } else if (result === "won") {
+        title = "Victory";
+        text = "Every rival wizard has been defeated. The world is yours.";
+    } else {
+        title = "Defeat";
+        text = "You have been defeated.";
+    }
+    root.innerHTML = `<div class="panel">
+        <div class="ending-portrait"></div>
+        <h2>${escapeHtml(title)}</h2>
+        <p>${escapeHtml(text)}</p>
+        <p class="dim">${escapeHtml(state.view.date)}</p>
+        <div class="choices"><button data-new>New game</button><button data-look>Look at the map</button></div>
+    </div>`;
+    const portrait = state.assets.picture(portraitOf(winner || (result === "won" ? state.view.you.player : null)), 1);
+    if (portrait) root.querySelector(".ending-portrait").appendChild(portrait);
+    root.querySelector("[data-new]").onclick = () => { location.href = location.pathname; };
+    root.querySelector("[data-look]").onclick = () => root.classList.remove("open");
+    root.classList.add("open");
+}
+
 // ---- saving and loading
 
 const saveTitle = () => `${state.view.you.player.wizard}, ${state.view.date}`;
@@ -389,6 +446,8 @@ function loadGame(text) {
     state.spellTarget = null;
     if (state.roadPick) endRoadPick();
     state.questions = [];
+    state.ended = false;
+    state.masteryWinner = null;
     state.view = state.core.view();
     state.autosaved = state.view.date;
     log(`Loaded ${saveTitle()}.`);
@@ -1118,6 +1177,7 @@ async function main() {
         }
         state.autosave = !(settings && settings.scenario);
 
+        state.assets = assets;
         state.map = new MapRenderer(element("map"), assets, { onTileClick, onTileHover, onFrame: () => state.minimap.update() });
         state.minimap = new Minimap(element("minimap").querySelector("canvas"), state.map, assets);
         state.magic = new MagicScreen(element("magic"), assets, {

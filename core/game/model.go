@@ -80,6 +80,9 @@ type GameModel struct {
     // https://masterofmagic.fandom.com/wiki/Event
     RandomEvents []*RandomEvent
     LastEventTurn uint64
+
+    // the wizard who cast the Spell of Mastery: the game is won (and over for everyone else)
+    MasteryWinner *playerlib.Player
 }
 
 func MakeGameModel(terrainData *terrain.TerrainData, settings setup.NewGameSettings,

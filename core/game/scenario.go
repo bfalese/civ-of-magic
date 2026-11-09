@@ -28,6 +28,8 @@ import (
 //           (waiting to be placed), and mana to teleport items
 //   siege:  an AI wizard's capital with city walls, a wall of fire and a wall of darkness, and a
 //           human army next to it: one move-stack starts a battle at the walls
+//   mastery: a wizard who knows the Spell of Mastery with the mana and casting skill to cast it
+//           this turn (one cast-spell wins the game)
 //   orders: map orders for the stack panel: engineers next to the capital, settlers on a tile
 //           where an outpost can go, and swordsmen on an open tower (planar travel)
 func applyScenario(host *GameHost, name string) error {
@@ -44,6 +46,8 @@ func applyScenario(host *GameHost, name string) error {
             return scenarioItems(host)
         case "orders":
             return scenarioOrders(host)
+        case "mastery":
+            return scenarioMastery(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
 }
@@ -173,6 +177,19 @@ func scenarioSpellbook(host *GameHost) error {
         }
     }
     return fmt.Errorf("spellbook scenario: no AI wizard")
+}
+
+func scenarioMastery(host *GameHost) error {
+    human := host.Human
+    mastery := host.Model.AllSpells.FindByName("Spell of Mastery")
+    if !mastery.Valid() {
+        return fmt.Errorf("mastery scenario: no Spell of Mastery")
+    }
+    human.KnownSpells.AddSpell(mastery)
+    cost := human.ComputeEffectiveSpellCost(mastery, true)
+    human.Mana = max(human.Mana, cost)
+    human.RemainingCastingSkill = max(human.RemainingCastingSkill, cost)
+    return nil
 }
 
 func scenarioOrders(host *GameHost) error {

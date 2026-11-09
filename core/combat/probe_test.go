@@ -183,3 +183,45 @@ func TestSpellHasTarget(test *testing.T) {
         test.Errorf("Holy Word on bowmen: %q", why)
     }
 }
+
+// Disenchant Area needs something to dispel, Call Chaos a living enemy, Summon Demon a free tile
+func TestSpellCanWorkDisenchantChaosDemon(test *testing.T) {
+    model, army := makeProbeBattle(test, []units.Unit{units.HighMenSpearmen})
+    reason := func(name string) string {
+        _, why := model.SpellCanWork(nil, army, nil, spellbook.Spell{Name: name})
+        return why
+    }
+    enemy := model.GetOppositeArmyForPlayer(army.Player)
+
+    for _, name := range []string{"Disenchant Area", "Disenchant True"} {
+        if why := reason(name); why != "nothing to dispel here" {
+            test.Errorf("%v with no enchantments anywhere: %q", name, why)
+        }
+    }
+    enemy.units[0].AddEnchantment(data.UnitEnchantmentGiantStrength)
+    if why := reason("Disenchant Area"); why != "" {
+        test.Errorf("an enemy unit's enchantment can be dispelled: %q", why)
+    }
+    enemy.units[0].Enchantments = nil
+    army.units[0].AddCurse(data.UnitCurseWeakness)
+    if why := reason("Disenchant True"); why != "" {
+        test.Errorf("a curse on your unit can be dispelled: %q", why)
+    }
+    army.units[0].Curses = nil
+    enemy.AddEnchantment(data.CombatEnchantmentPrayer)
+    if why := reason("Disenchant Area"); why != "" {
+        test.Errorf("an enemy combat enchantment can be dispelled: %q", why)
+    }
+
+    if why := reason("Call Chaos"); why != "" {
+        test.Errorf("Call Chaos with a living enemy: %q", why)
+    }
+    enemy.units[0].TakeDamage(enemy.units[0].GetHealth(), DamageNormal)
+    if why := reason("Call Chaos"); why != "nothing it would affect here" {
+        test.Errorf("Call Chaos with no living enemy: %q", why)
+    }
+
+    if why := reason("Summon Demon"); why != "" {
+        test.Errorf("Summon Demon on an open battlefield: %q", why)
+    }
+}

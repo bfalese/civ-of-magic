@@ -180,7 +180,7 @@ func (headless *HeadlessGame) Step() {
 // returns the number of years played.
 func (headless *HeadlessGame) RunYears(years int) int {
     start := headless.Model.TurnNumber
-    for headless.Model.TurnNumber < start + uint64(years) && len(headless.WizardsLeft()) > 1 {
+    for headless.Model.TurnNumber < start + uint64(years) && len(headless.WizardsLeft()) > 1 && headless.Model.MasteryWinner == nil {
         headless.Step()
     }
     return int(headless.Model.TurnNumber - start)
