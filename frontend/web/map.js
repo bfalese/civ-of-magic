@@ -62,6 +62,8 @@ export class MapRenderer {
         // whether cities, stacks and encounters are painted on the map (the 3D view shows them as
         // billboards instead)
         this.drawsThings = true;
+        // a faint line along the tiles' edges (the 3D view's grid)
+        this.showGrid = false;
         // a path being picked (a road): [{x, y}] on the shown plane, drawn over everything
         this.previewPath = null;
         this.frame = 0;
@@ -210,6 +212,19 @@ export class MapRenderer {
                 }
                 drawStack(stack.location, stack.background, stack.units[0].asset);
             }
+        }
+
+        // the tile grid: one texel along each explored tile's top and left edge
+        if (this.showGrid) {
+            context.fillStyle = "rgba(0, 0, 0, 0.35)";
+            this.mapView.tiles.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    if (tile) {
+                        context.fillRect(x * tileWidth, y * tileHeight, tileWidth, 1);
+                        context.fillRect(x * tileWidth, y * tileHeight, 1, tileHeight);
+                    }
+                });
+            });
         }
 
         // what the player saw before but doesn't see now is dimmed

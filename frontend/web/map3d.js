@@ -30,8 +30,11 @@ export class MapRenderer3D extends MapRenderer {
         this.spriteMaterials = new Map();
         // per copy of the map: a group of billboards
         this.billboards = [];
-        // the selected stack's billboards (they blink)
+        // the selected stack's billboards (they blink), and the animated ones
         this.selectedSprites = [];
+        this.animatedSprites = [];
+        // the tile grid, painted on the ground (it scales with the zoom like the terrain)
+        this.showGrid = true;
         this.updateCamera();
     }
 
@@ -47,7 +50,7 @@ export class MapRenderer3D extends MapRenderer {
         return this.mapView ? this.mapView.width : 1;
     }
 
-    // ground planes, each with the tile grid
+    // ground planes (the grid is painted on the ground texture: see MapRenderer.showGrid)
     buildPlanes() {
         for (const copy of this.copies) {
             this.scene.remove(copy);
@@ -67,22 +70,12 @@ export class MapRenderer3D extends MapRenderer {
         const ground = new THREE.PlaneGeometry(width, height);
         ground.rotateX(-Math.PI / 2);
 
-        const lines = [];
-        for (let x = 0; x <= width; x++) lines.push(x, 0, 0, x, 0, height);
-        for (let z = 0; z <= height; z++) lines.push(0, 0, z, width, 0, z);
-        const gridGeometry = new THREE.BufferGeometry();
-        gridGeometry.setAttribute("position", new THREE.Float32BufferAttribute(lines, 3));
-        const gridMaterial = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 });
-
         this.copies = [-1, 0, 1].map((offset) => {
             const copy = new THREE.Group();
             copy.position.set(offset * width, 0, 0);
             const mesh = new THREE.Mesh(ground, this.material);
             mesh.position.set(width / 2, 0, height / 2);
             copy.add(mesh);
-            const grid = new THREE.LineSegments(gridGeometry, gridMaterial);
-            grid.position.y = 0.002;
-            copy.add(grid);
             this.scene.add(copy);
             return copy;
         });
@@ -131,9 +124,16 @@ export class MapRenderer3D extends MapRenderer {
         return material;
     }
 
-    // a billboard standing on the tile's centre, the sprite's pixels at the ground's scale
-    billboard(texture, location, dimmed) {
-        const sprite = new THREE.Sprite(this.spriteMaterial(texture, dimmed));
+    // a billboard standing on the tile's centre, the sprite's pixels at the ground's scale; an
+    // animated sprite keeps a material per frame and steps through them (afterDraw)
+    billboard(textures, location, dimmed) {
+        const texture = textures[0];
+        const materials = textures.map((frame) => this.spriteMaterial(frame, dimmed));
+        const sprite = new THREE.Sprite(materials[this.frame % materials.length]);
+        if (materials.length > 1) {
+            sprite.userData.frames = materials;
+            this.animatedSprites.push(sprite);
+        }
         sprite.center.set(0.5, 0);
         const { width, height } = texture.userData;
         sprite.scale.set(width / this.tileWidth, height / this.tileWidth, 1);
@@ -154,10 +154,14 @@ export class MapRenderer3D extends MapRenderer {
             const tile = row ? row[location.x] : null;
             return tile ? tile.visible : false;
         };
-        const plain = (id) => this.spriteTexture(id, (context) => {
-            if (!context) return assets.size(id);
-            assets.draw(context, id, 0, 0);
-        });
+        // a sprite's frames as textures (one for still sprites; nodes have four)
+        const plain = (id) => {
+            const count = Math.max(1, (assets.frames(id) || []).length);
+            return Array.from({ length: count }, (_, frame) => this.spriteTexture(`${id}#${frame}`, (context) => {
+                if (!context) return assets.size(id);
+                assets.draw(context, id, 0, 0, frame);
+            }));
+        };
 
         this.mapView.tiles.forEach((row, y) => {
             row.forEach((tile, x) => {
@@ -185,11 +189,11 @@ export class MapRenderer3D extends MapRenderer {
                     things.push({ texture: plain(city.asset), location: city.location, dimmed: !visible(city.location) });
                 }
             }
-            const stackTexture = (background, unit) => this.spriteTexture(`stack/${background}/${unit}`, (context) => {
+            const stackTexture = (background, unit) => [this.spriteTexture(`stack/${background}/${unit}`, (context) => {
                 if (!context) return assets.size(background);
                 assets.draw(context, background, 0, 0);
                 assets.draw(context, unit, 1, 1);
-            });
+            })];
             for (const stack of view["foreign-stacks"]) {
                 if (onPlane(stack.location) && !cityTiles.has(`${stack.location.x}/${stack.location.y}`)) {
                     things.push({ texture: stackTexture(stack.background, stack.asset), location: stack.location, dimmed: !visible(stack.location) });
@@ -208,6 +212,7 @@ export class MapRenderer3D extends MapRenderer {
         for (const group of this.billboards) {
             group.parent.remove(group);
         }
+        this.animatedSprites = [];
         this.billboards = this.copies.map((copy) => {
             const group = new THREE.Group();
             for (const thing of things) {
@@ -226,9 +231,13 @@ export class MapRenderer3D extends MapRenderer {
     }
 
     afterDraw() {
-        // the selected stack blinks, like the original
+        // the selected stack blinks, like the original; animated sprites (nodes) step a frame
         for (const sprite of this.selectedSprites || []) {
             sprite.visible = this.frame % 2 === 0;
+        }
+        for (const sprite of this.animatedSprites || []) {
+            const frames = sprite.userData.frames;
+            sprite.material = frames[this.frame % frames.length];
         }
     }
 

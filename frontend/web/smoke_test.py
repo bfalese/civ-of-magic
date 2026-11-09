@@ -708,6 +708,12 @@ def overview(smoke):
     after = state("s.map.camera.position.x")
     check(abs(after - before) > 1, f"clicking the minimap moves the view ({before:.0f} -> {after:.0f})")
     smoke.shot("18-minimap")
+    animated = state("s.map.animatedSprites ? s.map.animatedSprites.length : 0")
+    check(state("s.map.showGrid === true"), f"the 3D map paints the tile grid; {animated} animated billboards (nodes)")
+    if animated:
+        first = state("s.map.animatedSprites[0].material.id")
+        smoke.wait(f"window.civGame.map.animatedSprites[0].material.id !== {first}", "a node billboard's next frame")
+        check(True, "node billboards animate")
 
     settlers = state("s.view.stacks.find(stack => stack.build === 'settle').location")
     page.mouse.move(*map_point(page, settlers))
