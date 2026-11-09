@@ -1124,6 +1124,8 @@ function bindControls() {
         if (event.key === "i" || event.key === "I") openVault();
         if (event.key === "w" || event.key === "W") openDiplomacy();
         if (event.key === "g" || event.key === "G") openGameMenu();
+        // the 3D map: flatten the ground or give it back its height
+        if ((event.key === "h" || event.key === "H") && state.map.toggleHeight) state.map.toggleHeight();
         if (event.key === "c" || event.key === "C") openList("cities");
         if (event.key === "a" || event.key === "A") openList("armies");
         if (event.key === "Enter") endTurn();
