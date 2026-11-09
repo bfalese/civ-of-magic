@@ -62,6 +62,8 @@ type WizardView struct {
     ItemDesign *ItemDesignView `json:"item-design,omitempty"`
     // the vault, newly arrived items and the heroes' equipment
     Items VaultView `json:"items"`
+    // your books, retorts, fame, heroes and casting skill (the mirror)
+    Mirror MirrorView `json:"mirror"`
 }
 
 type PowerDistributionView struct {
@@ -337,6 +339,8 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
     }
     you.AlchemyFullRate = player.Wizard.RetortEnabled(data.RetortAlchemy)
     you.Items = model.makeVaultView(player)
+    you.Mirror = makeMirrorView(player)
+    you.Mirror.CastingSkill = you.CastingSkill
     you.ResearchCandidates = []string{}
     for _, spell := range player.ResearchCandidateSpells.Spells {
         you.ResearchCandidates = append(you.ResearchCandidates, spell.Name)

@@ -12,6 +12,7 @@
 //   civ.battle()                            -> the battle view (JSON), while waiting is "battle"
 //   civ.save(name)                          -> the game as JSON (a HostSave), or {"error"}
 //   civ.load(gamedataJSON, saveJSON)        -> status: the saved game replaces the current one
+//   civ.tileInfo(locationJSON)              -> what the surveyor tells about an explored tile
 //   civ.roadPath(queryJSON)                 -> the road build-road would make ({stack, to} -> locations)
 //   civ.setLogging(true)                    -> the game's log on the console (off by default)
 //
@@ -208,6 +209,17 @@ func battle(arguments []js.Value) string {
     return viewResult(host.BattleView())
 }
 
+func tileInfo(arguments []js.Value) string {
+    if host == nil {
+        return errorJSON(errNoGame)
+    }
+    encoded, err := stringArgument(arguments, 0)
+    if err != nil {
+        return errorJSON(err)
+    }
+    return viewResult(host.TileInfo([]byte(encoded)))
+}
+
 func roadPath(arguments []js.Value) string {
     if host == nil {
         return errorJSON(errNoGame)
@@ -249,6 +261,7 @@ func main() {
     api.Set("battle", export("battle", battle, errorJSON))
     api.Set("save", export("save", save, errorJSON))
     api.Set("load", export("load", load, statusJSON))
+    api.Set("tileInfo", export("tileInfo", tileInfo, errorJSON))
     api.Set("roadPath", export("roadPath", roadPath, errorJSON))
     api.Set("setLogging", export("setLogging", setLogging, errorJSON))
     api.Set("startOptions", export("startOptions", startOptions, errorJSON))

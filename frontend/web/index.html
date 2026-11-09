@@ -24,7 +24,7 @@
     #top button { padding: 3px 6px; }
     #top .research { min-width: 0; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #top b { color: var(--accent); font-weight: normal; }
-    #side { top: 56px; right: 8px; width: 260px; max-height: calc(100% - 230px); overflow: auto; }
+    #side { top: 56px; right: 8px; width: 260px; max-height: calc(100% - 400px); min-height: 0; overflow: auto; }
     #side:empty { display: none; }
     #log { left: 8px; bottom: 8px; width: min(560px, calc(100% - 16px)); height: 150px; overflow: auto; font-size: 12px; }
     #log div { border-bottom: 1px solid rgba(90, 70, 48, 0.4); padding: 1px 0; }
@@ -79,6 +79,8 @@
     #diplomacy .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
     #diplomacy button.small { padding: 0 6px; }
     #diplomacy .wizard { border-top: 1px solid var(--border); padding: 6px 0; margin-top: 6px; }
+    #diplomacy .wizard.you { border-top: none; margin-top: 0; }
+    #diplomacy .mirror { margin: 2px 0; }
     #diplomacy .mood { display: grid; grid-template-columns: 6em 1fr; align-items: center; gap: 8px; margin: 3px 0; }
     #diplomacy .meter { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #a83a2a, #6a6050 50%, #4f9a3e); }
     #diplomacy .meter span { position: absolute; top: -3px; width: 4px; height: 12px; margin-left: -2px; background: var(--text); border-radius: 1px; }
@@ -183,7 +185,14 @@
     #start .swatch.chosen { outline: 2px solid var(--text); outline-offset: 1px; }
     #start .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     #hint { right: 8px; bottom: 8px; font-size: 11px; color: var(--dim); }
-    @media (max-width: 640px) { #side { width: calc(100% - 16px); top: auto; bottom: 166px; max-height: 30%; } #hint { display: none; } }
+    #corner { position: fixed; right: 8px; bottom: 40px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+    #corner .panel { position: static; pointer-events: auto; }
+    #minimap { padding: 4px; line-height: 0; }
+    #minimap canvas { image-rendering: pixelated; cursor: crosshair; }
+    #tileinfo { width: 220px; font-size: 12px; pointer-events: none !important; }
+    #tileinfo .row { display: flex; justify-content: space-between; gap: 6px; }
+    #tileinfo .site { margin-top: 3px; border-top: 1px solid var(--border); padding-top: 2px; }
+    @media (max-width: 640px) { #side { width: calc(100% - 16px); top: auto; bottom: 166px; max-height: 30%; } #hint { display: none; } #corner { display: none; } }
 </style>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -214,6 +223,10 @@
 <div id="log" class="panel" hidden></div>
 <div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a stack, then a tile: move · N next unit · C cities · A armies · M magic · I items · W wizards · G game · Enter: end turn</div>
 <div id="game"></div>
+<div id="corner" hidden>
+    <div id="tileinfo" class="panel" hidden></div>
+    <div id="minimap" class="panel" title="click or drag: move the view"><canvas></canvas></div>
+</div>
 <div id="lists"></div>
 <div id="city"></div>
 <div id="magic"></div>
