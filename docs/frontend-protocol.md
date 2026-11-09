@@ -184,7 +184,17 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   `casting-cost`, `research-candidates`, `alchemy-full-rate`, and `spells`: the overland spells
   `cast-spell` takes, `{name, magic, section, cost, target?, now, needs-design?}` (`target` uses
   `choose-spell-target`'s names; `now`: mana and the skill left this turn cover it, so it's cast
-  at once and a target must come with it; otherwise cast-spell starts it over the next turns)),
+  at once and a target must come with it; otherwise cast-spell starts it over the next turns;
+  `choice-spell` and `choices` for Spell Ward, Spell Binding, Disjunction (True) and Resurrection:
+  what it can be cast on now, `{name, location?, city?, wizard?, wizard-name?}`, sent as the
+  target `{choice: name, location?, wizard?}`, missing when there is nothing; `cost-factor` for
+  the item spells: the share of the item's cost the wizard pays), and `item-design` when the
+  spellbook has Create Artifact or Enchant Item: `types` (`{name, base-cost, power-factor,
+  images: [{image, asset}]}`), `powers` (`{name, group, ability?, cost, types, magic?, books?,
+  allowed}`; one per group, abilities one from `Ability 1`, one from `Ability 2`, any from
+  `Ability 3`), `spells` for staffs and wands (`{name, magic, charge-cost}`), `max-powers`,
+  `enchant-item-limit`. An item costs `(base-cost + powers × power-factor + charges × charge-cost)
+  × cost-factor`, rounded down),
   `known-wizards`, `cities` (full detail: citizens, production, buy cost,
   buildings, enchantments; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;

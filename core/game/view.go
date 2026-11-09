@@ -55,6 +55,8 @@ type WizardView struct {
     Spells []SpellView `json:"spells"`
     // alchemy converts at full rate (the Alchemy retort), otherwise at half
     AlchemyFullRate bool `json:"alchemy-full-rate,omitempty"`
+    // the item designer's options, when the spellbook has Create Artifact or Enchant Item
+    ItemDesign *ItemDesignView `json:"item-design,omitempty"`
 }
 
 type PowerDistributionView struct {
@@ -77,8 +79,14 @@ type SpellView struct {
     // cast at once now (mana and the casting skill left this turn cover it); otherwise cast-spell
     // starts casting it over the next turns
     Now bool `json:"now"`
-    // the item spells take a design (cast-spell's artifact) the page can't make yet
+    // the item spells take a design (cast-spell's artifact): the player view's item-design
     NeedsDesign bool `json:"needs-design,omitempty"`
+    // for item spells: the share of the item's cost the player pays (retorts, spellbooks)
+    CostFactor float64 `json:"cost-factor,omitempty"`
+    // spells cast with a choice (Spell Ward, Spell Binding, Disjunction, Resurrection): the
+    // targets cast-spell accepts now (empty: nothing to cast it on)
+    Choices []SpellChoiceView `json:"choices,omitempty"`
+    ChoiceSpell bool `json:"choice-spell,omitempty"`
 }
 
 type CityView struct {
@@ -314,6 +322,16 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
         }
         if target, ok := model.SpellTargetType(player, spell); ok {
             spellView.Target = target.Name()
+        }
+        if spellView.NeedsDesign {
+            spellView.CostFactor = itemCostFactor(player, spell)
+            if you.ItemDesign == nil {
+                you.ItemDesign = model.itemDesignView(player)
+            }
+        }
+        if choices, ok := model.spellChoices(player, spell); ok {
+            spellView.ChoiceSpell = true
+            spellView.Choices = choices
         }
         you.Spells = append(you.Spells, spellView)
     }

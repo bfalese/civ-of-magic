@@ -244,6 +244,13 @@ func (exporter *Exporter) collect() (int, int, error) {
         }
     }
 
+    // item pictures for the item designer and hero equipment (artifact.Artifact.Image)
+    for index := 0; index <= 115; index++ {
+        if err := exporter.addLbx(assets.Item(index), "items.lbx", index, nil); err != nil {
+            return 0, 0, err
+        }
+    }
+
     if err := exporter.collectBattle(); err != nil {
         return 0, 0, err
     }

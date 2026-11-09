@@ -134,6 +134,11 @@ func BattleWall(index int) string {
     return fmt.Sprintf("battle-wall/%v", index)
 }
 
+// an item picture (items.lbx at index; artifact.Artifact.Image)
+func Item(index int) string {
+    return fmt.Sprintf("item/%v", index)
+}
+
 // the mud a tile turns into (Earth to Mud), animated
 const BattleMud = "battle-mud"
 

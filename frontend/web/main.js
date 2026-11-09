@@ -220,7 +220,45 @@ function handleWaiting(status) {
 
 const locationTargets = new Set(["friendly-city", "enemy-city", "any", "land", "empty-water", "change-terrain", "transmute", "raise-volcano", "enemy-melded-node", "disenchant"]);
 
+// a spell cast with a choice (Spell Ward, Spell Binding, Disjunction, Resurrection): ask which of
+// the choices the view lists, and send it with cast-spell (from the spellbook) or
+// cast-spell-target (a spell finished over several turns)
+function spellChoiceLabel(spell, choice) {
+    if (choice.city) return `${choice.city}: ${choice.name}`;
+    if (choice["wizard-name"]) return `${choice["wizard-name"]}'s ${choice.name}`;
+    return choice.name;
+}
+
+function pickSpellChoice(spellName, commandType) {
+    // the latest view: events are handled before the page refreshes its own
+    const view = state.core.view();
+    const spell = view.you ? view.you.spells.find((candidate) => candidate.name === spellName) : null;
+    const choices = spell && spell.choices ? spell.choices : [];
+    const question = { "Spell Ward": "which ward, on which city?", "Resurrection": "which hero?" }[spellName] || "which enchantment?";
+    if (choices.length === 0) {
+        log(`${spellName}: nothing to cast it on now.`, "dim");
+        return;
+    }
+    ask(`${spellName}: ${question}`, [
+        ...choices.map((choice) => [spellChoiceLabel(spellName, choice), () => {
+            const target = { choice: choice.name };
+            if (choice.location) target.location = choice.location;
+            if (choice.wizard) target.wizard = choice.wizard;
+            const command = commandType === "cast-spell" ? { spell: spellName, target } : { target };
+            const status = execute(commandType, command);
+            if (!status.error) log(`${spellName}: ${spellChoiceLabel(spellName, choice)}.`);
+        }]),
+        [commandType === "cast-spell" ? "Cancel" : "Not now", () => {}],
+    ]);
+}
+
 function chooseSpellTarget(spell, target) {
+    const you = state.core.view().you;
+    const spellView = you ? you.spells.find((candidate) => candidate.name === spell) : null;
+    if (spellView && spellView["choice-spell"]) {
+        pickSpellChoice(spell, "cast-spell-target");
+        return;
+    }
     if (target === "wizard") {
         const wizards = state.view ? state.view["known-wizards"] : [];
         ask(`${spell}: on which wizard?`, [
@@ -581,9 +619,10 @@ async function main() {
         }
 
         state.map = new MapRenderer(element("map"), assets, { onTileClick });
-        state.magic = new MagicScreen(element("magic"), {
+        state.magic = new MagicScreen(element("magic"), assets, {
             onCommand: (type, command) => execute(type, command),
             onPickTarget: pickSpellTarget,
+            onPickChoice: (spell) => pickSpellChoice(spell.name, "cast-spell"),
         });
         state.battle = new BattleScreen(element("battle"), assets, {
             onCommand: (type, command) => execute(type, command),

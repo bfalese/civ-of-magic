@@ -6,6 +6,12 @@
 // that needs a target and can be cast now asks the page to pick it (onPickTarget), one that can't
 // be cast now is started without a target: the core asks for it when it's finished
 // (choose-spell-target).
+//
+// Spells cast with a choice (Spell Ward, Spell Binding, Disjunction, Resurrection) list what they
+// can be cast on now in the view (spell.choices); the page asks which (onPickChoice). Create
+// Artifact and Enchant Item open the item designer (items.js) in place of the spellbook.
+
+import { ItemDesigner } from "./items.js";
 
 const realmColors = {
     Life: "#f4f0d8", Death: "#b07ae0", Chaos: "#ff7a50", Nature: "#7ed06a", Sorcery: "#6ab4ff", Arcane: "#c8c0b0",
@@ -22,12 +28,16 @@ function escape(text) {
 }
 
 export class MagicScreen {
-    constructor(root, { onCommand, onPickTarget }) {
+    constructor(root, assets, { onCommand, onPickTarget, onPickChoice }) {
         this.root = root;
+        this.assets = assets;
         this.onCommand = onCommand;
         this.onPickTarget = onPickTarget;
+        this.onPickChoice = onPickChoice;
         this.view = null;
         this.message = "";
+        // the item designer while it's open
+        this.designer = null;
     }
 
     get open() {
@@ -51,6 +61,7 @@ export class MagicScreen {
     hide() {
         this.root.classList.remove("open");
         this.message = "";
+        this.designer = null;
     }
 
     command(type, command) {
@@ -81,7 +92,18 @@ export class MagicScreen {
     }
 
     cast(spell) {
-        if (spell.target && spell.now) {
+        if (spell["needs-design"]) {
+            this.designer = new ItemDesigner(this.assets, spell, this.view.you["item-design"]);
+            this.message = "";
+            this.render();
+            return;
+        }
+        if (spell["choice-spell"] && spell.now) {
+            this.hide();
+            this.onPickChoice(spell);
+            return;
+        }
+        if (spell.target && spell.now && !spell["choice-spell"]) {
             this.hide();
             this.onPickTarget(spell);
             return;
@@ -93,7 +115,30 @@ export class MagicScreen {
         this.render();
     }
 
+    createItem(design) {
+        const spell = this.designer.spell;
+        const now = this.designer.cost() <= this.view.you.mana && this.designer.cost() <= this.view.you["remaining-casting-skill"];
+        const status = this.onCommand("cast-spell", { spell: spell.name, artifact: design });
+        if (status && status.error) {
+            this.message = status.error;
+        } else {
+            this.designer = null;
+            this.message = now ? `${spell.name}: the item is made.` : `Casting ${spell.name} over the next turns.`;
+        }
+        if (this.open) {
+            this.render();
+        }
+    }
+
     render() {
+        if (this.designer) {
+            this.root.innerHTML = `<div class="panel designer"><div class="design"></div><div class="magic-message">${escape(this.message)}</div></div>`;
+            this.designer.render(this.root.querySelector(".design"), this.view.you, {
+                onCreate: (design) => this.createItem(design),
+                onBack: () => { this.designer = null; this.message = ""; this.render(); },
+            });
+            return;
+        }
         const you = this.view.you;
         const share = you["power-distribution"];
         const percent = (value) => Math.round(value * 100);
@@ -151,8 +196,9 @@ export class MagicScreen {
                 button.className = "spell";
                 button.dataset.spell = spell.name;
                 button.style.color = realmColors[spell.magic] || "";
-                const blocked = spell["needs-design"] ? "needs an item design (not in this screen yet)"
-                    : spell.target && !pickableTargets.has(spell.target) ? `needs a ${spell.target} choice (not in this screen yet)` : "";
+                const blocked = spell["needs-design"] && !you["item-design"] ? "the item powers aren't available"
+                    : spell["choice-spell"] ? (spell.choices && spell.choices.length ? "" : "nothing to cast it on now")
+                    : spell.target && !pickableTargets.has(spell.target) ? `needs a ${spell.target} target (not in this screen yet)` : "";
                 button.disabled = !!blocked;
                 const note = spell.now ? `${spell.cost}` : `${spell.cost} · over turns`;
                 button.title = blocked || `${spell.magic}${spell.target ? ` · target: ${spell.target}` : ""}${spell.now ? " · cast now" : " · not enough mana or skill this turn: cast over the next turns"}`;
