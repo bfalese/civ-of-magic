@@ -20,8 +20,8 @@ import (
 
 var ErrSpellNeedsTarget = errors.New("the spell needs a target")
 
-// the spell isn't castable without the Ebitengine UI (Spell of Mastery's victory screens, Create
-// Artifact without an artifact designed beforehand)
+// the spell isn't castable without the Ebitengine UI (Create Artifact without an artifact designed
+// beforehand)
 var ErrSpellNotSupported = errors.New("the spell can't be cast without the UI yet")
 
 type SpellTarget struct {
@@ -182,6 +182,9 @@ func (model *GameModel) CastSpell(player *playerlib.Player, spell spellbook.Spel
     }
 
     switch spell.Name {
+        case "Spell of Mastery":
+            model.WinByMastery(player)
+            return nil
         case "Create Artifact", "Enchant Item":
             if player.CreateArtifact == nil {
                 return ErrSpellNotSupported

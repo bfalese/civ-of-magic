@@ -222,8 +222,15 @@ func (host *GameHost) TakeEvents() [][]byte {
     return out
 }
 
-// "" while the game goes on; "lost" if the human was defeated, "won" if every other wizard was
+// "" while the game goes on; "won" if the human cast the Spell of Mastery or every other wizard was
+// defeated, "lost" if the human was defeated or another wizard cast the Spell of Mastery
 func (host *GameHost) GameOver() string {
+    if winner := host.Model.MasteryWinner; winner != nil {
+        if winner == host.Human {
+            return "won"
+        }
+        return "lost"
+    }
     if host.Human.Defeated {
         return "lost"
     }

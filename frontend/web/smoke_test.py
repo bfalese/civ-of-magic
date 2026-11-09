@@ -15,7 +15,7 @@ inspects and disbands units in the stack panel. Last, the orders scenario: settl
 starts a road (with its path shown while picking), travels through a tower and patrols, and
 checks the minimap, the tile info and the city and army lists. Then
 saving: the autosave, a save, a downloaded file, loading each back, and Continue on the start
-screen.
+screen. Last, the mastery scenario: casting the Spell of Mastery wins and shows the ending.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -120,6 +120,7 @@ def main():
             items(smoke, url)
             orders(smoke, url)
             saves(smoke, url)
+            mastery(smoke, url)
         finally:
             browser.close()
 
@@ -787,6 +788,24 @@ def saves(smoke, url):
     chooser.value.set_files(path)
     smoke.wait(f"window.civGame.view.date === {json.dumps(date)}", "the game from the file")
     check(True, "Load a save file loads the downloaded save")
+    smoke.no_errors()
+
+
+
+def mastery(smoke, url):
+    """The mastery scenario: the Spell of Mastery cast from the magic screen wins the game."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=mastery")
+    page.keyboard.press("m")
+    smoke.visible("#magic.open", "the magic screen")
+    page.click("#magic .spell[data-spell='Spell of Mastery']")
+    smoke.visible("#ending.open", "the ending screen")
+    text = page.inner_text("#ending")
+    check("Spell of Mastery" in text and "yours to rule" in text, "casting the Spell of Mastery wins: the ending screen says so")
+    check("You cast the Spell of Mastery" in page.inner_text("#log"), "the log tells it too")
+    smoke.shot("20-mastery")
+    page.click("#ending button[data-look]")
+    check(not state("document.getElementById('ending').classList.contains('open')"), "Look at the map closes the ending")
     smoke.no_errors()
 
 

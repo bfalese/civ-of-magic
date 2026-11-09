@@ -147,7 +147,7 @@ fields the spell needs:
 - Resurrection: `choice`, the dead hero's name.
 
 Summons, hero summons, global enchantments, Death Wish and Great Unsummoning need no target.
-Refused for now: Spell of Mastery (its victory screens).
+The Spell of Mastery wins the game when its casting finishes (`spell-of-mastery` events, below).
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
@@ -181,6 +181,7 @@ Not yet: the diplomacy steps the other wizard initiates.
 | `battle-ended` | `attacker`, `defender`, `location`, `result` | `attacker-won`, `defender-won`, `attacker-fled`, `defender-fled` |
 | `choose-encounter` | `player`, `encounter`, `guards` | enter? answer with `confirm-encounter` |
 | `choose-raze` | `player`, `city` | raze or keep? answer with `raze-city` |
+| `spell-of-mastery` | `player`, `started?` | `started`: the wizard began casting the Spell of Mastery (every wizard hears it); otherwise the casting finished and that wizard won: the game is over (`gameOver` is `won` or `lost`) |
 
 Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 (`core/artifact.SerializedArtifact`).
@@ -273,13 +274,13 @@ returns at the start of the human's next turn. `host.TakeEvents()` returns the e
 last call that concern the human: an event naming a player only when it's the human, a battle the
 human fights in, a random event on the human or one of their cities, and the events without a
 player (notices, scrolls, refresh, banishments). The AI players' own events are handled inside.
-Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `"won"` or `"lost"`.
+Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `"won"` or `"lost"` (every rival defeated, you defeated, or someone cast the Spell of Mastery).
 
 Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (default true),
 `difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
 `wizardName`, `scenario` (a setup for tests, `core/game/scenario.go`: `battle` puts a guarded
 lair next to the capital and gives the wizard Fire Bolt, Wall of Stone, mana and skill; `siege`
-puts a human army next to an AI capital with walls, a wall of fire and darkness; `orders` puts
+puts a human army next to an AI capital with walls, a wall of fire and darkness; `mastery` gives the wizard the Spell of Mastery with the mana and skill to cast it now; `orders` puts
 settlers where an outpost can go, engineers next to the capital and swordsmen on an open tower; the web page
 takes `?scenario=...`).
 
