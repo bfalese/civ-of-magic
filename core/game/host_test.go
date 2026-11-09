@@ -607,7 +607,7 @@ func TestHostCityExtras(test *testing.T) {
     view := host.Model.MakePlayerView(host.Human)
 
     rates := view.You.TaxRates
-    if len(rates) != 7 || rates[0].Label != "0" || rates[0].Unrest != 0 || rates[6].Label != "3" || rates[6].Unrest != 0.75 {
+    if len(rates) != 7 || rates[0].Label != "0" || rates[0].Unrest != 0 || rates[6].Label != "3" || rates[6].Unrest != 0.75 || rates[2].Label != "1" {
         test.Fatalf("tax rates: %+v", rates)
     }
     for _, rate := range rates {

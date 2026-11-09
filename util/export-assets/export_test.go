@@ -119,6 +119,8 @@ func TestExport(test *testing.T) {
     check(assets.Corruption)
     check(assets.TerrainTile(0))
     check(assets.Item(0))
+    check(assets.FogEdge(0))
+    check(assets.FogEdge(13))
     check(assets.Item(115))
 
     animated := 0

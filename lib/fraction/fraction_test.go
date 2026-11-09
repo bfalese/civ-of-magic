@@ -62,4 +62,10 @@ func TestMore(test *testing.T){
     if Make(5, 2).NormalString() != "2 1/2" {
         test.Errorf("Expected %v to equal '2 1/2'", Make(5, 2).NormalString())
     }
+
+    for _, check := range []struct{ value Fraction; text string }{{Make(1, 1), "1"}, {Make(4, 2), "2"}, {Make(0, 1), "0"}} {
+        if check.value.NormalString() != check.text {
+            test.Errorf("Expected %v to equal '%v'", check.value.NormalString(), check.text)
+        }
+    }
 }
