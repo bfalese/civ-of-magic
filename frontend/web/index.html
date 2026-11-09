@@ -19,9 +19,10 @@
     #map { position: fixed; inset: 0; }
     #map canvas { display: block; image-rendering: pixelated; }
     .panel { position: fixed; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; }
-    #top { top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+    #top { top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
     #top .spacer { flex: 1; }
-    #top .research { min-width: 0; max-width: 13em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #top button { padding: 3px 7px; }
+    #top .research { min-width: 0; max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #top b { color: var(--accent); font-weight: normal; }
     #side { top: 56px; right: 8px; width: 260px; max-height: calc(100% - 230px); overflow: auto; }
     #side:empty { display: none; }
@@ -51,6 +52,20 @@
     #vault .item-slot.empty { color: var(--dim); justify-content: center; border-style: dashed; }
     #vault .item-slot.chosen { border-color: var(--accent); background: #5a4326; }
     #vault .item-slot.unfit { opacity: 0.4; }
+    #diplomacy { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
+    #diplomacy.open { display: flex; }
+    #diplomacy > .panel { position: static; width: min(680px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; padding: 10px 12px; }
+    #diplomacy .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+    #diplomacy button.small { padding: 0 6px; }
+    #diplomacy .wizard { border-top: 1px solid var(--border); padding: 6px 0; margin-top: 6px; }
+    #diplomacy .mood { display: grid; grid-template-columns: 6em 1fr; align-items: center; gap: 8px; margin: 3px 0; }
+    #diplomacy .meter { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #a83a2a, #6a6050 50%, #4f9a3e); }
+    #diplomacy .meter span { position: absolute; top: -3px; width: 4px; height: 12px; margin-left: -2px; background: var(--text); border-radius: 1px; }
+    #diplomacy .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; }
+    #diplomacy .actions > span:first-child { width: 4.5em; color: var(--dim); }
+    #diplomacy .actions.offer > span:first-child { width: auto; color: var(--accent); }
+    #diplomacy select { font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 0 2px; max-width: 14em; }
+    #diplomacy .magic-message { margin-top: 8px; color: var(--accent); min-height: 1.2em; }
     #vault .magic-message { margin-top: 8px; color: var(--accent); min-height: 1.2em; }
     .dim { color: var(--dim); }
     #modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.45); }
@@ -143,15 +158,17 @@
     <button id="plane">Myrror</button>
     <button id="magicButton" title="M">Magic</button>
     <button id="itemsButton" title="I">Items</button>
+    <button id="wizardsButton" title="W">Wizards</button>
     <button id="nextUnit" title="N">Next unit</button>
     <button id="endTurn" title="Enter">End turn</button>
 </div>
 <div id="side" class="panel"></div>
 <div id="log" class="panel" hidden></div>
-<div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a city: city screen · click a stack, then a tile: move · N: next unit · M: magic · I: items · Enter: end turn</div>
+<div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a city: city screen · click a stack, then a tile: move · N: next unit · M: magic · I: items · W: wizards · Enter: end turn</div>
 <div id="city"></div>
 <div id="magic"></div>
 <div id="vault"></div>
+<div id="diplomacy"></div>
 <div id="battle"></div>
 <div id="modal"><div class="panel"><div id="modalText"></div><div class="choices" id="modalChoices"></div></div></div>
 <script src="wasm_exec.js"></script>

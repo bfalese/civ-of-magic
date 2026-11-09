@@ -670,3 +670,96 @@ func TestHostCityExtras(test *testing.T) {
         test.Errorf("set-tax-rate from JSON: %v", err)
     }
 }
+
+// diplomacy with the spellbook scenario's known rival: a pact, tributes and a spell trade, all
+// from the view's own lists
+func TestHostDiplomacy(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "spellbook"})
+    if err != nil {
+        test.Fatalf("setup: %v", err)
+    }
+    human := host.Human
+    human.Gold = 1000
+    rival := func() DiplomacyView {
+        views := host.Model.MakePlayerView(human).Diplomacy
+        if len(views) != 1 {
+            test.Fatalf("diplomacy: %+v", views)
+        }
+        return views[0]
+    }
+    view := rival()
+    if view.Mood == "" || view.Treaty != "none" || view.TributeGold != 100 || len(view.Spells) == 0 || len(view.GlobalEnchantments) != 1 {
+        test.Fatalf("the rival: %+v", view)
+    }
+    banner := view.Wizard.Banner
+
+    if err := host.Execute(&ProposeTreatyCommand{Wizard: banner, Treaty: "pact"}); err != nil || rival().Treaty != "pact" {
+        test.Errorf("pact: %v, treaty %v", err, rival().Treaty)
+    }
+
+    // a tribute raises how they'll feel (the visible mood drifts there over the next turns)
+    var theirs *playerlib.Relationship
+    for _, other := range host.Model.Players {
+        if other.GetBanner().String() == banner {
+            theirs, _ = other.GetDiplomaticRelation(human)
+        }
+    }
+    baseline := theirs.StartingRelation
+    if err := host.Execute(&OfferTributeCommand{Wizard: banner, Gold: true}); err != nil || human.Gold != 900 {
+        test.Errorf("gold tribute: %v, gold %v", err, human.Gold)
+    }
+    if theirs.StartingRelation <= baseline && baseline < 100 {
+        test.Errorf("the tribute didn't please them: %v -> %v", baseline, theirs.StartingRelation)
+    }
+    gift := rival().Spells[0]
+    if err := host.Execute(&OfferTributeCommand{Wizard: banner, Spell: gift}); err != nil || slices.Contains(rival().Spells, gift) {
+        test.Errorf("spell tribute %v: %v", gift, err)
+    }
+
+    // a trade they're sure to want
+    for _, other := range host.Model.Players {
+        if other.GetBanner().String() == banner {
+            if relationship, ok := other.GetDiplomaticRelation(human); ok {
+                relationship.TradeInterest = 100
+            }
+            // something to teach
+            for _, spell := range host.Model.AllSpells.Spells {
+                if !human.KnownSpells.Contains(spell) && !other.KnownSpells.Contains(spell) {
+                    other.KnownSpells.AddSpell(spell)
+                    break
+                }
+            }
+        }
+    }
+    if !rival().CanTeach {
+        test.Fatalf("the rival should know a spell you don't")
+    }
+    give := rival().Spells[0]
+    if err := host.Execute(&TradeSpellsCommand{Wizard: banner, Spell: give}); err != nil {
+        test.Fatalf("trade: %v", err)
+    }
+    offer := rival().TradeOffer
+    if offer == nil || offer.Give != give {
+        test.Fatalf("trade offer: %+v", offer)
+    }
+    if err := host.Execute(&AnswerTradeCommand{Accept: true}); err != nil {
+        test.Fatalf("accept: %v", err)
+    }
+    learned := host.Model.MakePlayerView(human).You.KnownSpells
+    if !slices.Contains(learned, offer.Receive) || rival().TradeOffer != nil {
+        test.Errorf("didn't learn %v from the trade", offer.Receive)
+    }
+}

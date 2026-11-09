@@ -8,7 +8,7 @@ a unit, checks the replay and unit details, and lets auto finish the battle. Las
 scenario: attacks an AI capital with city walls, a wall of fire and darkness, checks they are
 on the field, and flees. Then the spellbook scenario: Spell Ward and Resurrection through the
 choice dialog, a sword made with Create Artifact in the item designer, the tax rate, renaming
-the capital and cancelling the ward. Last, the items
+the capital and cancelling the ward, and diplomacy with the rival. Last, the items
 scenario: equips a hero from the items screen, destroys an item, and splits, inspects and
 disbands units in the stack panel.
 
@@ -441,6 +441,40 @@ def spellbook(smoke, url):
     page.keyboard.press("Escape")
 
     city_extras(smoke)
+    diplomacy(smoke)
+
+
+def diplomacy(smoke):
+    """W opens the wizards screen: a pact, a spell as tribute, and a spell trade with the rival."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    page.keyboard.press("w")
+    smoke.visible("#diplomacy.open", "the wizards screen")
+    rival = state("s.view.diplomacy[0]")
+    banner = rival["wizard"]["banner"]
+    card = f"#diplomacy .wizard[data-wizard='{banner}']"
+    check(page.locator("#diplomacy .wizard").count() == 1, f"W lists {rival['wizard']['wizard']}: {rival['mood']} ({rival['relation']}), {rival['treaty']}")
+    page.click(f"{card} button[data-treaty='pact']")
+    check(state("s.view.diplomacy[0].treaty") == "pact", "proposed a wizard's pact: accepted")
+
+    gift = page.locator(f"{card} select[data-spell]").input_value()
+    page.click(f"{card} button[data-tribute-spell]")
+    check(gift not in state("s.view.diplomacy[0].spells"), f"gave {gift} as a tribute")
+
+    if state("s.view.diplomacy[0]['can-teach']"):
+        offered = page.locator(f"{card} select[data-spell]").input_value()
+        page.click(f"{card} button[data-trade]")
+        offer = state("s.view.diplomacy[0]['trade-offer']")
+        if offer:
+            check(page.locator(f"{card} .offer").count() == 1 and not state("s.modalOpen"), f"offered {offered}: they'd give {offer['receive']} (shown on the screen, no dialog)")
+            smoke.shot("14-diplomacy")
+            page.click(f"{card} button[data-answer='yes']")
+            check(offer["receive"] in state("s.view.you['known-spells']"), f"accepted: learned {offer['receive']}")
+        else:
+            print(f"skip trade: {page.inner_text('#diplomacy .magic-message')}")
+    else:
+        print("skip trade: the rival knows no spell you don't")
+    page.keyboard.press("Escape")
+    check(not state("s.diplomacy.open"), "Esc closes the wizards screen")
 
 
 def city_extras(smoke):

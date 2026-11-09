@@ -7,6 +7,7 @@ import { MapRenderer } from "./map.js";
 import { BattleScreen } from "./battle.js";
 import { MagicScreen } from "./magic.js";
 import { VaultScreen } from "./vault.js";
+import { DiplomacyScreen } from "./diplomacy.js";
 
 const element = (id) => document.getElementById(id);
 
@@ -27,6 +28,7 @@ const state = {
     battle: null,
     magic: null,
     vault: null,
+    diplomacy: null,
     // the unit whose details the stack panel shows
     detailUnit: null,
     lastDate: null,
@@ -184,7 +186,8 @@ function handleEvents() {
                 }
                 break;
             case "trade-offer":
-                if (mine(body.player)) {
+                // the diplomacy screen shows the offer itself
+                if (mine(body.player) && !state.diplomacy.open) {
                     ask(`${body.wizard.wizard} would trade you ${body.receive} for ${body.give}.`, [
                         ["Yes", () => execute("answer-trade", { accept: true })],
                         ["Forget it", () => execute("answer-trade", { accept: false })],
@@ -299,6 +302,7 @@ function openMagic() {
     if (state.view && !state.battle.open) {
         closeCity();
         state.vault.hide();
+        state.diplomacy.hide();
         state.magic.show(state.view);
     }
 }
@@ -307,7 +311,17 @@ function openVault() {
     if (state.view && !state.battle.open) {
         closeCity();
         state.magic.hide();
+        state.diplomacy.hide();
         state.vault.show(state.view);
+    }
+}
+
+function openDiplomacy() {
+    if (state.view && !state.battle.open) {
+        closeCity();
+        state.magic.hide();
+        state.vault.hide();
+        state.diplomacy.show(state.view);
     }
 }
 
@@ -329,6 +343,9 @@ function refresh() {
     }
     if (state.vault) {
         state.vault.update(state.view);
+    }
+    if (state.diplomacy) {
+        state.diplomacy.update(state.view);
     }
     if (state.cityOpen) {
         renderCityScreen();
@@ -665,6 +682,7 @@ function bindControls() {
     element("nextUnit").onclick = nextUnit;
     element("magicButton").onclick = openMagic;
     element("itemsButton").onclick = openVault;
+    element("wizardsButton").onclick = openDiplomacy;
     element("plane").onclick = () => {
         state.plane = state.plane === "Arcanus" ? "Myrror" : "Arcanus";
         refresh();
@@ -685,12 +703,17 @@ function bindControls() {
             if (event.key === "Escape" || event.key === "i" || event.key === "I") state.vault.hide();
             return;
         }
+        if (state.diplomacy.open) {
+            if (event.key === "Escape" || event.key === "w" || event.key === "W") state.diplomacy.hide();
+            return;
+        }
         if (state.cityOpen) {
             if (event.key === "Escape") closeCity();
             return;
         }
         if (event.key === "m" || event.key === "M") openMagic();
         if (event.key === "i" || event.key === "I") openVault();
+        if (event.key === "w" || event.key === "W") openDiplomacy();
         if (event.key === "Enter") endTurn();
         if (event.key === "n" || event.key === "N") nextUnit();
         if (event.key === "Escape") {
@@ -735,6 +758,9 @@ async function main() {
             onCommand: (type, command) => execute(type, command),
             onPickTarget: pickSpellTarget,
             onPickChoice: (spell) => pickSpellChoice(spell.name, "cast-spell"),
+        });
+        state.diplomacy = new DiplomacyScreen(element("diplomacy"), assets, {
+            onCommand: (type, command) => execute(type, command),
         });
         state.vault = new VaultScreen(element("vault"), assets, {
             onCommand: (type, command) => execute(type, command),

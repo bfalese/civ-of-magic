@@ -201,7 +201,10 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   location, asset, slots: [{kind, takes, item}]}], teleport-cost, fortress}` with items `{name,
   type, asset, cost, value (mana from destroy-item), powers}`; the slots are what `move-item` and
   `destroy-item` name),
-  `known-wizards`, `cities` (full detail: citizens, production, buy cost,
+  `known-wizards`, `diplomacy` (per known wizard: `{wizard, treaty (none/pact/alliance/war),
+  relation (-100..100, how they feel about you), mood, peace-turns?, banished?, tribute-gold (what
+  a gold tribute gives now), spells (yours they lack: for offer-tribute and trade-spells),
+  can-teach, trade-offer? {give, receive}, global-enchantments, fame, cities}`), `cities` (full detail: citizens, production, buy cost,
   buildings, `enchantments` `{name, upkeep, owner, yours}`; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
   `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, `active` (moves with the stack, see

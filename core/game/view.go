@@ -172,6 +172,8 @@ type PlayerView struct {
     You WizardView `json:"you"`
     // the wizards this player knows about
     KnownWizards []PlayerRef `json:"known-wizards"`
+    // the known wizards for the diplomacy screen
+    Diplomacy []DiplomacyView `json:"diplomacy"`
     Cities []CityView `json:"cities"`
     Stacks []StackView `json:"stacks"`
     ForeignCities []ForeignView `json:"foreign-cities"`
@@ -374,6 +376,7 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
         view.Stacks = append(view.Stacks, model.makeStackView(stack))
     }
 
+    view.Diplomacy = model.makeDiplomacyViews(player)
     for _, other := range model.Players {
         if other == player {
             continue
