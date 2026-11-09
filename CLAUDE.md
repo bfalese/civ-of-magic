@@ -61,7 +61,8 @@ make wasm                           # GOOS=js GOARCH=wasm build
     that data, no Ebitengine (`go run ./util/headless-game -years 200`), a quick regression run.
 - `frontend/` — web frontends over the wasm core: `frontend/wasm` (the `GOOS=js` entry point exposing
   `civ.*`, plus a bare protocol test page), `frontend/web` (the game in the browser: Three.js map,
-  sprites from util/export-assets). Run with `go run ./util/serve-web` (builds the core, serves the
+  isometric 3D by default (`map3d.js`: the terrain on a ground plane, cities, stacks and lairs as
+  billboards; `?view=2d` for the flat `map.js`), sprites from util/export-assets). Run with `go run ./util/serve-web` (builds the core, serves the
   page and the user's exported data) and open http://localhost:8080. Browser smoke test (Playwright):
   `python3 frontend/web/smoke_test.py` against a running serve-web.
 - `test/` — small standalone test programs.

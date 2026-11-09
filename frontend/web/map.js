@@ -19,6 +19,9 @@ const fogPieces = {
 };
 const fogEdgeAsset = (index) => `fog/${index}`;
 
+// overlays that stand up from the ground (lairs, caves, towers...): billboards in the 3D view
+export const isStanding = (overlay) => overlay.startsWith("encounter/");
+
 export class MapRenderer {
     constructor(container, assets, { onTileClick, onTileHover, onFrame }) {
         this.container = container;
@@ -56,6 +59,9 @@ export class MapRenderer {
         this.playerView = null;
         this.plane = "Arcanus";
         this.selected = null;
+        // whether cities, stacks and encounters are painted on the map (the 3D view shows them as
+        // billboards instead)
+        this.drawsThings = true;
         // a path being picked (a road): [{x, y}] on the shown plane, drawn over everything
         this.previewPath = null;
         this.frame = 0;
@@ -149,6 +155,7 @@ export class MapRenderer {
                 }
                 assets.draw(context, tile.asset, x * tileWidth, y * tileHeight, frame);
                 for (const overlay of tile.overlays || []) {
+                    if (!this.drawsThings && isStanding(overlay)) continue;
                     assets.draw(context, overlay, x * tileWidth, y * tileHeight, frame);
                 }
             });
@@ -163,7 +170,7 @@ export class MapRenderer {
             };
 
             for (const city of [...view["foreign-cities"], ...view.cities]) {
-                if (onPlane(city.location) && city.asset) {
+                if (this.drawsThings && onPlane(city.location) && city.asset) {
                     centered(city.asset, city.location);
                 }
             }
@@ -177,7 +184,7 @@ export class MapRenderer {
                 assets.draw(context, unitAsset, location.x * tileWidth + 1, location.y * tileHeight + 1);
             };
             for (const stack of view["foreign-stacks"]) {
-                if (onPlane(stack.location) && !inCity(stack.location)) {
+                if (this.drawsThings && onPlane(stack.location) && !inCity(stack.location)) {
                     drawStack(stack.location, stack.background, stack.asset);
                 }
             }
@@ -195,10 +202,10 @@ export class MapRenderer {
                         context.fillRect(point.x * tileWidth + tileWidth / 2 - 1, point.y * tileHeight + tileHeight / 2 - 1, 2, 2);
                     }
                     // blinks, like the original
-                    if (frame % 2 === 1) {
+                    if (frame % 2 === 1 || !this.drawsThings) {
                         continue;
                     }
-                } else if (inCity(stack.location)) {
+                } else if (inCity(stack.location) || !this.drawsThings) {
                     continue;
                 }
                 drawStack(stack.location, stack.background, stack.units[0].asset);
@@ -239,6 +246,29 @@ export class MapRenderer {
         }
 
         this.texture.needsUpdate = true;
+        this.afterDraw();
+    }
+
+    // after each repaint (the 3D view blinks the selected stack's billboard here)
+    afterDraw() {}
+
+    // move the view as if the map were dragged by dx, dy screen pixels
+    panBy(dx, dy) {
+        this.camera.position.x -= dx / this.zoom;
+        this.camera.position.y += dy / this.zoom;
+        this.clampCamera();
+    }
+
+    // the part of the map in view, in tiles: {x, y, width, height} (x may run past the map's
+    // width, which wraps)
+    viewRect() {
+        const camera = this.camera;
+        return {
+            x: (camera.position.x + camera.left) / this.tileWidth,
+            y: -(camera.position.y + camera.top) / this.tileHeight,
+            width: (camera.right - camera.left) / this.tileWidth,
+            height: (camera.top - camera.bottom) / this.tileHeight,
+        };
     }
 
     // soft edges, as the desktop Overworld.DrawFog: an explored tile next to unexplored land gets
@@ -387,9 +417,7 @@ export class MapRenderer {
                 down.dragged = true;
             }
             if (down.dragged) {
-                this.camera.position.x -= dx / this.zoom;
-                this.camera.position.y += dy / this.zoom;
-                this.clampCamera();
+                this.panBy(dx, dy);
                 down.x = event.clientX;
                 down.y = event.clientY;
             }
@@ -434,15 +462,11 @@ export class MapRenderer {
             const seconds = (now - lastTime) / 1000;
             lastTime = now;
             // screen pixels per second, whatever the zoom
-            const speed = 600 / this.zoom * seconds;
-            let moved = false;
-            if (this.keys.has("ArrowLeft")) { this.camera.position.x -= speed; moved = true; }
-            if (this.keys.has("ArrowRight")) { this.camera.position.x += speed; moved = true; }
-            if (this.keys.has("ArrowUp")) { this.camera.position.y += speed; moved = true; }
-            if (this.keys.has("ArrowDown")) { this.camera.position.y -= speed; moved = true; }
-            if (moved) {
-                this.clampCamera();
-            }
+            const speed = 600 * seconds;
+            if (this.keys.has("ArrowLeft")) this.panBy(speed, 0);
+            if (this.keys.has("ArrowRight")) this.panBy(-speed, 0);
+            if (this.keys.has("ArrowUp")) this.panBy(0, speed);
+            if (this.keys.has("ArrowDown")) this.panBy(0, -speed);
 
             if (now - lastFrame >= animationMilliseconds) {
                 lastFrame = now;

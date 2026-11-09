@@ -701,8 +701,9 @@ def overview(smoke):
     before = state("s.map.camera.position.x")
     box = page.locator("#minimap canvas").bounding_box()
     # click the side of the minimap away from the view, so the camera has to move
-    camera_tile = state("s.map.camera.position.x / s.map.tileWidth / s.map.mapView.width")
-    side = 0.85 if camera_tile < 0.5 else 0.15
+    view = state("s.map.viewRect()")
+    centre = ((view["x"] + view["width"] / 2) / width) % 1
+    side = 0.85 if centre < 0.5 else 0.15
     page.mouse.click(box["x"] + box["width"] * side, box["y"] + box["height"] * 0.5)
     after = state("s.map.camera.position.x")
     check(abs(after - before) > 1, f"clicking the minimap moves the view ({before:.0f} -> {after:.0f})")
@@ -714,7 +715,9 @@ def overview(smoke):
     text = page.inner_text("#tileinfo")
     check("city site" in text and "max pop" in text, f"hovering the settlers' tile shows a city site: {' / '.join(text.splitlines()[:2])}")
     capital = state("s.view.cities[0].location")
-    near = dict(capital, x=capital["x"] + 1)
+    # the neighbour in front of the capital (nearer the camera in the 3D view, where the capital's
+    # billboard can stand over the tiles behind it)
+    near = dict(capital, x=capital["x"] - 1, y=capital["y"] + 1)
     page.mouse.move(*map_point(page, near))
     smoke.wait("document.getElementById('tileinfo').textContent.includes('3 squares') || document.getElementById('tileinfo').textContent.includes('water')", "the reason a city can't go next to the capital")
     check(True, "next to the capital the tile info says why no city can go there")
