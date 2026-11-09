@@ -16,7 +16,8 @@ starts a road (with its path shown while picking), travels through a tower and p
 checks the minimap, the tile info and the city and army lists. Then
 saving: the autosave, a save, a downloaded file, loading each back, and Continue on the start
 screen. Then the mastery scenario: casting the Spell of Mastery wins and shows the ending.
-Last, a custom wizard made with the start screen's builder.
+Then a custom wizard made with the start screen's builder. Last, an AI wizard proposing a
+pact at the end of the turn.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -123,6 +124,7 @@ def main():
             saves(smoke, url)
             mastery(smoke, url)
             custom_wizard(smoke, url)
+            proposal(smoke, url)
         finally:
             browser.close()
 
@@ -212,7 +214,8 @@ def first_turn(smoke, url):
 
     date = state("s.view.date")
     page.keyboard.press("Enter")
-    smoke.wait(f"window.civGame.view.date !== {json.dumps(date)}", "the next turn")
+    # the AI turns run in between: allow them more than a click's time
+    smoke.wait(f"window.civGame.view.date !== {json.dumps(date)}", "the next turn", BATTLE_TIMEOUT)
     check(True, f"end turn: {date} -> {state('s.view.date')}")
     # other questions may come with the new turn (offers, ...): answer them
     while page.locator("#modal.open").count():
@@ -697,7 +700,10 @@ def overview(smoke):
     check(size[0] >= width * 2, f"the minimap shows the {width}-tile-wide plane at {size[0]}x{size[1]}")
     before = state("s.map.camera.position.x")
     box = page.locator("#minimap canvas").bounding_box()
-    page.mouse.click(box["x"] + box["width"] * 0.1, box["y"] + box["height"] * 0.5)
+    # click the side of the minimap away from the view, so the camera has to move
+    camera_tile = state("s.map.camera.position.x / s.map.tileWidth / s.map.mapView.width")
+    side = 0.85 if camera_tile < 0.5 else 0.15
+    page.mouse.click(box["x"] + box["width"] * side, box["y"] + box["height"] * 0.5)
     after = state("s.map.camera.position.x")
     check(abs(after - before) > 1, f"clicking the minimap moves the view ({before:.0f} -> {after:.0f})")
     smoke.shot("18-minimap")
@@ -837,6 +843,25 @@ def custom_wizard(smoke, url):
     mirror = state("s.view.you.mirror")
     check(state("s.view.you.player.wizard") == "Zed" and mirror["books"].get("Chaos") == 9 and "Warlord" in mirror["retorts"] and mirror["portrait"] == "wizard-portrait/4",
           f"the game starts with Zed: {mirror['books']}, {mirror['retorts']}")
+    smoke.no_errors()
+
+
+def proposal(smoke, url):
+    """The proposal scenario: a rival who likes you proposes a pact during the AI turns."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=proposal")
+    rival = state("s.view.diplomacy[0].wizard.wizard")
+    page.keyboard.press("Enter")
+    # answer what comes first (research) until the proposal shows
+    for _ in range(5):
+        smoke.visible("#modal.open", "a question after the turn")
+        if "proposes" in page.inner_text("#modalText"):
+            break
+        page.click("#modalChoices button >> nth=0")
+    text = page.inner_text("#modalText")
+    check(rival in text and "wizard's pact" in text, f"{rival} proposes a pact: {text}")
+    page.click("#modalChoices button:has-text('Accept')")
+    check(state("s.view.diplomacy[0].treaty") == "pact" and "agreed" in page.inner_text("#log"), "accepting makes the pact")
     smoke.no_errors()
 
 

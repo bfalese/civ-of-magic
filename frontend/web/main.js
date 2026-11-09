@@ -66,6 +66,8 @@ function log(text, className) {
 const mine = (player) => player && player.human;
 
 // a log line for an event, or null for events that don't concern the player
+const treatyNames = { pact: "a wizard's pact", alliance: "an alliance", peace: "peace" };
+
 function describe(event) {
     const body = event.event || {};
     if (event.type === "spell-of-mastery") {
@@ -73,6 +75,13 @@ function describe(event) {
         return body.started
             ? (mine(body.player) ? "You begin casting the Spell of Mastery." : `${who} has begun casting the Spell of Mastery!`)
             : `${who} cast the Spell of Mastery.`;
+    }
+    if (event.type === "war-declared") {
+        if (mine(body.wizard)) return `You broke your treaty with ${body.player.wizard} by attacking: you are at war.`;
+        return body.attacked ? `${body.wizard.wizard} broke your treaty and attacked you: you are at war.` : `${body.wizard.wizard} declares war on you!`;
+    }
+    if (event.type === "treaty-proposal") {
+        return `${body.wizard.wizard} proposes ${treatyNames[body.treaty] || body.treaty}.`;
     }
     if (body.player && !body.player.human && event.type !== "random-event") {
         return null;
@@ -216,6 +225,20 @@ function handleEvents() {
                     state.masteryWinner = body.player;
                 } else if (!mine(body.player)) {
                     ask(`${body.player.wizard} has begun casting the Spell of Mastery! If the casting finishes, ${body.player.wizard} wins the game.`, [["OK", () => {}]]);
+                }
+                break;
+            case "treaty-proposal":
+                // the wizards screen shows the proposal itself
+                if (mine(body.player) && !state.diplomacy.open) {
+                    ask(`${body.wizard.wizard} proposes ${treatyNames[body.treaty] || body.treaty}.`, [
+                        ["Accept", () => { if (!execute("answer-proposal", { accept: true }).error) log(`You agreed to ${treatyNames[body.treaty] || body.treaty} with ${body.wizard.wizard}.`); }],
+                        ["Decline", () => execute("answer-proposal", { accept: false })],
+                    ]);
+                }
+                break;
+            case "war-declared":
+                if (mine(body.player) && !body.attacked) {
+                    ask(`${body.wizard.wizard} declares war on you!`, [["OK", () => {}]]);
                 }
                 break;
             case "trade-offer":

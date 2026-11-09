@@ -664,6 +664,17 @@ func (command *RenameCityCommand) Execute(context *CommandContext) error {
     return nil
 }
 
+// accept or decline the treaty an AI wizard proposed (treaty-proposal event)
+type AnswerProposalCommand struct {
+    Accept bool `json:"accept"`
+}
+
+func (command *AnswerProposalCommand) CommandType() string { return "answer-proposal" }
+
+func (command *AnswerProposalCommand) Execute(context *CommandContext) error {
+    return context.Model.AnswerProposal(context.Player, command.Accept)
+}
+
 // rename one of the player's heroes (index 0-5, as in the vault / player view)
 type RenameHeroCommand struct {
     Hero int `json:"hero"`
@@ -841,6 +852,7 @@ var commandTypes = map[string]func() Command{
     "rename-city": func() Command { return &RenameCityCommand{} },
     "cancel-enchantment": func() Command { return &CancelEnchantmentCommand{} },
     "rename-hero": func() Command { return &RenameHeroCommand{} },
+    "answer-proposal": func() Command { return &AnswerProposalCommand{} },
     "move-item": func() Command { return &MoveItemCommand{} },
     "destroy-item": func() Command { return &DestroyItemCommand{} },
     "propose-treaty": func() Command { return &ProposeTreatyCommand{} },

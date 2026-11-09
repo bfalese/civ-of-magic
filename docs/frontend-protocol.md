@@ -71,6 +71,7 @@ command isn't legal (not your city, not enough gold, no path...).
 | `propose-treaty` | `wizard`, `treaty` (`pact`, `alliance`, `peace`) | the other wizard currently always agrees |
 | `offer-tribute` | `wizard`, `gold: true` or `spell` | a tenth of your gold, or a spell they don't know |
 | `trade-spells` | `wizard`, `spell` | if they're willing, they name the spell they'd give back (`trade-offer` event) |
+| `answer-proposal` | `accept` | accept or decline the treaty an AI wizard proposed (`treaty-proposal` event); it lasts through your next turn |
 | `answer-trade` | `accept` | make the offered exchange (`learned-spell` event) or decline it; an offer lasts until your next turn |
 
 Item slots are `{"vault": 0-3}`, `{"hero": 0-5, "slot": 0-2}` or `{"new": i}` (an item that just
@@ -151,7 +152,10 @@ The Spell of Mastery wins the game when its casting finishes (`spell-of-mastery`
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
-Not yet: the diplomacy steps the other wizard initiates.
+AI wizards start diplomacy on their turns (`core/game/aidiplomacy.go`): from how they feel about a
+wizard they know, they may declare war, propose peace, a pact or an alliance (`treaty-proposal`,
+`war-declared`). The AI doesn't attack a wizard it has a pact, alliance or peace with, and
+attacking such a wizard breaks the treaty. Your own proposals are still always accepted.
 
 ## Events (model → frontend)
 
@@ -182,6 +186,8 @@ Not yet: the diplomacy steps the other wizard initiates.
 | `choose-encounter` | `player`, `encounter`, `guards` | enter? answer with `confirm-encounter` |
 | `choose-raze` | `player`, `city` | raze or keep? answer with `raze-city` |
 | `spell-of-mastery` | `player`, `started?` | `started`: the wizard began casting the Spell of Mastery (every wizard hears it); otherwise the casting finished and that wizard won: the game is over (`gameOver` is `won` or `lost`) |
+| `treaty-proposal` | `player`, `wizard`, `treaty` | an AI wizard proposes `pact`, `alliance` or `peace`: answer with `answer-proposal` |
+| `war-declared` | `player`, `wizard`, `attacked?` | `wizard` declared war on `player`; `attacked`: the treaty between them broke because `wizard` attacked (also sent when you attack a wizard you have a treaty with) |
 
 Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 (`core/artifact.SerializedArtifact`).
@@ -214,7 +220,7 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   `mirror` (your `portrait`, books `{realm: count}`, `retorts`, `fame`, `heroes`, `casting-skill`),
   `known-wizards`, `diplomacy` (per known wizard: `{wizard, mirror (portrait, books, retorts, fame, heroes), treaty (none/pact/alliance/war),
   relation (-100..100, how they feel about you), mood, peace-turns?, banished?, tribute-gold (what
-  a gold tribute gives now), spells (yours they lack: for offer-tribute and trade-spells),
+  a gold tribute gives now), proposal? (the treaty they proposed to you), spells (yours they lack: for offer-tribute and trade-spells),
   can-teach, trade-offer? {give, receive}, global-enchantments, fame, cities}`), `cities` (full detail: citizens, production, buy cost,
   buildings, `enchantments` `{name, upkeep, owner, yours}`; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
@@ -280,7 +286,7 @@ Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (defa
 `difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
 `wizardName`, `scenario` (a setup for tests, `core/game/scenario.go`: `battle` puts a guarded
 lair next to the capital and gives the wizard Fire Bolt, Wall of Stone, mana and skill; `siege`
-puts a human army next to an AI capital with walls, a wall of fire and darkness; `mastery` gives the wizard the Spell of Mastery with the mana and skill to cast it now; `orders` puts
+puts a human army next to an AI capital with walls, a wall of fire and darkness; `mastery` gives the wizard the Spell of Mastery with the mana and skill to cast it now; `proposal` loads the AI diplomacy's dice so a rival who likes you proposes a pact on the first end-turn; `orders` puts
 settlers where an outpost can go, engineers next to the capital and swordsmen on an open tower; the web page
 takes `?scenario=...`).
 

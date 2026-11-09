@@ -185,7 +185,8 @@ func TestHostEventsConcernHuman(test *testing.T) {
                 test.Fatalf("event JSON: %v", err)
             }
             body := event.Event
-            if body.Player != nil && !body.Player.Human {
+            // a war-declared names the victim as player: it reaches the human when the human attacked
+            if body.Player != nil && !body.Player.Human && event.Type != "war-declared" {
                 test.Errorf("an event for another player reached the frontend: %s", encoded)
             }
             if strings.HasPrefix(event.Type, "battle-") && !(body.Attacker != nil && body.Attacker.Human) && !(body.Defender != nil && body.Defender.Human) {

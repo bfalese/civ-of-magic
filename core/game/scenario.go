@@ -30,6 +30,8 @@ import (
 //           human army next to it: one move-stack starts a battle at the walls
 //   mastery: a wizard who knows the Spell of Mastery with the mana and casting skill to cast it
 //           this turn (one cast-spell wins the game)
+//   proposal: a known rival who likes the human and is keen on a pact, with the AI diplomacy's
+//           dice loaded: the first end-turn brings a treaty-proposal
 //   orders: map orders for the stack panel: engineers next to the capital, settlers on a tile
 //           where an outpost can go, and swordsmen on an open tower (planar travel)
 func applyScenario(host *GameHost, name string) error {
@@ -48,6 +50,8 @@ func applyScenario(host *GameHost, name string) error {
             return scenarioOrders(host)
         case "mastery":
             return scenarioMastery(host)
+        case "proposal":
+            return scenarioProposal(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
 }
@@ -190,6 +194,23 @@ func scenarioMastery(host *GameHost) error {
     human.Mana = max(human.Mana, cost)
     human.RemainingCastingSkill = max(human.RemainingCastingSkill, cost)
     return nil
+}
+
+func scenarioProposal(host *GameHost) error {
+    human := host.Human
+    for _, player := range host.Model.Players {
+        if player != human && player.AIBehavior != nil && !player.IsNeutral() {
+            human.AwarePlayer(player)
+            player.AwarePlayer(human)
+            relationship, _ := player.GetDiplomaticRelation(human)
+            relationship.VisibleRelation = 30
+            relationship.StartingRelation = 30
+            relationship.TreatyInterest = 100
+            host.Model.DiplomacyRoll = func(int) int { return 0 }
+            return nil
+        }
+    }
+    return fmt.Errorf("proposal scenario: no AI wizard")
 }
 
 func scenarioOrders(host *GameHost) error {

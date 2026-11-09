@@ -1420,8 +1420,11 @@ func (ai *Enemy2AI) updateScoutMemory(self *playerlib.Player, aiServices playerl
         ai.KnownEnemyCities = make(map[CityKey]*EnemyCityInfo)
     }
 
-    // record enemy cities on tiles we have explored
+    // record enemy cities on tiles we have explored (not those of wizards we keep the peace with)
     for _, enemy := range aiServices.GetEnemies(self) {
+        if self.AtPeaceWith(enemy) {
+            continue
+        }
         for _, city := range enemy.Cities {
             if !self.IsExplored(city.X, city.Y, city.Plane) {
                 continue
@@ -1431,12 +1434,17 @@ func (ai *Enemy2AI) updateScoutMemory(self *playerlib.Player, aiServices playerl
         }
     }
 
-    // forget remembered cities we can currently see are no longer an enemy's
+    // forget remembered cities we can currently see are no longer an enemy's, and those of
+    // wizards we now keep the peace with
     for key := range ai.KnownEnemyCities {
+        city, owner := aiServices.FindCity(key.X, key.Y, key.Plane)
+        if city != nil && owner != nil && self.AtPeaceWith(owner) {
+            delete(ai.KnownEnemyCities, key)
+            continue
+        }
         if !self.IsVisible(key.X, key.Y, key.Plane) {
             continue
         }
-        city, owner := aiServices.FindCity(key.X, key.Y, key.Plane)
         if city == nil || owner == self {
             delete(ai.KnownEnemyCities, key)
         }
@@ -1669,7 +1677,10 @@ func (ai *Enemy2AI) GoalDecisions(self *playerlib.Player, aiServices playerlib.A
             var possibleTarget []*playerlib.UnitStack
             var possibleCities []*citylib.City
             for _, enemyPlayer := range aiServices.GetEnemies(self) {
-                // FIXME: if there is a diplomatic treaty with the enemy then do not attack them
+                // no attacks on wizards we have a pact, an alliance or peace with
+                if self.AtPeaceWith(enemyPlayer) {
+                    continue
+                }
 
                 for _, enemyStack := range enemyPlayer.Stacks {
                     if self.IsVisible(enemyStack.X(), enemyStack.Y(), enemyStack.Plane()) {

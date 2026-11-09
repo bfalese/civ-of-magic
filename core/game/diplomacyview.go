@@ -33,6 +33,8 @@ type DiplomacyView struct {
     GlobalEnchantments []string `json:"global-enchantments"`
     Fame int `json:"fame"`
     Cities int `json:"cities"`
+    // the treaty they proposed to you, waiting for answer-proposal: "pact", "alliance", "peace"
+    Proposal string `json:"proposal,omitempty"`
     // books, retorts, fame and heroes, as their mirror shows them
     Mirror MirrorView `json:"mirror"`
 }
@@ -112,6 +114,9 @@ func (model *GameModel) makeDiplomacyViews(player *playerlib.Player) []Diplomacy
                 view.CanTeach = true
                 break
             }
+        }
+        if proposal, ok := model.PendingProposals[player]; ok && proposal.Wizard == other {
+            view.Proposal = proposal.Treaty
         }
         if offer, ok := model.PendingTrades[player]; ok && offer.Wizard == other {
             view.TradeOffer = &TradeOfferView{Give: offer.Give.Name, Receive: offer.Receive.Name}
