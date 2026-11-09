@@ -8,6 +8,7 @@ import { BattleScreen } from "./battle.js";
 import { MagicScreen } from "./magic.js";
 import { VaultScreen } from "./vault.js";
 import { DiplomacyScreen } from "./diplomacy.js";
+import { chooseStart } from "./start.js";
 
 const element = (id) => document.getElementById(id);
 
@@ -742,10 +743,21 @@ async function main() {
             core.setLogging(true);
         }
 
-        const settings = { opponents: parseInt(params.get("opponents") || "3", 10), raiders: true, difficulty: params.get("difficulty") || "average" };
-        // a setup for tests (core/game/scenario.go), e.g. ?scenario=battle
-        if (params.has("scenario")) {
-            settings.scenario = params.get("scenario");
+        // URL parameters skip the start screen (tests, bookmarks): ?opponents=2&difficulty=hard,
+        // ?wizard=Merlin&race=High Elf&banner=red, or a test setup (core/game/scenario.go) ?scenario=battle
+        let settings;
+        if (["opponents", "difficulty", "wizard", "scenario"].some((name) => params.has(name))) {
+            settings = { opponents: parseInt(params.get("opponents") || "3", 10), raiders: true, difficulty: params.get("difficulty") || "average" };
+            for (const name of ["scenario", "wizard", "race", "banner", "magic"]) {
+                if (params.has(name)) settings[name] = params.get(name);
+            }
+        } else {
+            element("loading").hidden = true;
+            settings = await chooseStart(element("start"), core.startOptions(), assets);
+            element("loading").hidden = false;
+            element("loading").textContent = "making the world…";
+            // let the page paint before the core builds the world
+            await new Promise((resolve) => setTimeout(resolve, 30));
         }
         const status = core.newGame(gamedata, settings);
         if (status.error) {

@@ -1,6 +1,7 @@
 """Smoke test for the web frontend, in a real browser (Playwright, Chromium).
 
-Plays the first turn through the page the way a person would: opens the capital's city screen,
+Starts a game from the start screen (wizard, race, banner, settings). Then plays the first turn
+through the page the way a person would: opens the capital's city screen,
 changes production, moves a farmer, sells a building, selects the garrison, moves it, ends the
 turn and answers the research question. Then starts the battle scenario (a guarded lair next to
 the capital, Fire Bolt known; see core/game/scenario.go), enters the lair, casts the spell, moves
@@ -107,6 +108,7 @@ def main():
         page.set_default_timeout(STEP_TIMEOUT)
         smoke = Smoke(page, shots)
         try:
+            start_screen(smoke, url)
             first_turn(smoke, url)
             battle(smoke, url)
             siege(smoke, url)
@@ -116,6 +118,28 @@ def main():
             browser.close()
 
     print(f"smoke test passed in {time.monotonic() - began:.1f}s")
+
+
+def start_screen(smoke, url):
+    """Without URL parameters the page asks for the wizard, race, banner and game settings."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    page.goto(url)
+    smoke.visible("#start .start-wizard", "the start screen")
+    wizards = page.locator("#start .start-wizard").count()
+    page.click("#start .start-wizard[data-wizard='Freya']")
+    page.select_option("#start [data-race]", "Klackon")
+    page.click("#start .swatch[data-banner='purple']")
+    page.select_option("#start [data-opponents]", "1")
+    page.select_option("#start [data-difficulty]", "easy")
+    page.fill("#start [data-name]", "Smoky")
+    smoke.shot("0-start")
+    page.click("#start [data-start]")
+    smoke.wait("window.civGame && window.civGame.view", "the game to load", LOAD_TIMEOUT)
+    you = state("s.view.you")
+    capital = state("s.view.cities[0]")
+    check(you["player"]["wizard"] == "Smoky" and you["player"]["banner"] == "purple" and capital["race"] == "Klackon"
+          and len(state("s.core.view()['known-wizards']")) <= 1,
+          f"the start screen ({wizards} wizards) made Smoky (Freya), purple, with a Klackon capital {capital['name']}")
 
 
 def first_turn(smoke, url):

@@ -67,6 +67,10 @@ type HostSettings struct {
     WizardName string `json:"wizardName,omitempty"`
     // the human wizard; random if not set
     Wizard *setup.WizardCustom `json:"-"`
+    // or a premade wizard by name (StartOptions wizards), with a race and banner (random if empty)
+    WizardChoice string `json:"wizard,omitempty"`
+    Race string `json:"race,omitempty"`
+    Banner string `json:"banner,omitempty"`
     // a setup for tests (see applyScenario): "battle"
     Scenario string `json:"scenario,omitempty"`
 }
@@ -127,6 +131,16 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
         Raiders: settings.Raiders,
         Difficulty: difficulty,
         Magic: magic,
+    }
+
+    if settings.Wizard == nil && settings.WizardChoice != "" {
+        wizard, err := makeStartWizard(settings.WizardChoice, settings.Race, settings.Banner, gameData.Spells)
+        if err != nil {
+            return nil, err
+        }
+        settings.Wizard = wizard
+    } else if settings.Race != "" || settings.Banner != "" {
+        return nil, fmt.Errorf("race and banner go with a wizard")
     }
 
     ai := makeHeadlessModel(gameData, headlessSettings)
