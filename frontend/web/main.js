@@ -4,6 +4,7 @@
 import { loadCore } from "./core.js";
 import { loadAssets } from "./assets.js";
 import { MapRenderer } from "./map.js";
+import { MapRenderer3D } from "./map3d.js";
 import { BattleScreen } from "./battle.js";
 import { MagicScreen } from "./magic.js";
 import { VaultScreen } from "./vault.js";
@@ -1201,7 +1202,9 @@ async function main() {
         state.autosave = !(settings && settings.scenario);
 
         state.assets = assets;
-        state.map = new MapRenderer(element("map"), assets, { onTileClick, onTileHover, onFrame: () => state.minimap.update() });
+        // the isometric 3D map; ?view=2d for the flat one
+        const Renderer = params.get("view") === "2d" ? MapRenderer : MapRenderer3D;
+        state.map = new Renderer(element("map"), assets, { onTileClick, onTileHover, onFrame: () => state.minimap.update() });
         state.minimap = new Minimap(element("minimap").querySelector("canvas"), state.map, assets);
         state.magic = new MagicScreen(element("magic"), assets, {
             confirm: (text, yes) => ask(text, [["Yes", yes], ["No", () => {}]]),

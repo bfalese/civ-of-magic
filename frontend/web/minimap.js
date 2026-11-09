@@ -78,14 +78,7 @@ export class Minimap {
 
     // the camera's view in tiles: {x, y, width, height}
     cameraTiles() {
-        const camera = this.renderer.camera;
-        const { tileWidth, tileHeight } = this.renderer;
-        return {
-            x: (camera.position.x + camera.left) / tileWidth,
-            y: -(camera.position.y + camera.top) / tileHeight,
-            width: (camera.right - camera.left) / tileWidth,
-            height: (camera.top - camera.bottom) / tileHeight,
-        };
+        return this.renderer.viewRect();
     }
 
     // redraw if the camera moved (called every frame)
