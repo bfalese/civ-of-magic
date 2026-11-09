@@ -152,17 +152,7 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
         human.Wizard.Name = settings.WizardName
     }
 
-    host := &GameHost{
-        Model: ai.Model,
-        Human: human,
-        ai: ai,
-    }
-
-    host.aiHandlers = &hostAiHandlers{HeadlessGame: ai, host: host}
-    host.Session = MakeCommandSession(ai.Model, human)
-    host.Session.SuggestCityName = ai.suggestCityName
-    // runs inside the session's coroutine, so the AI turns can pause for a battle
-    host.Session.EndTurn = host.playOthers
+    host := makeHost(ai, human)
 
     ai.Model.CurrentPlayer = 0
     host.startPlayerTurn(human)
@@ -179,6 +169,22 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
     host.drainEvents()
 
     return host, nil
+}
+
+// the host around a model whose players are in place: the session for the human, the AI side
+func makeHost(ai *HeadlessGame, human *playerlib.Player) *GameHost {
+    host := &GameHost{
+        Model: ai.Model,
+        Human: human,
+        ai: ai,
+    }
+
+    host.aiHandlers = &hostAiHandlers{HeadlessGame: ai, host: host}
+    host.Session = MakeCommandSession(ai.Model, human)
+    host.Session.SuggestCityName = ai.suggestCityName
+    // runs inside the session's coroutine, so the AI turns can pause for a battle
+    host.Session.EndTurn = host.playOthers
+    return host
 }
 
 // run a command (or answer what the paused command waits for). An end-turn plays the other

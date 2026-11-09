@@ -9,6 +9,7 @@ import { MagicScreen } from "./magic.js";
 import { VaultScreen } from "./vault.js";
 import { DiplomacyScreen } from "./diplomacy.js";
 import { chooseStart } from "./start.js";
+import { storeSave, readSave, saveInfo, downloadSave, pickSaveFile, describeSave, slotNames, savedGames } from "./saves.js";
 
 const element = (id) => document.getElementById(id);
 
@@ -35,6 +36,12 @@ const state = {
     // the unit whose details the stack panel shows
     detailUnit: null,
     lastDate: null,
+    // the data tables' text, for loading a save
+    gamedata: null,
+    // autosave at the start of every turn (not in test scenarios)
+    autosave: true,
+    // the date of the last autosave
+    autosaved: null,
 };
 
 // ---- the log
@@ -136,6 +143,11 @@ function execute(type, command = {}) {
 function afterCommand(status) {
     handleEvents();
     refresh();
+    // a new turn (after an AI attack, once its battle is over): keep it
+    if (state.autosave && !status.waiting && !status.gameOver && state.view.date !== state.autosaved) {
+        state.autosaved = state.view.date;
+        saveTo("autosave").then((error) => { if (error) log(`Autosave: ${error}.`, "dim"); });
+    }
     if (status.waiting !== "battle" && state.battle.open) {
         state.battle.hide();
     }
@@ -327,6 +339,122 @@ function openDiplomacy() {
         state.diplomacy.show(state.view);
     }
 }
+
+// ---- saving and loading
+
+const saveTitle = () => `${state.view.you.player.wizard}, ${state.view.date}`;
+
+// keep the game in a slot; resolves to an error message or null
+async function saveTo(slot) {
+    let text;
+    try {
+        text = state.core.save(saveTitle());
+    } catch (error) {
+        return error.message;
+    }
+    return storeSave(slot, text, { wizard: state.view.you.player.wizard, date: state.view.date });
+}
+
+// a saved game replaces the one being played
+function loadGame(text) {
+    const status = state.core.load(state.gamedata, text);
+    if (status.error) {
+        return status.error;
+    }
+    closeCity();
+    for (const screen of [state.magic, state.vault, state.diplomacy]) {
+        screen.hide();
+    }
+    state.selectedUnit = null;
+    state.detailUnit = null;
+    state.spellTarget = null;
+    if (state.roadPick) endRoadPick();
+    state.questions = [];
+    state.view = state.core.view();
+    state.autosaved = state.view.date;
+    log(`Loaded ${saveTitle()}.`);
+    afterCommand(status);
+    centerOnHome();
+    return null;
+}
+
+function centerOnHome() {
+    const home = state.view.cities[0] || state.view.stacks[0];
+    if (home) {
+        state.plane = home.location.plane;
+        refresh();
+        state.map.centerOn(home.location.x, home.location.y);
+    }
+}
+
+function openGameMenu(message = "") {
+    if (!state.view || state.battle.open) {
+        return;
+    }
+    closeCity();
+    state.magic.hide();
+    state.vault.hide();
+    state.diplomacy.hide();
+    const root = element("game");
+    const saved = saveInfo("save");
+    const autosave = saveInfo("autosave");
+    root.innerHTML = `<div class="panel">
+        <div class="row"><h3>Game</h3><button class="small" data-close title="Esc">Close</button></div>
+        <div class="game-actions">
+            <button data-save>Save${saved ? ` <span class="dim">(replaces ${escapeHtml(describeSave(saved))})</span>` : ""}</button>
+            <button data-download>Download a save file</button>
+            ${saved ? `<button data-load="save">Load ${escapeHtml(slotNames.save)} <span class="dim">${escapeHtml(describeSave(saved))}</span></button>` : ""}
+            ${autosave ? `<button data-load="autosave">Load ${escapeHtml(slotNames.autosave)} <span class="dim">${escapeHtml(describeSave(autosave))}</span></button>` : ""}
+            <button data-load-file>Load a save file…</button>
+            <button data-new>New game</button>
+        </div>
+        <div class="dim">loading replaces this game: save it first to keep it · saves stay in this browser</div>
+        <div class="message">${escapeHtml(message)}</div>
+    </div>`;
+    root.classList.add("open");
+    const say = (text) => { root.querySelector(".message").textContent = text; };
+    root.querySelector("[data-close]").onclick = closeGameMenu;
+    root.onclick = (event) => { if (event.target === root) closeGameMenu(); };
+    root.querySelector("[data-save]").onclick = async () => {
+        say("saving…");
+        const error = await saveTo("save");
+        openGameMenu(error ? `Not saved: ${error}.` : `Saved: ${saveTitle()}.`);
+    };
+    root.querySelector("[data-download]").onclick = () => {
+        try {
+            downloadSave(state.core.save(saveTitle()), saveTitle());
+            say("Downloaded.");
+        } catch (error) {
+            say(`Not saved: ${error.message}.`);
+        }
+    };
+    for (const button of root.querySelectorAll("[data-load]")) {
+        button.onclick = async () => {
+            say("loading…");
+            try {
+                const error = loadGame(await readSave(button.dataset.load));
+                if (error) say(`Couldn't load: ${error}.`); else closeGameMenu();
+            } catch (error) {
+                say(`Couldn't load: ${error.message}.`);
+            }
+        };
+    }
+    root.querySelector("[data-load-file]").onclick = async () => {
+        const text = await pickSaveFile();
+        if (!text) return;
+        const error = loadGame(text);
+        if (error) say(`Couldn't load the file: ${error}.`); else closeGameMenu();
+    };
+    root.querySelector("[data-new]").onclick = () => {
+        location.href = location.pathname;
+    };
+}
+
+function closeGameMenu() {
+    element("game").classList.remove("open");
+}
+
+const gameMenuOpen = () => element("game").classList.contains("open");
 
 // ---- views
 
@@ -797,6 +925,7 @@ function bindControls() {
     element("magicButton").onclick = openMagic;
     element("itemsButton").onclick = openVault;
     element("wizardsButton").onclick = openDiplomacy;
+    element("gameButton").onclick = () => openGameMenu();
     element("plane").onclick = () => {
         state.plane = state.plane === "Arcanus" ? "Myrror" : "Arcanus";
         refresh();
@@ -808,6 +937,10 @@ function bindControls() {
         }
         if (state.battle.open) {
             state.battle.key(event.key);
+            return;
+        }
+        if (gameMenuOpen()) {
+            if (event.key === "Escape" || event.key === "g" || event.key === "G") closeGameMenu();
             return;
         }
         if (state.magic.open) {
@@ -829,6 +962,7 @@ function bindControls() {
         if (event.key === "m" || event.key === "M") openMagic();
         if (event.key === "i" || event.key === "I") openVault();
         if (event.key === "w" || event.key === "W") openDiplomacy();
+        if (event.key === "g" || event.key === "G") openGameMenu();
         if (event.key === "Enter") endTurn();
         if (event.key === "n" || event.key === "N") nextUnit();
         if (selectedStack() && !state.spellTarget && !state.roadPick) {
@@ -872,24 +1006,37 @@ async function main() {
 
         // URL parameters skip the start screen (tests, bookmarks): ?opponents=2&difficulty=hard,
         // ?wizard=Merlin&race=High Elf&banner=red, or a test setup (core/game/scenario.go) ?scenario=battle
+        state.gamedata = gamedata;
         let settings;
-        if (["opponents", "difficulty", "wizard", "scenario"].some((name) => params.has(name))) {
+        let saveText = null;
+        if (params.has("load")) {
+            // ?load=autosave or ?load=save: continue a game kept in this browser
+            saveText = await readSave(params.get("load"));
+        } else if (["opponents", "difficulty", "wizard", "scenario"].some((name) => params.has(name))) {
             settings = { opponents: parseInt(params.get("opponents") || "3", 10), raiders: true, difficulty: params.get("difficulty") || "average" };
             for (const name of ["scenario", "wizard", "race", "banner", "magic"]) {
                 if (params.has(name)) settings[name] = params.get(name);
             }
         } else {
             element("loading").hidden = true;
-            settings = await chooseStart(element("start"), core.startOptions(), assets);
+            const choice = await chooseStart(element("start"), core.startOptions(), assets, savedGames());
             element("loading").hidden = false;
-            element("loading").textContent = "making the world…";
+            if (choice.saveSlot) {
+                saveText = await readSave(choice.saveSlot);
+            } else if (choice.saveText) {
+                saveText = choice.saveText;
+            } else {
+                settings = choice;
+            }
+            element("loading").textContent = saveText ? "loading the game…" : "making the world…";
             // let the page paint before the core builds the world
             await new Promise((resolve) => setTimeout(resolve, 30));
         }
-        const status = core.newGame(gamedata, settings);
+        const status = saveText ? core.load(gamedata, saveText) : core.newGame(gamedata, settings);
         if (status.error) {
             throw new Error(status.error);
         }
+        state.autosave = !(settings && settings.scenario);
 
         state.map = new MapRenderer(element("map"), assets, { onTileClick, onTileHover });
         state.magic = new MagicScreen(element("magic"), assets, {
@@ -913,14 +1060,9 @@ async function main() {
         }
         bindControls();
 
-        log(`Welcome, ${core.view().you.player.wizard}.`);
+        log(saveText ? `Welcome back, ${core.view().you.player.wizard}.` : `Welcome, ${core.view().you.player.wizard}.`);
         afterCommand(status);
-        const capital = state.view.cities[0];
-        if (capital) {
-            state.plane = capital.location.plane;
-            refresh();
-            state.map.centerOn(capital.location.x, capital.location.y);
-        }
+        centerOnHome();
         state.map.start();
         // for tests and the console: the state, and commands through the same path as the UI
         window.civGame = state;

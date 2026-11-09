@@ -10,6 +10,8 @@
 //   civ.view()                              -> the player view (JSON)
 //   civ.map("Arcanus" | "Myrror")           -> the map view (JSON)
 //   civ.battle()                            -> the battle view (JSON), while waiting is "battle"
+//   civ.save(name)                          -> the game as JSON (a HostSave), or {"error"}
+//   civ.load(gamedataJSON, saveJSON)        -> status: the saved game replaces the current one
 //   civ.roadPath(queryJSON)                 -> the road build-road would make ({stack, to} -> locations)
 //   civ.setLogging(true)                    -> the game's log on the console (off by default)
 //
@@ -108,6 +110,38 @@ func newGame(arguments []js.Value) string {
 }
 
 var errNoGame = errors.New("no game: call newGame first")
+
+func save(arguments []js.Value) string {
+    if host == nil {
+        return errorJSON(errNoGame)
+    }
+    name := ""
+    if len(arguments) > 0 && arguments[0].Type() == js.TypeString {
+        name = arguments[0].String()
+    }
+    return viewResult(host.Save(name))
+}
+
+func load(arguments []js.Value) string {
+    encodedData, err := stringArgument(arguments, 0)
+    if err != nil {
+        return statusJSON(err)
+    }
+    encodedSave, err := stringArgument(arguments, 1)
+    if err != nil {
+        return statusJSON(err)
+    }
+    gameData, err := gamedata.Parse([]byte(encodedData))
+    if err != nil {
+        return statusJSON(err)
+    }
+    loaded, err := gamecore.LoadGameHost(gameData, []byte(encodedSave))
+    if err != nil {
+        return statusJSON(err)
+    }
+    host = loaded
+    return statusJSON(nil)
+}
 
 func execute(arguments []js.Value) string {
     if host == nil {
@@ -213,6 +247,8 @@ func main() {
     api.Set("view", export("view", view, errorJSON))
     api.Set("map", export("map", mapView, errorJSON))
     api.Set("battle", export("battle", battle, errorJSON))
+    api.Set("save", export("save", save, errorJSON))
+    api.Set("load", export("load", load, statusJSON))
     api.Set("roadPath", export("roadPath", roadPath, errorJSON))
     api.Set("setLogging", export("setLogging", setLogging, errorJSON))
     api.Set("startOptions", export("startOptions", startOptions, errorJSON))

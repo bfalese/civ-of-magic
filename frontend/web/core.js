@@ -21,6 +21,20 @@ export class Core {
         return this.call("newGame", gamedataText, JSON.stringify(settings));
     }
 
+    // the game as a JSON string (to keep), or throws with the core's reason
+    save(name) {
+        const text = globalThis.civ.save(name);
+        if (text.startsWith('{"error"')) {
+            throw new Error(JSON.parse(text).error);
+        }
+        return text;
+    }
+
+    // a saved game (the text save() gave) replaces the current one; returns a status
+    load(gamedataText, saveText) {
+        return this.call("load", gamedataText, saveText);
+    }
+
     // a command {type, command}; returns {error?, waiting, gameOver?}
     execute(type, command = {}) {
         return this.call("execute", JSON.stringify({ type, command }));

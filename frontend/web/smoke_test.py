@@ -12,7 +12,9 @@ choice dialog, a sword made with Create Artifact in the item designer, the tax r
 the capital and cancelling the ward, and diplomacy with the rival. Last, the items
 scenario: equips a hero from the items screen, destroys an item, renames the hero, and splits,
 inspects and disbands units in the stack panel. Last, the orders scenario: settles an outpost,
-starts a road (with its path shown while picking), travels through a tower and patrols.
+starts a road (with its path shown while picking), travels through a tower and patrols. Then
+saving: the autosave, a save, a downloaded file, loading each back, and Continue on the start
+screen.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -116,6 +118,7 @@ def main():
             spellbook(smoke, url)
             items(smoke, url)
             orders(smoke, url)
+            saves(smoke, url)
         finally:
             browser.close()
 
@@ -666,6 +669,57 @@ def orders(smoke, url):
     selected = state("(() => { const stack = s.view.stacks.find(stack => stack.units.some(unit => unit.id === s.selectedUnit)); return stack ? stack.location : null; })()")
     check(selected is None or selected["plane"] != other or selected["x"] != start["x"], "Next unit skips the patrolling stack")
     smoke.shot("15-orders")
+    smoke.no_errors()
+
+
+
+def saves(smoke, url):
+    """Save and load: the autosave of a new game, the save slot, a save file, Continue."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1")
+    smoke.wait("localStorage.getItem('civ-of-magic-save-autosave-info')", "the autosave of the new game")
+    check(True, "a new game is autosaved")
+
+    page.keyboard.press("g")
+    smoke.visible("#game.open", "the game menu")
+    page.click("#game button[data-save]")
+    smoke.wait("document.querySelector('#game .message') && document.querySelector('#game .message').textContent.startsWith('Saved')", "the save")
+    date = state("s.view.date")
+    check("Load Saved game" in page.inner_text("#game"), f"G, Save keeps the game ({date})")
+    with page.expect_download() as download:
+        page.click("#game button[data-download]")
+    path = download.value.path()
+    with open(path) as file:
+        saved = json.load(file)
+    check(saved["version"] == 1 and download.value.suggested_filename.endswith(".json"), f"downloaded {download.value.suggested_filename}")
+    page.keyboard.press("Escape")
+
+    page.evaluate("window.civGame.execute('end-turn')")
+    if page.locator("#modal.open").count():
+        page.click("#modalChoices button >> nth=0")
+    check(state("s.view.date") != date, f"played on to {state('s.view.date')}")
+    page.keyboard.press("g")
+    page.click("#game button[data-load='save']")
+    smoke.wait(f"window.civGame.view.date === {json.dumps(date)} && !document.querySelector('#game.open')", "the loaded game")
+    check("Loaded" in page.inner_text("#log"), f"Load Saved game goes back to {date}")
+
+    page.goto(url)
+    smoke.visible("#start button[data-continue='save']", "Continue on the start screen")
+    check(page.locator("#start button[data-continue]").count() == 2, "the start screen offers the autosave and the saved game")
+    smoke.shot("16-continue")
+    page.click("#start button[data-continue='save']")
+    smoke.wait("window.civGame && window.civGame.view", "the continued game", LOAD_TIMEOUT)
+    check(state("s.view.date") == date, f"Continue loads the saved game ({date})")
+
+    page.evaluate("window.civGame.execute('end-turn')")
+    if page.locator("#modal.open").count():
+        page.click("#modalChoices button >> nth=0")
+    page.keyboard.press("g")
+    with page.expect_file_chooser() as chooser:
+        page.click("#game button[data-load-file]")
+    chooser.value.set_files(path)
+    smoke.wait(f"window.civGame.view.date === {json.dumps(date)}", "the game from the file")
+    check(True, "Load a save file loads the downloaded save")
     smoke.no_errors()
 
 
