@@ -125,6 +125,19 @@ FIND_ENCOUNTER = """(() => {
 })()"""
 
 
+def settle(page):
+    """After an end-turn: answer the dialogs, and let auto fight a battle an AI player started."""
+    while True:
+        if page.locator("#modal.open").count():
+            page.click("#modalChoices button >> nth=0")
+        elif page.evaluate("window.civGame.battle.open"):
+            print("an AI player attacked: auto")
+            page.click("#battle button[data-command='battle-auto']")
+            page.wait_for_function("!window.civGame.battle.open", timeout=60000)
+        else:
+            return
+
+
 def tile_point(page, x, y):
     """A battlefield tile's centre in page pixels."""
     return page.evaluate(f"""(() => {{
@@ -208,8 +221,7 @@ def battle(page, state, check, shot):
         if page.evaluate("window.civGame.view.you.mana") >= 30:
             break
         page.evaluate("window.civGame.execute('end-turn')")
-        while page.locator("#modal.open").count():
-            page.click("#modalChoices button >> nth=0")
+        settle(page)
 
     for _ in range(12):
         status = page.evaluate(f"""(() => {{
@@ -220,8 +232,7 @@ def battle(page, state, check, shot):
         if status.get("waiting") == "confirm-encounter":
             break
         page.evaluate("window.civGame.execute('end-turn')")
-        while page.locator("#modal.open").count():
-            page.click("#modalChoices button >> nth=0")
+        settle(page)
     page.wait_for_selector("#modal.open")
     page.click("#modalChoices button:has-text('Enter')")
     page.wait_for_selector("#battle.open")

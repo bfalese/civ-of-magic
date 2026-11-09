@@ -60,6 +60,11 @@ function describe(event) {
         case "vault": return `${body.artifact ? body.artifact.name : "An item"} went to your vault.`;
         case "hero-level-up": return `${body.hero.name} gained a level.`;
         case "banish": return `${body.defender.wizard} was banished by ${body.attacker.wizard}.`;
+        case "battle-started":
+            if (mine(body.defender) && !mine(body.attacker)) {
+                return `${body.attacker ? body.attacker.wizard : "Monsters"} attack you at ${body.location.x},${body.location.y}!`;
+            }
+            return null;
         case "battle-ended": {
             if (!mine(body.attacker) && !mine(body.defender)) return null;
             const youAttacked = mine(body.attacker);
