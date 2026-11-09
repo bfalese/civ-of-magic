@@ -766,7 +766,18 @@ export class BattleScreen {
                 if (tile.top) {
                     things.push({ depth: this.center(x, y)[1], order: 0, draw: () => this.drawTop(tile, x, y) });
                 }
+                // walls on the south/east side go in front of a unit on the tile, the others
+                // behind (as the original sorts them a tenth of a tile down or up)
+                if (tile.walls) {
+                    const depth = this.center(x, y + (tile["walls-in-front"] ? 0.1 : -0.1))[1];
+                    things.push({ depth, order: 0, draw: () => this.drawWalls(tile, x, y) });
+                }
             }
+        }
+        if (view.fortress) {
+            const [fx, fy] = view["fortress-tile"];
+            const fortress = { top: view.fortress, "top-align": "bottom" };
+            things.push({ depth: this.center(fx, fy)[1], order: 0, draw: () => this.drawTop(fortress, fx, fy) });
         }
         for (const unit of units) {
             const pose = this.pose(unit, now);
@@ -778,6 +789,17 @@ export class BattleScreen {
         }
         this.drawStepEffects(now);
         this.drawFloaters(now);
+    }
+
+    // city walls, walls of fire and darkness: placed like a top in the middle of the tile, moved by
+    // each piece's offset; fire and darkness loop their frames
+    drawWalls(tile, x, y) {
+        const [cx, cy] = this.center(x, y);
+        for (const wall of tile.walls) {
+            const [, height] = this.assets.size(wall.asset);
+            const frame = wall.animated ? this.frame : (wall.frame || 0);
+            this.assets.draw(this.context, wall.asset, Math.round(cx + wall.dx - height / 2), Math.round(cy + wall.dy - height / 2), frame);
+        }
     }
 
     drawTop(tile, x, y) {

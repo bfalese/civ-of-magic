@@ -285,9 +285,15 @@ func (exporter *Exporter) collectBattle() error {
         }
     }
 
-    // houses (2-6), lair/tower/ruins/keep/temples (19-23), nodes (65, 66)
-    for _, index := range []int{2, 3, 4, 5, 6, 19, 20, 21, 22, 23, 65, 66} {
+    // houses (2-6), the wizard's fortress (17), lair/tower/ruins/keep/temples (19-23), nodes (65, 66)
+    for _, index := range []int{2, 3, 4, 5, 6, 17, 19, 20, 21, 22, 23, 65, 66} {
         if err := exporter.addLbx(assets.BattleTop("cmbtcity.lbx", index), "cmbtcity.lbx", index, cropped); err != nil {
+            return err
+        }
+    }
+    // city walls (0-35: stone, dark, ivy), walls of fire (36-49) and darkness (50-63)
+    for index := 0; index < 64; index++ {
+        if err := exporter.addLbx(assets.BattleWall(index), "citywall.lbx", index, nil); err != nil {
             return err
         }
     }

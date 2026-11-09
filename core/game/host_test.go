@@ -10,6 +10,7 @@ import (
     "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/gamedata"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
 )
 
 func TestHostSettings(test *testing.T) {
@@ -247,6 +248,79 @@ func TestHostBattleScenario(test *testing.T) {
         }
         if err := host.Execute(&BattleAutoCommand{}); err != nil {
             test.Fatalf("auto: %v", err)
+        }
+    }
+}
+
+// the siege scenario: a human army next to an AI capital with walls, a wall of fire and darkness
+func TestHostSiegeScenario(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    for range 10 {
+        host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "siege"})
+        if err != nil {
+            test.Fatalf("setup: %v", err)
+        }
+        // the scenario's army: a stack of the human's next to an enemy city
+        var army *playerlib.UnitStack
+        var target *Location
+        for _, stack := range host.Human.Stacks {
+            for _, player := range host.Model.Players {
+                if player == host.Human {
+                    continue
+                }
+                for _, city := range player.Cities {
+                    // the map wraps east-west
+                    width := host.Model.GetMap(city.Plane).Width()
+                    dx := min(abs(city.X - stack.X()), width - abs(city.X - stack.X()))
+                    if city.Plane == stack.Plane() && max(dx, abs(city.Y - stack.Y())) <= 1 {
+                        army, target = stack, &Location{Plane: city.Plane, X: city.X, Y: city.Y}
+                    }
+                }
+            }
+        }
+        if army == nil {
+            test.Fatalf("no army of the human's next to an enemy city")
+        }
+
+        if err := host.Execute(&MoveStackCommand{From: Location{Plane: army.Plane(), X: army.X(), Y: army.Y()}, To: *target}); err != nil {
+            test.Fatalf("move: %v", err)
+        }
+        if host.WaitingFor() != WaitingBattle {
+            test.Fatalf("attacking the city should start a battle, waiting for %q", host.WaitingFor())
+        }
+        view := host.Session.Battle.View()
+        stone, animated := 0, 0
+        for _, row := range view.Tiles {
+            for _, tile := range row {
+                for _, wall := range tile.Walls {
+                    if wall.Animated {
+                        animated += 1
+                    } else {
+                        stone += 1
+                    }
+                }
+            }
+        }
+        if stone == 0 || animated == 0 || view.Fortress == "" {
+            test.Fatalf("walls %v, fire/darkness %v, fortress %q", stone, animated, view.Fortress)
+        }
+        if err := host.Execute(&BattleFleeCommand{}); err != nil {
+            test.Fatalf("flee: %v", err)
+        }
+        if host.WaitingFor() == WaitingBattle {
+            test.Fatalf("fleeing should end the battle")
         }
     }
 }

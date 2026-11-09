@@ -128,6 +128,12 @@ func BattleTop(lbxFile string, index int) string {
     return fmt.Sprintf("battle-top/%v/%v", strings.TrimSuffix(lbxFile, ".lbx"), index)
 }
 
+// a piece of city wall, wall of fire or wall of darkness: citywall.lbx at index (combat.WallPiece),
+// all frames (fire/darkness loop them; a wall is frame 0, or 1 destroyed), not cropped
+func BattleWall(index int) string {
+    return fmt.Sprintf("battle-wall/%v", index)
+}
+
 // the mud a tile turns into (Earth to Mud), animated
 const BattleMud = "battle-mud"
 

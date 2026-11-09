@@ -473,6 +473,22 @@ type BattleTileView struct {
     // how the top sits on the tile: "middle" (centred) or "bottom" (standing on the tile's centre)
     TopAlign string `json:"top-align,omitempty"`
     Mud bool `json:"mud,omitempty"`
+    // city wall, wall of fire and darkness pieces on the tile, in drawing order
+    Walls []BattleWallView `json:"walls,omitempty"`
+    // walls on the tile's south or east side stand in front of a unit on it (drawn after it),
+    // the others behind
+    WallsInFront bool `json:"walls-in-front,omitempty"`
+}
+
+// one wall image (core/combat WallPiece): its top left is the tile centre + (dx, dy) - (h/2, h/2),
+// h the image's height (as a tile top in the middle)
+type BattleWallView struct {
+    Asset string `json:"asset"`
+    DX int `json:"dx"`
+    DY int `json:"dy"`
+    // loop the frames (fire, darkness); otherwise show Frame
+    Animated bool `json:"animated,omitempty"`
+    Frame int `json:"frame,omitempty"`
 }
 
 // an enemy the selected unit can attack now
@@ -545,6 +561,9 @@ type BattleView struct {
     State string `json:"state"`
     // tiles[y][x]
     Tiles [][]BattleTileView `json:"tiles"`
+    // the wizard's fortress in a town that has one: a top (bottom aligned) on tile fortress-tile
+    Fortress string `json:"fortress,omitempty"`
+    FortressTile [2]int `json:"fortress-tile"`
     // a battle in a town: the road through it, and clouds under a flying fortress
     Road bool `json:"road,omitempty"`
     Clouds bool `json:"clouds,omitempty"`
@@ -591,12 +610,24 @@ func (session *BattleSession) View() BattleView {
                     tileView.TopAlign = "bottom"
                 }
             }
+            for _, piece := range tile.WallPieces(x, y) {
+                wall := BattleWallView{Asset: assets.BattleWall(piece.Index), DX: piece.DX, DY: piece.DY, Animated: piece.Animated}
+                if piece.Destroyed {
+                    wall.Frame = 1
+                }
+                tileView.Walls = append(tileView.Walls, wall)
+            }
+            tileView.WallsInFront = len(tileView.Walls) > 0 && (tile.HasEasternWall() || tile.HasSouthernWall())
             view.Tiles[y][x] = tileView
         }
     }
     if model.Zone.City != nil {
         view.Road = true
         view.Clouds = model.Zone.City.HasEnchantment(data.CityEnchantmentFlyingFortress)
+        if model.Zone.City.HasFortress() {
+            view.Fortress = assets.BattleTop("cmbtcity.lbx", 17)
+            view.FortressTile = [2]int{combat.TownCenterX, combat.TownCenterY}
+        }
     }
 
     view.Moves = [][2]int{}

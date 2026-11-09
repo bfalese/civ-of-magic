@@ -500,3 +500,54 @@ func TestSessionBattleSteps(test *testing.T) {
         test.Errorf("the drakes never got to attack")
     }
 }
+
+// a battle at a city with walls, a wall of fire and a fortress shows them on the field
+func TestSessionBattleWalls(test *testing.T) {
+    model, human, enemy := makeSessionTestModel()
+    infos := make(buildinglib.BuildingInfos, 40)
+    model.BuildingInfo = infos
+    city := citylib.MakeCity("Enemyville", 4, 3, data.RaceHighMen, infos, model.ArcanusMap, model, enemy)
+    city.Plane = data.PlaneArcanus
+    city.Population = 3000
+    city.Farmers = 3
+    city.ResetCitizens()
+    city.Buildings.Insert(buildinglib.BuildingCityWalls)
+    city.Buildings.Insert(buildinglib.BuildingFortress)
+    city.AddEnchantment(data.CityEnchantmentWallOfFire, enemy.GetBanner())
+    enemy.AddCity(city)
+    session := MakeCommandSession(model, human)
+
+    if err := session.Execute(&MoveStackCommand{From: Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, To: Location{Plane: data.PlaneArcanus, X: 4, Y: 3}}); err != nil {
+        test.Fatalf("move: %v", err)
+    }
+    if session.WaitingFor() != WaitingBattle {
+        test.Fatalf("expected a battle, waiting for %q", session.WaitingFor())
+    }
+
+    view := session.Battle.View()
+    stone, fire, front := 0, 0, 0
+    for _, row := range view.Tiles {
+        for _, tile := range row {
+            for _, wall := range tile.Walls {
+                if !strings.HasPrefix(wall.Asset, "battle-wall/") {
+                    test.Errorf("wall asset %q", wall.Asset)
+                }
+                if wall.Animated {
+                    fire += 1
+                } else {
+                    stone += 1
+                }
+            }
+            if tile.WallsInFront {
+                front += 1
+            }
+        }
+    }
+    if stone == 0 || fire == 0 || front == 0 {
+        test.Errorf("expected stone walls, fire and walls in front: %v stone, %v fire, %v tiles in front", stone, fire, front)
+    }
+    if view.Fortress == "" {
+        test.Errorf("the city's fortress should be on the field")
+    }
+    session.Execute(&BattleAutoCommand{})
+}
