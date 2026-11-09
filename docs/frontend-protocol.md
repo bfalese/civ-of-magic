@@ -64,6 +64,7 @@ command isn't legal (not your city, not enough gold, no path...).
 | `set-power-distribution` | `mana`, `research`, `skill` | shares of power, 0-1 each, adding up to 1 |
 | `alchemy` | `direction` (`mana-to-gold`, `gold-to-mana`), `amount` | convert at half rate (full rate with the Alchemy retort) |
 | `rename-city` | `city`, `name` | |
+| `cancel-enchantment` | `enchantment`, `city?` | cancel one of your enchantments: a global one (no `city`), or one you cast on a city (yours, or a curse on another's) |
 | `rename-hero` | `hero` (index 0-5), `name` | |
 | `move-item` | `from`, `to` (item slots) | swap two slots; 20 mana for each item that arrives at a hero somewhere else |
 | `destroy-item` | `item` (item slot) | destroy for mana (half its cost, full cost with Artificer) |
@@ -178,8 +179,9 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
 ## Views (model → frontend, on request)
 
 - **Player view** (`MakePlayerView`): `turn`, `date`, `current-player`, `you` (gold, mana, per-turn
-  income, fame, tax rate, casting skill, research and casting progress, known spells, global
-  enchantments; for the magic screen `power`, `power-distribution` {mana, research, skill},
+  income, fame, tax rate and `tax-rates` (what `set-tax-rate` takes: `{numerator, denominator,
+  label, unrest}`), casting skill, research and casting progress, known spells,
+  `global-enchantments` (`{name, upkeep, owner, yours}`); for the magic screen `power`, `power-distribution` {mana, research, skill},
   `research-per-turn`, `skill-per-turn`, `remaining-casting-skill` (left this turn),
   `casting-cost`, `research-candidates`, `alchemy-full-rate`, and `spells`: the overland spells
   `cast-spell` takes, `{name, magic, section, cost, target?, now, needs-design?}` (`target` uses
@@ -200,7 +202,7 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   type, asset, cost, value (mana from destroy-item), powers}`; the slots are what `move-item` and
   `destroy-item` name),
   `known-wizards`, `cities` (full detail: citizens, production, buy cost,
-  buildings, enchantments; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
+  buildings, `enchantments` `{name, upkeep, owner, yours}`; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
   `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, `active` (moves with the stack, see
   `set-unit-active`), `details` {melee, ranged, ranged-type?, defense, resistance, hit-points,

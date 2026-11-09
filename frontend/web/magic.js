@@ -28,7 +28,8 @@ function escape(text) {
 }
 
 export class MagicScreen {
-    constructor(root, assets, { onCommand, onPickTarget, onPickChoice }) {
+    constructor(root, assets, { onCommand, onPickTarget, onPickChoice, confirm }) {
+        this.confirm = confirm;
         this.root = root;
         this.assets = assets;
         this.onCommand = onCommand;
@@ -161,6 +162,9 @@ export class MagicScreen {
                         <div class="gap row"><span>mana</span><b>${you.mana}</b></div>
                         <div class="row"><span>casting skill</span><b>${you["remaining-casting-skill"]} of ${you["casting-skill"]} left this turn</b></div>
                         <div class="row"><span>casting</span><b>${casting}</b></div>
+                        <h3 class="gap">Global enchantments</h3>
+                        ${you["global-enchantments"].map((enchantment) => `<div class="enchantment"><span>${escape(enchantment.name)}</span>
+                            <span><span class="dim">${enchantment.upkeep} mana</span> <button class="small" data-cancel-global="${escape(enchantment.name)}">cancel</button></span></div>`).join("") || `<div class="dim">none</div>`}
                         <h3 class="gap">Alchemy</h3>
                         <div class="dim">${you["alchemy-full-rate"] ? "full rate (Alchemy retort)" : "half rate: 2 for 1"}</div>
                         <div class="row alchemy">
@@ -212,6 +216,16 @@ export class MagicScreen {
         }
 
         this.root.querySelector("[data-close]").onclick = () => this.hide();
+        for (const button of this.root.querySelectorAll("button[data-cancel-global]")) {
+            const name = button.dataset.cancelGlobal;
+            button.onclick = () => this.confirm(`Cancel your ${name}?`, () => {
+                const status = this.command("cancel-enchantment", { enchantment: name });
+                if (status && !status.error) {
+                    this.message = `${name} cancelled.`;
+                    this.render();
+                }
+            });
+        }
         for (const input of this.root.querySelectorAll("input[data-share]")) {
             input.onchange = () => this.setShare(input.dataset.share, Number(input.value) / 100);
         }
