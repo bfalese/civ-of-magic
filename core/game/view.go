@@ -57,6 +57,8 @@ type WizardView struct {
     AlchemyFullRate bool `json:"alchemy-full-rate,omitempty"`
     // the item designer's options, when the spellbook has Create Artifact or Enchant Item
     ItemDesign *ItemDesignView `json:"item-design,omitempty"`
+    // the vault, newly arrived items and the heroes' equipment
+    Items VaultView `json:"items"`
 }
 
 type PowerDistributionView struct {
@@ -131,6 +133,9 @@ type UnitView struct {
     Hero bool `json:"hero,omitempty"`
     // the overland sprite (core/assets)
     Asset string `json:"asset"`
+    // moves with the stack (set-unit-active); inactive units stay behind when it moves
+    Active bool `json:"active"`
+    Details UnitDetailsView `json:"details"`
 }
 
 type StackView struct {
@@ -251,6 +256,8 @@ func (model *GameModel) makeStackView(stack *playerlib.UnitStack) StackView {
             MovesLeft: unit.GetMovesLeft(true).ToFloat(),
             Hero: unit.IsHero(),
             Asset: unitAsset(unit),
+            Active: stack.IsActive(unit),
+            Details: makeUnitDetails(unit),
         })
     }
     for _, point := range stack.CurrentPath {
@@ -302,6 +309,7 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
         you.CastingCost = player.ComputeEffectiveSpellCost(player.CastingSpell, true)
     }
     you.AlchemyFullRate = player.Wizard.RetortEnabled(data.RetortAlchemy)
+    you.Items = model.makeVaultView(player)
     you.ResearchCandidates = []string{}
     for _, spell := range player.ResearchCandidateSpells.Spells {
         you.ResearchCandidates = append(you.ResearchCandidates, spell.Name)

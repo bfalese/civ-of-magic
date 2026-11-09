@@ -7,7 +7,9 @@ the capital, Fire Bolt known; see core/game/scenario.go), enters the lair, casts
 a unit, checks the replay and unit details, and lets auto finish the battle. Last, the siege
 scenario: attacks an AI capital with city walls, a wall of fire and darkness, checks they are
 on the field, and flees. Then the spellbook scenario: Spell Ward and Resurrection through the
-choice dialog, and a sword made with Create Artifact in the item designer.
+choice dialog, and a sword made with Create Artifact in the item designer. Last, the items
+scenario: equips a hero from the items screen, destroys an item, and splits, inspects and
+disbands units in the stack panel.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -108,6 +110,7 @@ def main():
             battle(smoke, url)
             siege(smoke, url)
             spellbook(smoke, url)
+            items(smoke, url)
         finally:
             browser.close()
 
@@ -435,6 +438,63 @@ def spellbook(smoke, url):
     while page.locator("#modal.open").count():
         page.click("#modalChoices button >> nth=-1")
     page.keyboard.press("Escape")
+
+
+def items(smoke, url):
+    """The items scenario: a hero at the fortress, a sword in the vault, a shield just arrived."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=items")
+    page.keyboard.press("i")
+    smoke.visible("#vault.open", "the items screen")
+    you = state("s.view.you.items")
+    hero = you["heroes"][0]
+    check(len(you["new"]) == 1 and page.locator("#vault .item-slot").count() == 1 + 4 + len(hero["slots"]),
+          f"I opens the items screen: 1 new item, 4 vault slots, {hero['name']} with {len(hero['slots'])} slots")
+
+    def slot_for(kind):
+        return next(index for index, slot in enumerate(hero["slots"]) if kind in slot["takes"])
+
+    def click(slot):
+        page.click(f"#vault .item-slot[data-slot='{json.dumps(slot, separators=(',', ':'))}']")
+
+    armor, weapon = slot_for("Shield"), slot_for("Sword")
+    click({"new": 0})
+    check(page.locator("#vault .item-slot.unfit").count() > 0, "holding the shield greys the slots it doesn't fit")
+    smoke.shot("11-items")
+    click({"hero": hero["index"], "slot": armor})
+    click({"vault": 0})
+    click({"hero": hero["index"], "slot": weapon})
+    you = state("s.view.you.items")
+    slots = you["heroes"][0]["slots"]
+    check(not you["new"] and you["vault"][0] is None and slots[armor]["item"] and slots[weapon]["item"],
+          f"{hero['name']} now carries {slots[armor]['item']['name']} and {slots[weapon]['item']['name']}")
+    mana = state("s.view.you.mana")
+    value = slots[weapon]["item"]["value"]
+    click({"hero": hero["index"], "slot": weapon})
+    page.click("#vault button[data-destroy]")
+    check(state("s.view.you.mana") == mana + value and not state("s.view.you.items.heroes[0].slots")[weapon]["item"], f"destroyed the sword for {value} mana")
+    page.keyboard.press("Escape")
+    check(not state("s.vault.open"), "Esc closes the items screen")
+
+    # the stack panel: the fortress stack holds the hero and the garrison
+    page.mouse.click(600, 400)
+    smoke.visible("#city.open", "the city screen")
+    page.click("#selectGarrison")
+    smoke.visible("#side input[data-active]", "the stack panel")
+    page.click(f"#side button[data-details='{hero['unit']}']")
+    smoke.visible("#side .unit-details", "the unit details")
+    check("defense" in page.inner_text("#side .unit-details"), f"i shows {hero['name']}'s details")
+    page.uncheck(f"#side input[data-active='{hero['unit']}']")
+    active = state(f"s.view.stacks.flatMap(stack => stack.units).find(unit => unit.id === {hero['unit']}).active")
+    check(active is False, f"unchecking {hero['name']} leaves the hero behind when the stack moves")
+    smoke.shot("12-stack-panel")
+    other = state(f"s.view.stacks.flatMap(stack => stack.units).find(unit => unit.id !== {hero['unit']}).id")
+    page.click(f"#side button[data-disband='{other}']")
+    smoke.visible("#modal.open", "the disband question")
+    page.click("#modalChoices button:has-text('Disband')")
+    gone = state(f"!s.view.stacks.flatMap(stack => stack.units).some(unit => unit.id === {other})")
+    check(gone, "disbanded a unit of the garrison")
+    smoke.no_errors()
 
 
 if __name__ == "__main__":

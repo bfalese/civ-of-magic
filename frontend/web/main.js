@@ -6,6 +6,7 @@ import { loadAssets } from "./assets.js";
 import { MapRenderer } from "./map.js";
 import { BattleScreen } from "./battle.js";
 import { MagicScreen } from "./magic.js";
+import { VaultScreen } from "./vault.js";
 
 const element = (id) => document.getElementById(id);
 
@@ -25,6 +26,9 @@ const state = {
     cityOpen: null,
     battle: null,
     magic: null,
+    vault: null,
+    // the unit whose details the stack panel shows
+    detailUnit: null,
     lastDate: null,
 };
 
@@ -60,7 +64,7 @@ function describe(event) {
         case "new-building": return `${body.city.name} built ${body.building}.`;
         case "new-outpost": return `New outpost: ${body.city.name}.`;
         case "treasure": return `Treasure: ${body.items.map((item) => item.text).join(", ")}.`;
-        case "vault": return `${body.artifact ? body.artifact.name : "An item"} went to your vault.`;
+        case "vault": return `${body.artifact ? body.artifact.name : "An item"} went to your vault: place it in Items (I).`;
         case "hero-level-up": return `${body.hero.name} gained a level.`;
         case "banish": return `${body.defender.wizard} was banished by ${body.attacker.wizard}.`;
         case "battle-started":
@@ -294,7 +298,16 @@ function pickSpellTarget(spell) {
 function openMagic() {
     if (state.view && !state.battle.open) {
         closeCity();
+        state.vault.hide();
         state.magic.show(state.view);
+    }
+}
+
+function openVault() {
+    if (state.view && !state.battle.open) {
+        closeCity();
+        state.magic.hide();
+        state.vault.show(state.view);
     }
 }
 
@@ -313,6 +326,9 @@ function refresh() {
     updateSide();
     if (state.magic) {
         state.magic.update(state.view);
+    }
+    if (state.vault) {
+        state.vault.update(state.view);
     }
     if (state.cityOpen) {
         renderCityScreen();
@@ -359,14 +375,54 @@ function updateSide(extra) {
     if (stack) {
         add(`<h3>Stack at ${stack.location.x},${stack.location.y}</h3>`);
         for (const unit of stack.units) {
-            add(`<div class="unit"><span>${escape(unit.name)}</span><span class="dim">${unit["moves-left"]} mv · ${unit.health}/${unit["max-health"]}</span></div>`);
+            add(`<div class="unit${unit.active ? "" : " inactive"}">
+                <label title="moves with the stack (unchecked: stays behind)"><input type="checkbox" data-active="${unit.id}"${unit.active ? " checked" : ""}> ${escape(unit.name)}</label>
+                <span class="dim">${unit["moves-left"]} mv · ${unit.health}/${unit["max-health"]}
+                    <button class="tiny" data-details="${unit.id}" title="details">i</button><button class="tiny" data-disband="${unit.id}" title="disband">✕</button></span>
+            </div>`);
+            if (state.detailUnit === unit.id) {
+                add(unitDetails(unit, escape));
+            }
         }
-        add(`<div class="dim" style="margin-top:4px">click a tile to move</div>`);
+        add(`<div class="dim" style="margin-top:4px">click a tile to move the checked units</div>`);
+        for (const box of side.querySelectorAll("input[data-active]")) {
+            box.onchange = () => execute("set-unit-active", { unit: Number(box.dataset.active), active: box.checked });
+        }
+        for (const button of side.querySelectorAll("button[data-details]")) {
+            button.onclick = () => {
+                const id = Number(button.dataset.details);
+                state.detailUnit = state.detailUnit === id ? null : id;
+                updateSide();
+            };
+        }
+        for (const button of side.querySelectorAll("button[data-disband]")) {
+            button.onclick = () => {
+                const unit = stack.units.find((unit) => unit.id === Number(button.dataset.disband));
+                ask(`Disband ${unit.name}?`, [
+                    ["Disband", () => { if (!execute("disband-unit", { unit: unit.id }).error) log(`${unit.name} disbanded.`); }],
+                    ["Keep", () => {}],
+                ]);
+            };
+        }
     }
 
     if (extra) {
         add(extra);
     }
+}
+
+function unitDetails(unit, escape) {
+    const details = unit.details;
+    const ranged = details.ranged > 0 ? ` · ranged ${details.ranged}${details["ranged-type"] ? ` (${escape(details["ranged-type"])})` : ""}` : "";
+    const upkeep = [["gold", details["upkeep-gold"]], ["food", details["upkeep-food"]], ["mana", details["upkeep-mana"]]]
+        .filter(([, amount]) => amount).map(([name, amount]) => `${amount} ${name}`).join(", ");
+    return `<div class="unit-details">
+        ${details.level ? `<div>${escape(details.level)}</div>` : ""}
+        <div>melee ${details.melee}${ranged} · defense ${details.defense} · resistance ${details.resistance}</div>
+        <div>${details.figures} × ${details["hit-points"]} hp · ${details.moves} moves${upkeep ? ` · upkeep ${upkeep}` : ""}</div>
+        ${details.abilities.length ? `<div class="dim">${details.abilities.map(escape).join(", ")}</div>` : ""}
+        ${details.enchantments.length ? `<div class="enchanted">${details.enchantments.map(escape).join(", ")}</div>` : ""}
+    </div>`;
 }
 
 // ---- the city screen: production, buying, farmers, selling, the garrison
@@ -559,6 +615,7 @@ function bindControls() {
     element("endTurn").onclick = endTurn;
     element("nextUnit").onclick = nextUnit;
     element("magicButton").onclick = openMagic;
+    element("itemsButton").onclick = openVault;
     element("plane").onclick = () => {
         state.plane = state.plane === "Arcanus" ? "Myrror" : "Arcanus";
         refresh();
@@ -575,11 +632,16 @@ function bindControls() {
             if (event.key === "Escape" || event.key === "m" || event.key === "M") state.magic.hide();
             return;
         }
+        if (state.vault.open) {
+            if (event.key === "Escape" || event.key === "i" || event.key === "I") state.vault.hide();
+            return;
+        }
         if (state.cityOpen) {
             if (event.key === "Escape") closeCity();
             return;
         }
         if (event.key === "m" || event.key === "M") openMagic();
+        if (event.key === "i" || event.key === "I") openVault();
         if (event.key === "Enter") endTurn();
         if (event.key === "n" || event.key === "N") nextUnit();
         if (event.key === "Escape") {
@@ -623,6 +685,9 @@ async function main() {
             onCommand: (type, command) => execute(type, command),
             onPickTarget: pickSpellTarget,
             onPickChoice: (spell) => pickSpellChoice(spell.name, "cast-spell"),
+        });
+        state.vault = new VaultScreen(element("vault"), assets, {
+            onCommand: (type, command) => execute(type, command),
         });
         state.battle = new BattleScreen(element("battle"), assets, {
             onCommand: (type, command) => execute(type, command),
