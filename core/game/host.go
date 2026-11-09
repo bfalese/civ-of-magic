@@ -18,8 +18,9 @@ import (
 // the human's turn waits for commands; end-turn plays the AI wizards' turns until it's the human's
 // turn again.
 //
-// Events for the frontend collect in an outbox (TakeEvents). They are all the model's events,
-// including the AI players' (offers to them, their battles); the frontend shows what concerns it.
+// Events for the frontend collect in an outbox (TakeEvents): the model's events that concern the
+// human (concernsHuman). The AI players' own events (their offers, research, battles among
+// themselves) are acted on here and not passed on.
 //
 // The other players' turns run inside the session's coroutine (end-turn is a command like any
 // other), so a battle an AI player starts against the human pauses them: WaitingFor says
@@ -214,7 +215,7 @@ func (host *GameHost) WaitingFor() string {
     return host.Session.WaitingFor()
 }
 
-// the events since the last call, as JSON (see EncodeEvent)
+// the events since the last call that concern the human, as JSON (see EncodeEvent)
 func (host *GameHost) TakeEvents() [][]byte {
     out := host.outbox
     host.outbox = nil
@@ -315,13 +316,52 @@ func (host *GameHost) startPlayerTurn(player *playerlib.Player) {
     host.Model.AnnounceVisibleWizards()
 }
 
-// every model event goes to the outbox; the AI players and the session act on theirs
+// whether the frontend should see the event: those naming a player only when it's the human (a
+// battle when the human fights in it, a random event when it hits the human or one of their
+// cities); events without a player (notices, scrolls, refresh, a banishment) always
+func (host *GameHost) concernsHuman(event GameEvent) bool {
+    human := host.Human
+    switch event := event.(type) {
+        case *GameEventVault: return event.Player == human
+        case *GameEventDiplomacy: return event.Player == human
+        case *GameEventHireMercenaries: return event.Player == human
+        case *GameEventMerchant: return event.Player == human
+        case *GameEventHireHero: return event.Player == human
+        case *GameEventLearnedSpell: return event.Player == human
+        case *GameEventTradeOffer: return event.Player == human
+        case *GameEventResearchSpell: return event.Player == human
+        case *GameEventNewBuilding: return event.Player == human
+        case *GameEventNewOutpost: return event.Player == human
+        case *GameEventTreasure: return event.Player == human
+        case *GameEventChooseEncounter: return event.Player == human
+        case *GameEventChooseRaze: return event.Player == human
+        case *GameEventChooseSpellTarget: return event.Player == human
+        case *GameEventBattle: return event.Attacker == human || event.Defender == human
+        case *GameEventShowRandomEvent:
+            if event.Event == nil {
+                return true
+            }
+            if target := event.Event.TargetPlayer; target != nil {
+                return target == human
+            }
+            if city := event.Event.TargetCity; city != nil {
+                return city.GetBanner() == human.GetBanner()
+            }
+            return true
+    }
+    return true
+}
+
+// the model's events that concern the human go to the outbox; the AI players and the session act
+// on every event
 func (host *GameHost) drainEvents() {
     for {
         select {
             case event := <-host.Model.Events:
                 encoded, ok, err := host.Model.EncodeEvent(event)
-                if err != nil {
+                if !host.concernsHuman(event) {
+                    // the AI side still acts on it below
+                } else if err != nil {
                     host.EventErrors = append(host.EventErrors, fmt.Errorf("%T: %v", event, err))
                 } else if !ok {
                     host.EventErrors = append(host.EventErrors, fmt.Errorf("%T has no JSON form", event))

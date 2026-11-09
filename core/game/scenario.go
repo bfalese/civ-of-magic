@@ -192,7 +192,8 @@ func scenarioOrders(host *GameHost) error {
     other := model.GetMap(plane.Opposite())
     tower := image.Point{}
     found := false
-    for distance := 1; distance <= 12 && !found; distance++ {
+    // nearest first; on some maps the nearest such tile is far from the capital
+    for distance := 1; distance <= mapUse.Width() && !found; distance++ {
         for dy := -distance; dy <= distance && !found; dy++ {
             for dx := -distance; dx <= distance && !found; dx++ {
                 x, y := mapUse.WrapX(capital.X + dx), capital.Y + dy
@@ -218,7 +219,7 @@ func scenarioOrders(host *GameHost) error {
     // settlers on the nearest tile where an outpost can go
     settlers := image.Point{}
     found = false
-    for distance := 4; distance <= 8 && !found; distance++ {
+    for distance := 4; distance <= mapUse.Width() / 2 && !found; distance++ {
         for dy := -distance; dy <= distance && !found; dy++ {
             for dx := -distance; dx <= distance && !found; dx++ {
                 x, y := mapUse.WrapX(capital.X + dx), capital.Y + dy

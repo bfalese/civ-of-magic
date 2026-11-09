@@ -64,7 +64,15 @@ export function chooseStart(root, options, assets, saves = []) {
                         ${saves.map((save) => `<button data-continue="${escape(save.slot)}"><b>Continue</b> <span class="dim">${escape(slotNames[save.slot])}: ${escape(describeSave(save))}</span></button>`).join("")}
                         <button data-load-file>Load a save file…</button>
                     </div>
-                    <h2>New game</h2>
+                    <div class="start-head">
+                        <span class="start-portrait"></span>
+                        <div>
+                            <h2>New game</h2>
+                            <div><b>${escape(wizard.name)}</b></div>
+                            <div>${Object.entries(wizard.books).map(([realm, count]) => `<span style="color: ${realmColors[realm] || ""}">${count} ${escape(realm)}</span>`).join(" ")}</div>
+                            <div class="dim">${escape(wizard.retort || "")}</div>
+                        </div>
+                    </div>
                     <h3>Wizard</h3>
                     <div class="start-wizards">${options.wizards.map((candidate) => `
                         <button class="start-wizard${candidate.name === choice.wizard ? " chosen" : ""}" data-wizard="${escape(candidate.name)}">
@@ -92,6 +100,8 @@ export function chooseStart(root, options, assets, saves = []) {
                     <div class="row"><span class="dim">${wizard.myrran ? "Myrran retort: a Myrror race starts on Myrror" : ""}</span><button data-start>Start</button></div>
                 </div>`;
 
+            const portrait = assets.picture(wizard.portrait, 1);
+            if (portrait) root.querySelector(".start-portrait").appendChild(portrait);
             const finish = (result) => {
                 root.innerHTML = "";
                 root.hidden = true;

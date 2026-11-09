@@ -341,9 +341,16 @@ type EndTurnCommand struct {
 
 func (command *EndTurnCommand) CommandType() string { return "end-turn" }
 
+// the turn can't end while items that arrived at the vault wait to be placed or destroyed (the
+// original game makes you deal with them before going on)
+var ErrNewItemsWaiting = errors.New("place or destroy the new items in your vault first")
+
 func (command *EndTurnCommand) Execute(context *CommandContext) error {
     if context.EndTurn == nil {
         return errors.New("the frontend doesn't end turns through commands")
+    }
+    if len(context.Model.PendingItems[context.Player]) > 0 {
+        return ErrNewItemsWaiting
     }
     context.EndTurn()
     return nil

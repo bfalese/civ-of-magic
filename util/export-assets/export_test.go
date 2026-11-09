@@ -7,6 +7,7 @@ import (
     "path/filepath"
     "testing"
 
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/assets"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/maplib"
@@ -124,6 +125,10 @@ func TestExport(test *testing.T) {
     check(assets.SpellEffect("Summoning Circle"))
     check(assets.FogEdge(13))
     check(assets.Item(115))
+    check(assets.WizardPortrait(data.WizardMerlin))
+    check(assets.WizardPortrait(data.WizardKali))
+    check(assets.ItemSlot(artifact.ArtifactSlotMeleeWeapon.Name()))
+    check(assets.ItemSlot(artifact.ArtifactSlotJewelry.Name()))
 
     animated := 0
     for index := 0; ; index++ {

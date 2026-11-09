@@ -149,7 +149,7 @@ export class MagicScreen {
 
         this.root.innerHTML = `
             <div class="panel">
-                <div class="row"><h3>Magic</h3><button class="small" data-close>Close</button></div>
+                <div class="row"><span class="magic-title"><span class="portrait"></span><h3>Magic</h3></span><button class="small" data-close>Close</button></div>
                 <div class="columns">
                     <div>
                         <div class="row"><span>power</span><b>${you.power} per turn</b></div>
@@ -215,6 +215,8 @@ export class MagicScreen {
             book.appendChild(list);
         }
 
+        const portrait = this.assets.picture(you.mirror.portrait, 0.5);
+        if (portrait) this.root.querySelector(".magic-title .portrait").appendChild(portrait);
         this.root.querySelector("[data-close]").onclick = () => this.hide();
         for (const button of this.root.querySelectorAll("button[data-cancel-global]")) {
             const name = button.dataset.cancelGlobal;

@@ -75,7 +75,7 @@ func (model *GameModel) MoveSelectedStack(handlers PlayerMovementHandler, player
             for _, unit := range stack.ActiveUnits() {
                 if !city.CanEnter(unit) {
                     stopMoving = true
-                    model.Events <- &GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, city.Name)}
+                    model.noticeFor(player, fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, city.Name))
                     break quitMoving
                 }
             }
@@ -280,7 +280,7 @@ func (model *GameModel) OrderStackMove(player *playerlib.Player, stack *playerli
         // the other city might be protected by spell ward
         for _, unit := range stack.ActiveUnits() {
             if !newCity.CanEnter(unit) {
-                model.Events <- &GameEventNotice{Message: fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, newCity.Name)}
+                model.noticeFor(player, fmt.Sprintf("%v can not enter the city of %v", unit.GetRawUnit().Name, newCity.Name))
                 return nil, nil
             }
         }
@@ -312,4 +312,15 @@ func (model *GameModel) OrderStackMove(player *playerlib.Player, stack *playerli
     stack.CurrentPath = path
     stack.SetBuildRoadPath(nil)
     return stack, nil
+}
+
+// a notice for the human player (the AI players' moves raise none)
+func (model *GameModel) noticeFor(player *playerlib.Player, message string) {
+    if !player.IsHuman() {
+        return
+    }
+    select {
+        case model.Events <- &GameEventNotice{Message: message}:
+        default:
+    }
 }

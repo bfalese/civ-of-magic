@@ -53,7 +53,7 @@ command isn't legal (not your city, not enough gold, no path...).
 | `sell-building` | `city`, `building` | one sale per city per turn |
 | `build-action` | `stack` | settle an outpost / meld a node / purify: the stack view's `build` says which |
 | `build-road` | `stack`, `to` | engineers build a road over the next turns (`civ.roadPath` shows the path first) |
-| `end-turn` | | the frontend's turn loop moves on (with `GameHost`: the AI turns; may wait for a battle an AI starts against you) |
+| `end-turn` | | the frontend's turn loop moves on (with `GameHost`: the AI turns; may wait for a battle an AI starts against you); refused while new items wait in the vault (place or destroy them first, as the original makes you) |
 | `cast-spell` | `spell`, `target?` | cast now if mana and casting skill allow (spells that need a target must then come with one), otherwise start casting it over the next turns |
 | `cast-spell-target` | `target` | the target for a finished spell announced by `choose-spell-target` |
 | `answer-offer` | `accept` | accept or decline the open `hire-hero` / `hire-mercenaries` / `merchant` offer (a bought item then comes as a `vault` event) |
@@ -205,11 +205,11 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   `enchant-item-limit`. An item costs `(base-cost + powers × power-factor + charges × charge-cost)
   × cost-factor`, rounded down), and `items`: the vault and the heroes' equipment, `{vault: [4 ×
   item or null], new: [items waiting to be placed], heroes: [{index, unit, name, title, level,
-  location, asset, slots: [{kind, takes, item}]}], teleport-cost, fortress}` with items `{name,
+  location, asset, slots: [{kind, takes, item, asset (the empty slot's picture)}]}], teleport-cost, fortress}` with items `{name,
   type, asset, cost, value (mana from destroy-item), powers}`; the slots are what `move-item` and
   `destroy-item` name),
-  `mirror` (your books `{realm: count}`, `retorts`, `fame`, `heroes`, `casting-skill`),
-  `known-wizards`, `diplomacy` (per known wizard: `{wizard, mirror (books, retorts, fame, heroes), treaty (none/pact/alliance/war),
+  `mirror` (your `portrait`, books `{realm: count}`, `retorts`, `fame`, `heroes`, `casting-skill`),
+  `known-wizards`, `diplomacy` (per known wizard: `{wizard, mirror (portrait, books, retorts, fame, heroes), treaty (none/pact/alliance/war),
   relation (-100..100, how they feel about you), mood, peace-turns?, banished?, tribute-gold (what
   a gold tribute gives now), spells (yours they lack: for offer-tribute and trade-spells),
   can-teach, trade-offer? {give, receive}, global-enchantments, fame, cities}`), `cities` (full detail: citizens, production, buy cost,
@@ -247,7 +247,8 @@ go run ./util/export-assets -data "/path/to/Master of Magic" -out ~/.local/share
 (animated terrain has 4). IDs: `terrain/<tile index>`, `unit/<race>/<unit>/<banner>`,
 `unit-background/<banner>`, `city/<hamlet|village|town|city|capital>/<open|walled>/<banner>`,
 `road/<center|n|ne|...>`, `road-enchanted/...`, `bonus/<name>`, `encounter/<name>`,
-`encounter/open-tower`, `corruption`, `node-zone/<banner>`; battles: `battle-tile/<lbx>/<index>`,
+`encounter/open-tower`, `corruption`, `node-zone/<banner>`, `wizard-portrait/<data.WizardBase>`,
+`item-slot/<melee-weapon|ranged-weapon|magic-weapon|any-weapon|armor|jewelry>`; battles: `battle-tile/<lbx>/<index>`,
 `battle-top/<lbx>/<index>` (cropped), `battle-mud`, `battle-road`, `battle-clouds`,
 `battle-unit/<race>/<unit>/<facing>` (facing `up`, `up-right`, ..., all frames). Battle units are
 banner-neutral: pixels in the manifest's `bannerMarker` colours (4) are replaced with
@@ -267,7 +268,9 @@ go run ./util/headless-game -years 50 -view        # a wizard's view at the end
 human who plays through commands, and owns the turn loop. `host.Execute` / `ExecuteJSON` runs a
 command through the player's `CommandSession`; an `end-turn` plays the AI wizards' turns and
 returns at the start of the human's next turn. `host.TakeEvents()` returns the events since the
-last call (all of the model's events, including the AI players': show the ones that concern you).
+last call that concern the human: an event naming a player only when it's the human, a battle the
+human fights in, a random event on the human or one of their cities, and the events without a
+player (notices, scrolls, refresh, banishments). The AI players' own events are handled inside.
 Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `"won"` or `"lost"`.
 
 Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (default true),
@@ -300,7 +303,7 @@ next turn has started. Until then only battle commands are accepted.
 | `civ.tileInfo(locationJSON)` | what the surveyor tells about an explored tile (`TileInfoView`, below), or `{"error"}` (unexplored) |
 | `civ.roadPath(queryJSON)` | the road `build-road` would make: `{stack, to}` (locations) → a list of locations from the stack's tile, or `{"error"}` |
 | `civ.setLogging(bool)` | the Go log on the console (off by default) |
-| `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
+| `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?, portrait}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
 
 Saves (`core/game/hostsave.go`): `{version, game, human, pending-spell?, pending-items?}`. `game`
 is the model as the desktop saves it (`SerializeModel`); `human` the human's banner; a finished

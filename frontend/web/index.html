@@ -80,6 +80,14 @@
     #diplomacy button.small { padding: 0 6px; }
     #diplomacy .wizard { border-top: 1px solid var(--border); padding: 6px 0; margin-top: 6px; }
     #diplomacy .wizard.you { border-top: none; margin-top: 0; }
+    #diplomacy .wizard.with-portrait { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; }
+    #diplomacy .wizard.with-portrait > .portrait { grid-row: 1 / span 9; align-self: start; }
+    #diplomacy .wizard.with-portrait > :not(.portrait) { grid-column: 2; }
+    #magic .magic-title { display: flex; align-items: center; gap: 8px; }
+    #start .start-head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 6px; }
+    #start .start-portrait { line-height: 0; }
+    #start .start-portrait:empty { display: none; }
+    #start .start-portrait canvas { border: 1px solid var(--border); }
     #diplomacy .mirror { margin: 2px 0; }
     #diplomacy .mood { display: grid; grid-template-columns: 6em 1fr; align-items: center; gap: 8px; margin: 3px 0; }
     #diplomacy .meter { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #a83a2a, #6a6050 50%, #4f9a3e); }

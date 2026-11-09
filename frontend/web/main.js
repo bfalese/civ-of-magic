@@ -977,8 +977,16 @@ function endTurn() {
     if (state.roadPick) {
         endRoadPick();
     }
-    state.selectedUnit = null;
-    execute("end-turn");
+    const status = execute("end-turn");
+    // new items in the vault must be placed or destroyed first: show them
+    if (status.error && state.view.you.items.new.length > 0) {
+        openVault();
+        return;
+    }
+    if (!status.error) {
+        state.selectedUnit = null;
+        refresh();
+    }
 }
 
 function bindControls() {

@@ -56,3 +56,23 @@ func TestArtifactManaValue(test *testing.T) {
         test.Errorf("artificers get the full cost, got %v", player.ArtifactManaValue(item))
     }
 }
+
+// an offer answered outside AnswerOffer (the desktop's screens, an AI's decision) is closed; a
+// newer offer to the same player stays open
+func TestCloseOffer(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    first := &GameEventMerchant{Player: player, Cost: 10}
+    model.SendOffer(first)
+    model.CloseOffer(first)
+    if err := model.AnswerOffer(player, false); err == nil {
+        test.Errorf("a closed offer can't be answered")
+    }
+
+    second := &GameEventMerchant{Player: player, Cost: 20}
+    model.SendOffer(first)
+    model.SendOffer(second)
+    model.CloseOffer(first)
+    if open, ok := model.PendingOffers[player]; !ok || open != second {
+        test.Errorf("closing a replaced offer shouldn't close the newer one")
+    }
+}

@@ -5,6 +5,7 @@ import (
     "math/rand/v2"
     "slices"
 
+    "github.com/bfalese/civ-of-magic/core/assets"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/setup"
     "github.com/bfalese/civ-of-magic/core/spellbook"
@@ -32,6 +33,8 @@ type StartWizard struct {
     Retort string `json:"retort,omitempty"`
     // can start on Myrror with a Myrran race
     Myrran bool `json:"myrran,omitempty"`
+    // the portrait's asset id
+    Portrait string `json:"portrait"`
 }
 
 type StartRace struct {
@@ -53,7 +56,7 @@ func MakeStartOptions() StartOptions {
         if slot.Name == "Custom" {
             continue
         }
-        wizard := StartWizard{Name: slot.Name, Books: map[string]int{}, Myrran: slot.ExtraRetort == data.RetortMyrran}
+        wizard := StartWizard{Name: slot.Name, Books: map[string]int{}, Myrran: slot.ExtraRetort == data.RetortMyrran, Portrait: assets.WizardPortrait(slot.Base)}
         for _, book := range slot.Books {
             wizard.Books[book.Magic.String()] += book.Count
         }
