@@ -306,7 +306,8 @@ next turn has started. Until then only battle commands are accepted.
 | `civ.tileInfo(locationJSON)` | what the surveyor tells about an explored tile (`TileInfoView`, below), or `{"error"}` (unexplored) |
 | `civ.roadPath(queryJSON)` | the road `build-road` would make: `{stack, to}` (locations) → a list of locations from the stack's tile, or `{"error"}` |
 | `civ.setLogging(bool)` | the Go log on the console (off by default) |
-| `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?, portrait}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
+| `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?, portrait}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents, custom: {picks, realms, retorts: [{name, picks, requires?}], portraits: [{portrait, asset}]}}` |
+| `civ.checkWizard(customJSON)` | the custom wizard builder's choices so far: `{picks-left, error?, retorts: {name: why it can't be taken now, or ""}, ready}` |
 
 Saves (`core/game/hostsave.go`): `{version, game, human, pending-spell?, pending-items?}`. `game`
 is the model as the desktop saves it (`SerializeModel`); `human` the human's banner; a finished
@@ -317,8 +318,10 @@ researched). Open offers and trades are not kept. The web page gzips saves into 
 downloads / loads them as files; `?load=autosave` or `?load=save` continues one.
 
 Settings for `newGame`: `opponents` (1-4), `difficulty`, `magic` (weak/normal/powerful),
-`landSize` (0-2), `raiders`, `wizardName`, and a premade `wizard` by name with `race` and
-`banner` (each random when left out; a Myrror race only for a wizard with the Myrran retort, who
+`landSize` (0-2), `raiders`, `wizardName`, and a premade `wizard` by name, or a `custom` wizard
+`{name, portrait (0-13), books: {realm: count}, retorts: [names]}` (books and retorts use exactly
+`custom.picks` picks, not both Life and Death, retorts whose book requirements are met; the
+starting spells are picked at random), with `race` and `banner` (each random when left out; a Myrror race only for a wizard with the Myrran retort, who
 then starts on Myrror); `scenario` for tests.
 
 Status is `{"error"?, "waiting", "gameOver"?}`. Every function returns a JSON string. The page
