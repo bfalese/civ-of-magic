@@ -4,6 +4,7 @@ import (
     "cmp"
     "slices"
 
+    "github.com/bfalese/civ-of-magic/core/assets"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
 )
 
@@ -44,6 +45,8 @@ type TradeOfferView struct {
 // what the wizard's mirror shows (the desktop's mirror screen): spellbooks by realm, retorts,
 // fame and heroes; for your own wizard also the casting skill
 type MirrorView struct {
+    // the wizard's portrait (asset id)
+    Portrait string `json:"portrait"`
     Books map[string]int `json:"books"`
     Retorts []string `json:"retorts"`
     Fame int `json:"fame"`
@@ -53,6 +56,7 @@ type MirrorView struct {
 
 func makeMirrorView(player *playerlib.Player) MirrorView {
     view := MirrorView{
+        Portrait: assets.WizardPortrait(player.Wizard.Base),
         Books: map[string]int{},
         Retorts: []string{},
         Fame: player.GetFame(),

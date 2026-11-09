@@ -2026,6 +2026,8 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                                 player.AIBehavior.HandleHireHero(player, hire.Hero, 0, true, data.PlanePoint{})
                             }
                         }
+                        // answered by the screen or the AI: no longer open for commands
+                        game.Model.CloseOffer(hire)
                     case *gamecore.GameEventHireMercenaries:
                         hire := event.(*gamecore.GameEventHireMercenaries)
                         player := hire.Player
@@ -2036,6 +2038,7 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                                 player.AIBehavior.HandleHireMercenaries(player, hire.Units, hire.Cost)
                             }
                         }
+                        game.Model.CloseOffer(hire)
                     case *GameEventPauseWatchMode:
                         game.WatchModePaused = !game.WatchModePaused
                         if game.WatchModePaused {
@@ -2049,6 +2052,7 @@ func (game *Game) ProcessEvents(yield coroutine.YieldFunc) {
                         } else {
                             merchant.Player.AIBehavior.HandleMerchantItem(merchant.Player, merchant.Artifact, merchant.Cost)
                         }
+                        game.Model.CloseOffer(merchant)
                     case *GameEventRunUI:
                         runUI := event.(*GameEventRunUI)
                         if runUI.Song != musiclib.SongNone {

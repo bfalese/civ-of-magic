@@ -27,6 +27,7 @@ import (
     "slices"
     "sort"
 
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/assets"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/maplib"
@@ -268,6 +269,19 @@ func (exporter *Exporter) collect() (int, int, error) {
     // item pictures for the item designer and hero equipment (artifact.Artifact.Image)
     for index := 0; index <= 115; index++ {
         if err := exporter.addLbx(assets.Item(index), "items.lbx", index, nil); err != nil {
+            return 0, 0, err
+        }
+    }
+
+    // the premade wizards' portraits (start, wizards and magic screens) and the pictures of empty
+    // hero equipment slots (items screen)
+    for base := data.WizardMerlin; base <= data.WizardKali; base++ {
+        if err := exporter.addLbx(assets.WizardPortrait(base), "wizards.lbx", int(base), nil); err != nil {
+            return 0, 0, err
+        }
+    }
+    for slot := artifact.ArtifactSlotMeleeWeapon; slot <= artifact.ArtifactSlotJewelry; slot++ {
+        if err := exporter.addLbx(assets.ItemSlot(slot.Name()), "itemisc.lbx", slot.ImageIndex(), nil); err != nil {
             return 0, 0, err
         }
     }

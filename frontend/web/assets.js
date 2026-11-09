@@ -87,6 +87,24 @@ export class Assets {
         return id in this.manifest.sprites;
     }
 
+    // a canvas with the sprite's first frame, shown scale times larger (pixelated); null when the
+    // export doesn't have it (an older export: re-run util/export-assets)
+    picture(id, scale = 1, className = "") {
+        if (!this.has(id)) {
+            return null;
+        }
+        const [width, height] = this.size(id);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = `${width * scale}px`;
+        canvas.style.height = `${height * scale}px`;
+        canvas.style.imageRendering = "pixelated";
+        if (className) canvas.className = className;
+        this.draw(canvas.getContext("2d"), id, 0, 0);
+        return canvas;
+    }
+
     // [width, height] of the first frame
     size(id) {
         const frames = this.frames(id);

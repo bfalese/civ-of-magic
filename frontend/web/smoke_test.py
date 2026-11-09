@@ -562,6 +562,11 @@ def items(smoke, url):
         page.click(f"#vault .item-slot[data-slot='{json.dumps(slot, separators=(',', ':'))}']")
 
     armor, weapon = slot_for("Shield"), slot_for("Sword")
+    page.keyboard.press("Escape")
+    date = state("s.view.date")
+    page.keyboard.press("Enter")
+    smoke.visible("#vault.open", "the items screen after End turn")
+    check(state("s.view.date") == date, "End turn with a new item waiting opens the items screen instead")
     click({"new": 0})
     check(page.locator("#vault .item-slot.unfit").count() > 0, "holding the shield greys the slots it doesn't fit")
     smoke.shot("11-items")

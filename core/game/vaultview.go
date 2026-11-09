@@ -30,6 +30,8 @@ type HeroSlotView struct {
     // the item types the slot takes
     Takes []string `json:"takes"`
     Item *ItemView `json:"item"`
+    // the empty slot's picture
+    Asset string `json:"asset"`
 }
 
 type HeroView struct {
@@ -56,18 +58,6 @@ type VaultView struct {
     TeleportCost int `json:"teleport-cost"`
     // where the vault is: the fortress
     Fortress *Location `json:"fortress,omitempty"`
-}
-
-func artifactSlotName(slot artifact.ArtifactSlot) string {
-    switch slot {
-        case artifact.ArtifactSlotMeleeWeapon: return "melee-weapon"
-        case artifact.ArtifactSlotRangedWeapon: return "ranged-weapon"
-        case artifact.ArtifactSlotMagicWeapon: return "magic-weapon"
-        case artifact.ArtifactSlotAnyWeapon: return "any-weapon"
-        case artifact.ArtifactSlotArmor: return "armor"
-        case artifact.ArtifactSlotJewelry: return "jewelry"
-    }
-    return "unknown"
 }
 
 func makeItemView(player *playerlib.Player, item *artifact.Artifact) *ItemView {
@@ -123,7 +113,7 @@ func (model *GameModel) makeVaultView(player *playerlib.Player) VaultView {
             Slots: []HeroSlotView{},
         }
         for slotIndex, slot := range hero.GetArtifactSlots() {
-            slotView := HeroSlotView{Kind: artifactSlotName(slot), Takes: []string{}}
+            slotView := HeroSlotView{Kind: slot.Name(), Takes: []string{}, Asset: assets.ItemSlot(slot.Name())}
             for kind := artifact.ArtifactTypeSword; kind <= artifact.ArtifactTypePlate; kind++ {
                 if slot.CompatibleWith(kind) {
                     slotView.Takes = append(slotView.Takes, kind.Name())

@@ -84,10 +84,21 @@ func TestHostSaveLoad(test *testing.T) {
     if err != nil {
         test.Fatalf("setup: %v", err)
     }
+    // the scenario's shield waits in the vault: the turn can't end until it's dealt with
+    if err := host.Execute(&EndTurnCommand{}); err != ErrNewItemsWaiting {
+        test.Fatalf("end-turn with a new item waiting should be refused, got %v", err)
+    }
+    shield := host.Model.PendingItems[host.Human][0]
+    zero := 0
+    if err := host.Execute(&DestroyItemCommand{Item: ItemSlot{New: &zero}}); err != nil {
+        test.Fatalf("destroy the shield: %v", err)
+    }
     playHostTurns(test, host, 8)
     if host.GameOver() != "" {
         test.Skip("the game ended early")
     }
+    // an item waiting to be placed is kept by the save
+    host.Model.recordVaultItem(&GameEventVault{CreatedArtifact: shield, Player: host.Human})
 
     saved, err := host.Save("test")
     if err != nil {
@@ -122,6 +133,9 @@ func TestHostSaveLoad(test *testing.T) {
     if len(view.Stacks) == 0 || view.Stacks[0].Units[0].Id == 0 {
         test.Fatalf("the loaded units should have ids")
     }
+    if err := loaded.Execute(&DestroyItemCommand{Item: ItemSlot{New: &zero}}); err != nil {
+        test.Fatalf("destroying the loaded new item: %v", err)
+    }
     turn := loaded.Model.TurnNumber
     playHostTurns(test, loaded, 5)
     if loaded.GameOver() == "" && loaded.Model.TurnNumber != turn + 5 {
@@ -130,5 +144,72 @@ func TestHostSaveLoad(test *testing.T) {
 
     if _, err := LoadGameHost(gameData, []byte(`{"version": 99}`)); err == nil || !strings.Contains(err.Error(), "version") {
         test.Errorf("another save version should be refused: %v", err)
+    }
+}
+
+// TakeEvents passes on only what concerns the human: no AI player's research, offers or battles
+func TestHostEventsConcernHuman(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    host, err := MakeGameHost(gameData, HostSettings{Opponents: 4, Raiders: true})
+    if err != nil {
+        test.Fatalf("setup: %v", err)
+    }
+    type ref struct {
+        Human bool `json:"human"`
+    }
+    count := 0
+    check := func() {
+        for _, encoded := range host.TakeEvents() {
+            count += 1
+            var event struct {
+                Type string `json:"type"`
+                Event struct {
+                    Player *ref `json:"player"`
+                    Attacker *ref `json:"attacker"`
+                    Defender *ref `json:"defender"`
+                } `json:"event"`
+            }
+            if err := json.Unmarshal(encoded, &event); err != nil {
+                test.Fatalf("event JSON: %v", err)
+            }
+            body := event.Event
+            if body.Player != nil && !body.Player.Human {
+                test.Errorf("an event for another player reached the frontend: %s", encoded)
+            }
+            if strings.HasPrefix(event.Type, "battle-") && !(body.Attacker != nil && body.Attacker.Human) && !(body.Defender != nil && body.Defender.Human) {
+                test.Errorf("a battle without the human reached the frontend: %s", encoded)
+            }
+        }
+    }
+    check()
+    for range 25 {
+        if host.GameOver() != "" {
+            break
+        }
+        if candidates := host.Model.MakePlayerView(host.Human).You.ResearchCandidates; host.Human.ResearchingSpell.Name == "" && len(candidates) > 0 {
+            host.Execute(&SetResearchCommand{Spell: candidates[0]})
+        }
+        if err := host.Execute(&EndTurnCommand{}); err != nil {
+            test.Fatalf("end turn: %v", err)
+        }
+        for host.WaitingFor() == WaitingBattle {
+            host.Execute(&BattleAutoCommand{})
+        }
+        check()
+    }
+    if count == 0 {
+        test.Errorf("the human should have had some events")
     }
 }

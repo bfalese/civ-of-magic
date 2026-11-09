@@ -59,6 +59,20 @@ const (
 )
 
 // the index in itemisc.lbx for this slot
+// the slot's name in views and asset ids: melee-weapon, ranged-weapon, magic-weapon, any-weapon,
+// armor, jewelry
+func (slot ArtifactSlot) Name() string {
+    switch slot {
+        case ArtifactSlotMeleeWeapon: return "melee-weapon"
+        case ArtifactSlotRangedWeapon: return "ranged-weapon"
+        case ArtifactSlotMagicWeapon: return "magic-weapon"
+        case ArtifactSlotAnyWeapon: return "any-weapon"
+        case ArtifactSlotArmor: return "armor"
+        case ArtifactSlotJewelry: return "jewelry"
+    }
+    return "unknown"
+}
+
 func (slot ArtifactSlot) ImageIndex() int {
     switch slot {
         case ArtifactSlotMeleeWeapon: return 19

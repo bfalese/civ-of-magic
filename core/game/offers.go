@@ -80,6 +80,16 @@ func (model *GameModel) SendOffer(offer GameEvent) {
     }
 }
 
+// the offer was answered elsewhere (the desktop's hire and merchant screens, an AI player's own
+// decision): it isn't open any more. Does nothing if another offer has replaced it.
+func (model *GameModel) CloseOffer(offer GameEvent) {
+    for player, open := range model.PendingOffers {
+        if open == offer {
+            delete(model.PendingOffers, player)
+        }
+    }
+}
+
 // accept or decline the player's open offer (see SendOffer)
 func (model *GameModel) AnswerOffer(player *playerlib.Player, accept bool) error {
     offer, ok := model.PendingOffers[player]

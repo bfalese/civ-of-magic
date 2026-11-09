@@ -129,7 +129,7 @@ export class VaultScreen {
     }
 
     // a slot button: the item's picture, or the kind of slot when empty
-    slotButton(slot, item, emptyLabel, fits = true) {
+    slotButton(slot, item, emptyLabel, fits = true, slotAsset = null) {
         const button = document.createElement("button");
         button.className = "item-slot";
         button.dataset.slot = JSON.stringify(slot);
@@ -143,7 +143,13 @@ export class VaultScreen {
             button.title = `${item.name} (${item.type})\n${item.powers.join(", ") || "no powers"}\ncost ${item.cost} · destroy for ${item.value} mana`;
         } else {
             button.classList.add("empty");
-            button.textContent = emptyLabel;
+            const picture = slotAsset ? this.assets.picture(slotAsset, 2) : null;
+            if (picture) {
+                button.appendChild(picture);
+                button.title = emptyLabel;
+            } else {
+                button.textContent = emptyLabel;
+            }
         }
         button.onclick = () => this.clickSlot(slot);
         return button;
@@ -202,7 +208,7 @@ export class VaultScreen {
             slots.className = "vault-slots";
             hero.slots.forEach((slot, index) => {
                 const fits = !picked || slot.takes.includes(picked.type);
-                slots.appendChild(this.slotButton({ hero: hero.index, slot: index }, slot.item, slotLabels[slot.kind] || slot.kind, fits));
+                slots.appendChild(this.slotButton({ hero: hero.index, slot: index }, slot.item, slotLabels[slot.kind] || slot.kind, fits, slot.asset));
             });
             row.appendChild(slots);
             heroes.appendChild(row);

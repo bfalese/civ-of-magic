@@ -280,16 +280,19 @@ func (headless *HeadlessGame) handleAiEvent(event GameEvent) {
             hire := event.(*GameEventHireHero)
             if !hire.Player.IsHuman() && hire.Player.AIBehavior != nil {
                 hire.Player.AIBehavior.HandleHireHero(hire.Player, hire.Hero, 0, true, data.PlanePoint{})
+                model.CloseOffer(hire)
             }
         case *GameEventHireMercenaries:
             hire := event.(*GameEventHireMercenaries)
             if !hire.Player.IsHuman() && hire.Player.AIBehavior != nil {
                 hire.Player.AIBehavior.HandleHireMercenaries(hire.Player, hire.Units, hire.Cost)
+                model.CloseOffer(hire)
             }
         case *GameEventMerchant:
             merchant := event.(*GameEventMerchant)
             if !merchant.Player.IsHuman() && merchant.Player.AIBehavior != nil {
                 merchant.Player.AIBehavior.HandleMerchantItem(merchant.Player, merchant.Artifact, merchant.Cost)
+                model.CloseOffer(merchant)
             }
         case *GameEventTreasure:
             treasure := event.(*GameEventTreasure)

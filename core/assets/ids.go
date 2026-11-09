@@ -147,6 +147,16 @@ func SpellEffect(spell string) string {
 }
 
 // an item picture (items.lbx at index; artifact.Artifact.Image)
+// a premade wizard's portrait (wizards.lbx, by data.WizardBase)
+func WizardPortrait(base data.WizardBase) string {
+    return fmt.Sprintf("wizard-portrait/%v", int(base))
+}
+
+// the picture of an empty hero equipment slot, by the slot's name (artifact.ArtifactSlot.Name)
+func ItemSlot(kind string) string {
+    return "item-slot/" + kind
+}
+
 func Item(index int) string {
     return fmt.Sprintf("item/%v", index)
 }

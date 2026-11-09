@@ -69,6 +69,15 @@ export class DiplomacyScreen {
         return `rgb(${red}, ${green}, ${blue})`;
     }
 
+    // the wizard's portrait at the card's left, when the export has it
+    addPortrait(card, asset) {
+        const picture = this.assets.picture(asset, 0.5, "portrait");
+        if (picture) {
+            card.classList.add("with-portrait");
+            card.prepend(picture);
+        }
+    }
+
     render() {
         const wizards = this.view.diplomacy;
         this.root.innerHTML = `
@@ -85,6 +94,7 @@ export class DiplomacyScreen {
                 <span class="dim">fame ${you.mirror.fame} · casting skill ${you.mirror["casting-skill"]} · ${this.view.cities.length} cities</span>
             </div>
             ${mirrorLines(you.mirror)}`;
+        this.addPortrait(this.root.querySelector(".wizard.you"), you.mirror.portrait);
         const list = this.root.querySelector(".wizards");
         if (wizards.length === 0) {
             list.innerHTML = `<div class="dim">you haven't met another wizard yet</div>`;
@@ -146,6 +156,7 @@ export class DiplomacyScreen {
                 const accept = button.dataset.answer === "yes";
                 button.onclick = () => this.command("answer-trade", { accept }, accept ? `You learned ${offer.receive}.` : "You declined the trade.");
             }
+            this.addPortrait(card, wizard.mirror.portrait);
             list.appendChild(card);
         }
         this.root.querySelector("[data-close]").onclick = () => this.hide();
