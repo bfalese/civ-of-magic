@@ -110,7 +110,8 @@ order, so a frontend can replay them from the previous view (the core resolves e
 once). A step is `{kind, unit?, path?, target?, spell?, changes?}`: `move` (`path`: the tiles
 walked), `teleport` (`path`: the destination), `melee` / `ranged` (`target`), `spell` (cast by
 you; `unit` is the casting unit, absent for the wizard), `effect` (health changed otherwise: the
-AI's spells, walls, vortexes). A `spell` step also has `target` (the unit it was cast on), `tile`
+AI's spells, walls, vortexes). Spells the AI casts are `spell` steps too (`unit` is its casting unit, absent for
+its wizard). A `spell` step also has `target` (the unit it was cast on), `tile`
 (`[x, y]`) and `effect`, the asset id of its animation (`spell-effect/<spell>`, summons share
 `spell-effect/summoning-circle`), to play on the target and on the units in `changes`. `changes` are `{unit, damage, killed?}` (negative damage heals),
 counterattacks included. `log` holds the latest battle log lines (`{turn, text}`, oldest first).
@@ -119,9 +120,11 @@ Units turn to face where they walk and whom they attack.
 Magic in the battle view: `magic` is the wizard's (`mana-pool`, `mana`, `range`, `available` = the
 most a spell can cost now, `casted` this turn, `spells`); `unit-magic` the selected unit's when it
 has spells or item charges (`caster` id, `casting-skill`, `spells`). A spell is `{name, magic
-(realm), cost, castable, charges?, no-target?}`; `castable` means a battle-cast would be accepted
-now; `no-target` that it needs a target and nothing on the field qualifies (Disrupt without walls,
-Raise Dead with no dead), and battle-cast refuses it.
+(realm), cost, castable, charges?, unusable?}`; `castable` means a battle-cast would be accepted
+now; `unusable` says why casting it now would do nothing, and battle-cast refuses it: "nothing to
+cast it on here" (Disrupt without walls), "nothing it would affect here" (Holy Word without
+fantastic enemies), "nobody is wounded" (Mass Healing), "already in effect" (a combat
+enchantment), "the wall of fire is already up", "no dead to raise".
 `casting` is the spell waiting for a target: `spell`, `caster?`, `kind` and the targets it accepts,
 by the model's own checks: `units` (ids, for `kind: "unit"`), `tiles` (`[x, y]`, for `"tile"`) or
 `choices` (`{id, name, asset, banner}` with a `title`, for `"choice"`: Raise/Animate Dead, which

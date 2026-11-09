@@ -669,7 +669,7 @@ export class BattleScreen {
             button.innerHTML = `<span></span><span class="dim"></span>`;
             button.children[0].textContent = spell.name;
             button.children[1].textContent = cost;
-            button.title = `${spell.magic}${spell["no-target"] ? " · nothing to cast it on here" : button.disabled ? " · not castable now" : ""}`;
+            button.title = `${spell.magic}${spell.unusable ? ` · ${spell.unusable}` : button.disabled ? " · not castable now" : ""}`;
             button.onclick = () => this.cast(spell, caster);
             list.appendChild(button);
         }

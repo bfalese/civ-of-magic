@@ -29,15 +29,28 @@ func TestProbedSpellsList(test *testing.T) {
     cases := regexp.MustCompile(`(?m)^        case ("[^:]+"):\n`).FindAllStringSubmatchIndex(body[switchStart:], -1)
 
     targeted := map[string]bool{}
+    area := map[string]bool{}
+    enchantments := map[string]string{}
     for i, match := range cases {
         caseEnd := len(body) - switchStart
         if i + 1 < len(cases) {
             caseEnd = cases[i + 1][0]
         }
         caseBody := body[switchStart + match[1]:switchStart + caseEnd]
+        names := regexp.MustCompile(`"([^"]+)"`).FindAllStringSubmatch(body[switchStart + match[2]:switchStart + match[3]], -1)
         if strings.Contains(caseBody, "DoTargetUnitSpell") || strings.Contains(caseBody, "DoTargetTileSpell") || strings.Contains(caseBody, "DoSummoningSpell") {
-            for _, name := range regexp.MustCompile(`"([^"]+)"`).FindAllStringSubmatch(body[switchStart + match[2]:switchStart + match[3]], -1) {
+            for _, name := range names {
                 targeted[name[1]] = true
+            }
+        }
+        if strings.Contains(caseBody, "DoAllUnitsSpell") {
+            for _, name := range names {
+                area[name[1]] = true
+            }
+        }
+        if constant := regexp.MustCompile(`CastEnchantment\(army, data\.(CombatEnchantment\w+)`).FindStringSubmatch(caseBody); constant != nil {
+            for _, name := range names {
+                enchantments[name[1]] = constant[1]
             }
         }
     }
@@ -52,6 +65,31 @@ func TestProbedSpellsList(test *testing.T) {
     for name := range probedSpells {
         if !targeted[name] {
             test.Errorf("%v is in probedSpells but InvokeSpell doesn't ask a target for it", name)
+        }
+    }
+
+    // area spells (Mass Healing has its own rule), and combat enchantments by their constant
+    for name := range area {
+        if !areaSpells[name] && name != "Mass Healing" {
+            test.Errorf("%v applies DoAllUnitsSpell but isn't in areaSpells", name)
+        }
+    }
+    for name := range areaSpells {
+        if !area[name] {
+            test.Errorf("%v is in areaSpells but InvokeSpell doesn't apply DoAllUnitsSpell for it", name)
+        }
+    }
+    if len(enchantments) != len(enchantmentSpells) {
+        test.Errorf("InvokeSpell casts %v combat enchantments, enchantmentSpells has %v", len(enchantments), len(enchantmentSpells))
+    }
+    for name, constant := range enchantments {
+        enchantment, ok := enchantmentSpells[name]
+        if !ok {
+            test.Errorf("%v casts %v but isn't in enchantmentSpells", name, constant)
+            continue
+        }
+        if constant != "CombatEnchantment" + strings.ReplaceAll(enchantment.Name(), " ", "") {
+            test.Errorf("enchantmentSpells[%v] is %v, InvokeSpell casts %v", name, enchantment.Name(), constant)
         }
     }
 }
@@ -104,12 +142,44 @@ func TestSpellHasTarget(test *testing.T) {
         test.Errorf("a probe left traces: casted %v, probe %v", army.Casted, model.probe)
     }
 
-    // bowmen: Warp Wood has a target now
+    // why spells wouldn't work
+    reason := func(name string, magic data.MagicType) string {
+        _, why := model.SpellCanWork(nil, army, nil, spell(name, magic))
+        return why
+    }
+    for _, expect := range []struct{ name string; magic data.MagicType; why string }{
+        {"Disrupt", data.SorceryMagic, "nothing to cast it on here"},
+        {"Raise Dead", data.LifeMagic, "no dead to raise"},
+        {"Holy Word", data.LifeMagic, ""},
+        {"Mass Healing", data.LifeMagic, "nobody is wounded"},
+        {"Prayer", data.LifeMagic, ""},
+        {"Fire Bolt", data.ChaosMagic, ""},
+        {"Flame Strike", data.ChaosMagic, ""},
+    } {
+        if why := reason(expect.name, expect.magic); why != expect.why {
+            test.Errorf("%v: %q, want %q", expect.name, why, expect.why)
+        }
+    }
+    army.AddEnchantment(data.CombatEnchantmentPrayer)
+    if why := reason("Prayer", data.LifeMagic); why != "already in effect" {
+        test.Errorf("Prayer in effect: %q", why)
+    }
+    for _, unit := range army.units {
+        unit.TakeDamage(1, DamageNormal)
+    }
+    if why := reason("Mass Healing", data.LifeMagic); why != "" {
+        test.Errorf("Mass Healing with a wounded unit: %q", why)
+    }
+
+    // bowmen: Warp Wood has a target now; Holy Word doesn't (no fantastic units)
     model, army = makeProbeBattle(test, []units.Unit{units.HighMenBowmen})
     if hasTarget, _ := model.SpellHasTarget(nil, army, nil, spell("Warp Wood", data.NatureMagic)); !hasTarget {
         test.Errorf("Warp Wood should target bowmen")
     }
     if hasTarget, _ := model.SpellHasTarget(nil, army, nil, spell("Dispel Evil", data.LifeMagic)); hasTarget {
         test.Errorf("Dispel Evil shouldn't target bowmen")
+    }
+    if _, why := model.SpellCanWork(nil, army, nil, spell("Holy Word", data.LifeMagic)); why != "nothing it would affect here" {
+        test.Errorf("Holy Word on bowmen: %q", why)
     }
 }

@@ -1,6 +1,8 @@
 package combat
 
 import (
+    "slices"
+
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/spellbook"
 )
@@ -29,6 +31,66 @@ var probedSpells = map[string]bool{
     "Invisiblity": true, "Magic Immunity": true, "Resist Magic": true, "Spell Lock": true,
     "Eldritch Weapon": true, "Flame Blade": true, "Immolation": true, "Berserk": true,
     "Cloak of Fear": true, "Wraith Form": true,
+}
+
+// the area spells: their case only applies DoAllUnitsSpell, probed the same way (anyone it would
+// touch?)
+var areaSpells = map[string]bool{"Flame Strike": true, "Holy Word": true, "Death Spell": true}
+
+// the combat enchantments (their case only calls CastEnchantment): pointless once in effect
+var enchantmentSpells = map[string]data.CombatEnchantment{
+    "High Prayer": data.CombatEnchantmentHighPrayer, "Prayer": data.CombatEnchantmentPrayer,
+    "True Light": data.CombatEnchantmentTrueLight, "Call Lightning": data.CombatEnchantmentCallLightning,
+    "Entangle": data.CombatEnchantmentEntangle, "Blur": data.CombatEnchantmentBlur,
+    "Counter Magic": data.CombatEnchantmentCounterMagic, "Mass Invisibility": data.CombatEnchantmentMassInvisibility,
+    "Metal Fires": data.CombatEnchantmentMetalFires, "Warp Reality": data.CombatEnchantmentWarpReality,
+    "Black Prayer": data.CombatEnchantmentBlackPrayer, "Darkness": data.CombatEnchantmentDarkness,
+    "Mana Leak": data.CombatEnchantmentManaLeak, "Terror": data.CombatEnchantmentTerror,
+    "Wrack": data.CombatEnchantmentWrack,
+}
+
+// why casting the spell now would do nothing, or "" when it may work: no target (Disrupt
+// without walls), nobody an area spell would touch, nobody wounded for Mass Healing, a combat
+// enchantment or wall already in effect, no dead to raise
+func (model *CombatModel) SpellCanWork(spellSystem SpellSystem, army *Army, unitCaster *ArmyUnit, spell spellbook.Spell) (bool, string) {
+    if enchantment, ok := enchantmentSpells[spell.Name]; ok {
+        if army.HasEnchantment(enchantment) || slices.Contains(model.GlobalEnchantments, enchantment) {
+            return false, "already in effect"
+        }
+        return true, ""
+    }
+    switch spell.Name {
+        case "Mass Healing":
+            for _, unit := range army.units {
+                if unit.GetHealth() > 0 && unit.GetHealth() < unit.GetMaxHealth() && unit.GetRealm() != data.DeathMagic {
+                    return true, ""
+                }
+            }
+            return false, "nobody is wounded"
+        case "Wall of Fire":
+            if model.AnyTile(func(tile *Tile) bool { return tile.Fire != nil }) {
+                return false, "the wall of fire is already up"
+            }
+            return true, ""
+        case "Wall of Darkness":
+            if model.AnyTile(func(tile *Tile) bool { return tile.Darkness != nil }) {
+                return false, "the wall of darkness is already up"
+            }
+            return true, ""
+    }
+    if areaSpells[spell.Name] {
+        if hasTarget, needsTarget := model.probeSpell(spellSystem, army, unitCaster, spell); needsTarget && !hasTarget {
+            return false, "nothing it would affect here"
+        }
+        return true, ""
+    }
+    if hasTarget, needsTarget := model.SpellHasTarget(spellSystem, army, unitCaster, spell); needsTarget && !hasTarget {
+        if spell.Name == "Raise Dead" || spell.Name == "Animate Dead" {
+            return false, "no dead to raise"
+        }
+        return false, "nothing to cast it on here"
+    }
+    return true, ""
 }
 
 // what a probe found
@@ -61,7 +123,11 @@ func (model *CombatModel) SpellHasTarget(spellSystem SpellSystem, army *Army, un
     if !probedSpells[spell.Name] {
         return false, false
     }
+    return model.probeSpell(spellSystem, army, unitCaster, spell)
+}
 
+// run InvokeSpell in probe mode (only for spells whose case does nothing but pick targets)
+func (model *CombatModel) probeSpell(spellSystem SpellSystem, army *Army, unitCaster *ArmyUnit, spell spellbook.Spell) (hasTarget bool, needsTarget bool) {
     probe := &spellProbe{}
     model.probe = probe
     defer func() { model.probe = nil }()
@@ -114,5 +180,33 @@ func (model *CombatModel) probeTiles(canTarget func(int, int) bool) {
                 return
             }
         }
+    }
+}
+
+// A spell the AI cast (a wizard's, or a unit's from its charges), for frontends that replay the
+// battle: the actions passed to Update may implement SpellCastObserver to hear about it.
+type SpellCast struct {
+    Army *Army
+    // the unit that cast it; nil for the wizard
+    Caster *ArmyUnit
+    Spell spellbook.Spell
+    // what the AI picked: a unit, or a tile (HasTile)
+    Target *ArmyUnit
+    TileX, TileY int
+    HasTile bool
+}
+
+type SpellCastObserver interface {
+    // an AI may cast now: what changed before belongs to earlier steps
+    BeforeSpellCast()
+    // the AI cast this spell and its projectiles have landed
+    SpellCast(cast SpellCast)
+}
+
+// note the AI's target choice for the cast in progress
+func (model *CombatModel) noteAITarget(unit *ArmyUnit, x int, y int, hasTile bool) {
+    if model.aiCast != nil {
+        model.aiCast.Target = unit
+        model.aiCast.TileX, model.aiCast.TileY, model.aiCast.HasTile = x, y, hasTile
     }
 }
