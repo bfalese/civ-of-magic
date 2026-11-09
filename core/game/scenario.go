@@ -286,6 +286,7 @@ func scenarioOrders(host *GameHost) error {
 
     human.LiftFogSquare(capital.X, capital.Y, 3, plane)
     human.LiftFogSquare(settlers.X, settlers.Y, 2, plane)
+    human.LiftFogSquare(tower.X, tower.Y, 1, plane)
     human.LiftFogSquare(tower.X, tower.Y, 1, plane.Opposite())
     return nil
 }

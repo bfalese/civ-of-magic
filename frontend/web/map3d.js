@@ -1,7 +1,9 @@
 // The overland map in 3D: the terrain (painted as in the 2D map, with roads, bonuses, fog and
 // paths) lies on a ground plane with a tile grid, seen through an isometric orthographic camera;
 // cities, stacks, encounters (lairs, caves, towers) and nodes stand on their tiles as billboards.
-// A first step towards the retro 3D look: no height yet, the original sprites.
+// The ground has height: each terrain type has a level (water low and flat, hills and mountains
+// up), smoothed between tiles with a little fixed noise, and shaded by slope (baked into vertex
+// colours: the ground is unlit). Billboards stand at the ground's height; picking follows it.
 //
 // World units are tiles: tile (x, y) covers world x [x, x+1] and z [y, y+1] on the ground (y up).
 // The map wraps east-west: three copies of the ground and its billboards sit side by side.
@@ -18,11 +20,37 @@ const groundUp = new THREE.Vector3(1, 0, -1).normalize();
 // how dark billboards on explored land the player doesn't see now are drawn
 const dimColor = 0.55;
 
+// the ground's level per terrain, in tiles (unexplored land is flat at 0)
+const terrainHeights = {
+    "Ocean": -0.14, "Lake": -0.1, "Shore": -0.02, "River": 0.03, "Swamp": 0.03,
+    "Grasslands": 0.07, "Desert": 0.08, "Tundra": 0.09, "Forest": 0.14,
+    "Hills": 0.38, "Mountain": 0.8, "Volcano": 0.95,
+    "Sorcery Node": 0.08, "Nature Node": 0.14, "Chaos Node": 0.8,
+};
+const waterTerrain = new Set(["Ocean", "Lake", "Shore"]);
+// vertices per tile edge
+const subdivisions = 2;
+// a little fixed unevenness on land, in tiles
+const noiseAmount = 0.03;
+// where the light comes from (north, high up: the screen's upper left) and how strong the slope
+// shading is
+const lightDirection = new THREE.Vector3(0.15, 1, -0.75).normalize();
+const shadeAmbient = 0.55;
+
+// a fixed pseudo-random value in [0, 1) for a vertex
+function hash(x, y) {
+    let value = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+    value = Math.imul(value ^ (value >>> 13), 1274126177);
+    return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
+}
+
 export class MapRenderer3D extends MapRenderer {
     constructor(container, assets, callbacks) {
         super(container, assets, callbacks);
         this.drawsThings = false;
         this.zoomIndex = 2;
+        // 1: the terrain's height; 0: flat (toggleHeight)
+        this.heightScale = 1;
         this.raycaster = new THREE.Raycaster();
         this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         // billboard textures and materials by sprite (and dimming)
@@ -67,23 +95,165 @@ export class MapRenderer3D extends MapRenderer {
 
         const width = this.mapView.width;
         const height = this.mapView.height;
-        const ground = new THREE.PlaneGeometry(width, height);
-        ground.rotateX(-Math.PI / 2);
+        this.ground = this.makeGround(width, height);
+        this.material.vertexColors = true;
+        this.material.needsUpdate = true;
 
         this.copies = [-1, 0, 1].map((offset) => {
             const copy = new THREE.Group();
             copy.position.set(offset * width, 0, 0);
-            const mesh = new THREE.Mesh(ground, this.material);
-            mesh.position.set(width / 2, 0, height / 2);
-            copy.add(mesh);
+            copy.add(new THREE.Mesh(this.ground, this.material));
             this.scene.add(copy);
             return copy;
         });
         this.billboards = [];
+        this.terrainKey = null;
+    }
+
+    // a grid of vertices over the map (subdivisions per tile), with the texture's coordinates;
+    // heights and shading come from updateHeights
+    makeGround(width, height) {
+        const columns = width * subdivisions + 1;
+        const rows = height * subdivisions + 1;
+        const positions = new Float32Array(columns * rows * 3);
+        const uvs = new Float32Array(columns * rows * 2);
+        const colors = new Float32Array(columns * rows * 3).fill(1);
+        for (let row = 0; row < rows; row++) {
+            for (let column = 0; column < columns; column++) {
+                const index = row * columns + column;
+                positions[index * 3] = column / subdivisions;
+                positions[index * 3 + 2] = row / subdivisions;
+                uvs[index * 2] = column / (columns - 1);
+                uvs[index * 2 + 1] = 1 - row / (rows - 1);
+            }
+        }
+        const indices = [];
+        for (let row = 0; row < rows - 1; row++) {
+            for (let column = 0; column < columns - 1; column++) {
+                const a = row * columns + column;
+                const b = a + 1;
+                const c = a + columns;
+                const d = c + 1;
+                indices.push(a, c, b, b, c, d);
+            }
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+        geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+        geometry.setIndex(indices);
+        geometry.userData = { columns, rows };
+        this.heights = new Float32Array(columns * rows);
+        return geometry;
+    }
+
+    // the vertex heights from the explored terrain (smoothed, with noise on land) and the slope
+    // shading; only when the terrain changed (exploring, Change Terrain...)
+    updateHeights() {
+        const mapView = this.mapView;
+        const key = mapView.tiles.map((row) => row.map((tile) => (tile ? tile.terrain : "")).join(",")).join(";");
+        if (key === this.terrainKey) {
+            return;
+        }
+        this.terrainKey = key;
+        const width = mapView.width;
+        const height = mapView.height;
+        const scale = this.heightScale;
+        const terrainAt = (x, y) => {
+            const row = mapView.tiles[Math.max(0, Math.min(height - 1, y))];
+            const tile = row[((x % width) + width) % width];
+            return tile ? tile.terrain : null;
+        };
+        const levelAt = (x, y) => {
+            const terrain = terrainAt(x, y);
+            return terrain === null ? 0 : (terrainHeights[terrain] ?? 0.07);
+        };
+
+        // a tile's level, softened by its neighbours (a lone mountain doesn't spike)
+        const smoothed = new Float32Array(width * height);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const own = levelAt(x, y);
+                let neighbours = 0;
+                for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                    neighbours += levelAt(x + dx, y + dy);
+                }
+                smoothed[y * width + x] = waterTerrain.has(terrainAt(x, y)) ? own : own * 0.7 + neighbours / 4 * 0.3;
+            }
+        }
+        const tileLevel = (x, y) => smoothed[Math.max(0, Math.min(height - 1, y)) * width + (((x % width) + width) % width)];
+
+        // each vertex: between the centres of the four tiles around it (bilinear), plus noise on land
+        const { columns, rows } = this.ground.userData;
+        const heights = this.heights;
+        for (let row = 0; row < rows; row++) {
+            for (let column = 0; column < columns; column++) {
+                const worldX = column / subdivisions - 0.5;
+                const worldZ = row / subdivisions - 0.5;
+                const x0 = Math.floor(worldX);
+                const z0 = Math.floor(worldZ);
+                const fx = worldX - x0;
+                const fz = worldZ - z0;
+                const level = tileLevel(x0, z0) * (1 - fx) * (1 - fz) + tileLevel(x0 + 1, z0) * fx * (1 - fz)
+                    + tileLevel(x0, z0 + 1) * (1 - fx) * fz + tileLevel(x0 + 1, z0 + 1) * fx * fz;
+                // the map wraps: the last column's noise is the first's
+                const noise = level > 0 ? (hash(column % (columns - 1), row) - 0.5) * noiseAmount : 0;
+                heights[row * columns + column] = (level + noise) * scale;
+            }
+        }
+
+        // positions, and shading by the slope facing the light (flat ground stays as painted)
+        const positions = this.ground.attributes.position.array;
+        const colors = this.ground.attributes.color.array;
+        const step = 1 / subdivisions;
+        const flat = lightDirection.y;
+        const normal = new THREE.Vector3();
+        const at = (column, row) => heights[Math.max(0, Math.min(rows - 1, row)) * columns + (((column % (columns - 1)) + (columns - 1)) % (columns - 1))];
+        for (let row = 0; row < rows; row++) {
+            for (let column = 0; column < columns; column++) {
+                const index = row * columns + column;
+                positions[index * 3 + 1] = heights[index];
+                normal.set(at(column - 1, row) - at(column + 1, row), 2 * step, at(column, row - 1) - at(column, row + 1)).normalize();
+                const light = shadeAmbient + (1 - shadeAmbient) * Math.max(0, normal.dot(lightDirection)) / flat;
+                colors[index * 3] = colors[index * 3 + 1] = colors[index * 3 + 2] = light;
+            }
+        }
+        this.ground.attributes.position.needsUpdate = true;
+        this.ground.attributes.color.needsUpdate = true;
+        this.ground.computeBoundingSphere();
+        this.ground.computeBoundingBox();
+    }
+
+    // the ground's height at a world point (bilinear between the vertices; wraps east-west)
+    heightAt(worldX, worldZ) {
+        if (!this.ground) {
+            return 0;
+        }
+        const { columns, rows } = this.ground.userData;
+        const span = columns - 1;
+        const gx = worldX * subdivisions;
+        const gz = Math.max(0, Math.min(rows - 1.001, worldZ * subdivisions));
+        const x0 = Math.floor(gx);
+        const z0 = Math.floor(gz);
+        const fx = gx - x0;
+        const fz = gz - z0;
+        const at = (column, row) => this.heights[row * columns + (((column % span) + span) % span)];
+        return at(x0, z0) * (1 - fx) * (1 - fz) + at(x0 + 1, z0) * fx * (1 - fz) + at(x0, z0 + 1) * (1 - fx) * fz + at(x0 + 1, z0 + 1) * fx * fz;
+    }
+
+    // flatten the ground or give it back its height (the H key)
+    toggleHeight() {
+        this.heightScale = this.heightScale > 0 ? 0 : 1;
+        this.terrainKey = null;
+        if (this.mapView) {
+            this.updateHeights();
+            this.buildBillboards();
+        }
     }
 
     setData(mapView, playerView) {
         super.setData(mapView, playerView);
+        this.updateHeights();
         this.buildBillboards();
     }
 
@@ -137,7 +307,7 @@ export class MapRenderer3D extends MapRenderer {
         sprite.center.set(0.5, 0);
         const { width, height } = texture.userData;
         sprite.scale.set(width / this.tileWidth, height / this.tileWidth, 1);
-        sprite.position.set(location.x + 0.5, 0, location.y + 0.5);
+        sprite.position.set(location.x + 0.5, this.heightAt(location.x + 0.5, location.y + 0.5), location.y + 0.5);
         sprite.userData.tile = { plane: this.plane, x: location.x, y: location.y };
         return sprite;
     }
@@ -213,6 +383,7 @@ export class MapRenderer3D extends MapRenderer {
             group.parent.remove(group);
         }
         this.animatedSprites = [];
+        this.occupiedTiles = new Set(things.map((thing) => `${thing.location.x}/${thing.location.y}`));
         this.billboards = this.copies.map((copy) => {
             const group = new THREE.Group();
             for (const thing of things) {
@@ -287,7 +458,39 @@ export class MapRenderer3D extends MapRenderer {
         const ndc = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
         this.camera.updateMatrixWorld();
         this.raycaster.setFromCamera(ndc, this.camera);
-        return { ndc, point: this.raycaster.ray.intersectPlane(this.groundPlane, new THREE.Vector3()) };
+        return { ndc, point: this.groundHit(this.raycaster.ray) };
+    }
+
+    // where a ray from the camera meets the ground: walk from above the highest ground down to
+    // below the lowest, then narrow the crossing down
+    groundHit(ray) {
+        const top = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.2 * Math.max(1, this.heightScale));
+        const bottom = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.3);
+        const start = ray.intersectPlane(top, new THREE.Vector3());
+        const end = ray.intersectPlane(bottom, new THREE.Vector3());
+        if (!start || !end) {
+            return ray.intersectPlane(this.groundPlane, new THREE.Vector3());
+        }
+        const above = (point) => point.y - this.heightAt(point.x, point.z);
+        const point = new THREE.Vector3();
+        let low = 0;
+        let high = 1;
+        const steps = 48;
+        for (let index = 1; index <= steps; index++) {
+            const t = index / steps;
+            point.lerpVectors(start, end, t);
+            if (above(point) <= 0) {
+                low = (index - 1) / steps;
+                high = t;
+                break;
+            }
+        }
+        for (let index = 0; index < 16; index++) {
+            const middle = (low + high) / 2;
+            point.lerpVectors(start, end, middle);
+            if (above(point) > 0) low = middle; else high = middle;
+        }
+        return point.lerpVectors(start, end, (low + high) / 2).clone();
     }
 
     // the tile under a point of the page: a billboard's, else the ground's (see below)
@@ -305,9 +508,10 @@ export class MapRenderer3D extends MapRenderer {
                 ground = { plane: this.plane, x: ((Math.floor(point.x) % width) + width) % width, y };
             }
         }
-        // a thing standing on the ground tile under the pointer wins over a taller one in front
-        // whose sprite reaches over it; otherwise the frontmost billboard, then the ground
-        if (ground && hits.some((hit) => hit.object.userData.tile.x === ground.x && hit.object.userData.tile.y === ground.y)) {
+        // a tile with something standing on it wins when the pointer is on its ground, over a
+        // taller thing in front whose sprite reaches over it; otherwise the frontmost billboard,
+        // then the ground
+        if (ground && this.occupiedTiles && this.occupiedTiles.has(`${ground.x}/${ground.y}`)) {
             return ground;
         }
         if (hits.length > 0) {
@@ -321,7 +525,7 @@ export class MapRenderer3D extends MapRenderer {
         const width = this.mapWidth;
         let worldX = x + 0.5;
         worldX += Math.round((this.focus.x - worldX) / width) * width;
-        const point = new THREE.Vector3(worldX, 0, y + 0.5);
+        const point = new THREE.Vector3(worldX, this.heightAt(worldX, y + 0.5), y + 0.5);
         this.camera.updateMatrixWorld();
         point.project(this.camera);
         const bounds = this.renderer.domElement.getBoundingClientRect();
