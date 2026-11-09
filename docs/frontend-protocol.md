@@ -124,7 +124,9 @@ has spells or item charges (`caster` id, `casting-skill`, `spells`). A spell is 
 now; `unusable` says why casting it now would do nothing, and battle-cast refuses it: "nothing to
 cast it on here" (Disrupt without walls), "nothing it would affect here" (Holy Word without
 fantastic enemies), "nobody is wounded" (Mass Healing), "already in effect" (a combat
-enchantment), "the wall of fire is already up", "no dead to raise".
+enchantment), "the wall of fire is already up", "no dead to raise", "nothing to dispel here"
+(Disenchant Area / True with no enemy enchantment and no curse on your units), "no room to summon"
+(Summon Demon); Call Chaos without a living enemy is "nothing it would affect here".
 `casting` is the spell waiting for a target: `spell`, `caster?`, `kind` and the targets it accepts,
 by the model's own checks: `units` (ids, for `kind: "unit"`), `tiles` (`[x, y]`, for `"tile"`) or
 `choices` (`{id, name, asset, banner}` with a `title`, for `"choice"`: Raise/Animate Dead, which
