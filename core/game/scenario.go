@@ -28,6 +28,8 @@ import (
 //           (waiting to be placed), and mana to teleport items
 //   siege:  an AI wizard's capital with city walls, a wall of fire and a wall of darkness, and a
 //           human army next to it: one move-stack starts a battle at the walls
+//   orders: map orders for the stack panel: engineers next to the capital, settlers on a tile
+//           where an outpost can go, and swordsmen on an open tower (planar travel)
 func applyScenario(host *GameHost, name string) error {
     switch name {
         case "":
@@ -40,6 +42,8 @@ func applyScenario(host *GameHost, name string) error {
             return scenarioSpellbook(host)
         case "items":
             return scenarioItems(host)
+        case "orders":
+            return scenarioOrders(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
 }
@@ -171,6 +175,82 @@ func scenarioSpellbook(host *GameHost) error {
     return fmt.Errorf("spellbook scenario: no AI wizard")
 }
 
+func scenarioOrders(host *GameHost) error {
+    model := host.Model
+    human := host.Human
+    capital := human.FindFortressCity()
+    if capital == nil {
+        return fmt.Errorf("orders scenario: the human has no capital")
+    }
+    plane := capital.Plane
+    mapUse := model.GetMap(plane)
+    add := func(unit units.Unit, point image.Point) {
+        human.AddUnit(units.MakeOverworldUnitFromUnit(unit, point.X, point.Y, plane, human.Wizard.Banner, human.MakeExperienceInfo(), human.MakeUnitEnchantmentProvider()))
+    }
+
+    // swordsmen on an open tower, where the other plane has free land too
+    other := model.GetMap(plane.Opposite())
+    tower := image.Point{}
+    found := false
+    for distance := 1; distance <= 12 && !found; distance++ {
+        for dy := -distance; dy <= distance && !found; dy++ {
+            for dx := -distance; dx <= distance && !found; dx++ {
+                x, y := mapUse.WrapX(capital.X + dx), capital.Y + dy
+                if max(abs(dx), abs(dy)) == distance && scenarioTileFree(host, mapUse, x, y) && scenarioTileFree(host, other, x, y) {
+                    tower, found = image.Pt(x, y), true
+                }
+            }
+        }
+    }
+    if !found {
+        return fmt.Errorf("orders scenario: no place for a tower")
+    }
+    mapUse.SetPlaneTower(tower.X, tower.Y)
+    other.SetPlaneTower(tower.X, tower.Y)
+    add(units.HighMenSwordsmen, tower)
+
+    engineers, ok := scenarioFreeNeighbour(host, mapUse, capital.X, capital.Y)
+    if !ok {
+        return fmt.Errorf("orders scenario: no free land next to the capital")
+    }
+    add(units.HighMenEngineer, engineers)
+
+    // settlers on the nearest tile where an outpost can go
+    settlers := image.Point{}
+    found = false
+    for distance := 4; distance <= 8 && !found; distance++ {
+        for dy := -distance; dy <= distance && !found; dy++ {
+            for dx := -distance; dx <= distance && !found; dx++ {
+                x, y := mapUse.WrapX(capital.X + dx), capital.Y + dy
+                if y < 0 || y >= mapUse.Height() || max(abs(dx), abs(dy)) != distance {
+                    continue
+                }
+                tile := mapUse.GetTile(x, y)
+                if tile.Valid() && tile.Tile.IsLand() && model.IsSettlableLocation(x, y, plane) && human.FindStack(x, y, plane) == nil {
+                    occupied := false
+                    for _, player := range model.Players {
+                        if player.FindStack(x, y, plane) != nil {
+                            occupied = true
+                        }
+                    }
+                    if !occupied {
+                        settlers, found = image.Pt(x, y), true
+                    }
+                }
+            }
+        }
+    }
+    if !found {
+        return fmt.Errorf("orders scenario: nowhere to settle")
+    }
+    add(units.HighMenSettlers, settlers)
+
+    human.LiftFogSquare(capital.X, capital.Y, 3, plane)
+    human.LiftFogSquare(settlers.X, settlers.Y, 2, plane)
+    human.LiftFogSquare(tower.X, tower.Y, 1, plane.Opposite())
+    return nil
+}
+
 // whether one of the hero's equipment slots takes the item type
 func heroTakes(hero *herolib.Hero, kind artifact.ArtifactType) bool {
     for _, slot := range hero.GetArtifactSlots() {
@@ -218,6 +298,27 @@ func scenarioItems(host *GameHost) error {
 }
 
 var scenarioNeighbours = []image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}}
+
+// whether (x, y) is land with nothing on it: no city, stack, encounter or other extra (and its
+// extras map exists, for adding one)
+func scenarioTileFree(host *GameHost, mapUse *maplib.Map, x int, y int) bool {
+    if y < 0 || y >= mapUse.Height() {
+        return false
+    }
+    tile := mapUse.GetTile(x, y)
+    if !tile.Valid() || !tile.Tile.IsLand() || len(tile.Extras) > 0 || host.Model.ContainsCity(x, y, mapUse.Plane) {
+        return false
+    }
+    for _, player := range host.Model.Players {
+        if player.FindStack(x, y, mapUse.Plane) != nil {
+            return false
+        }
+    }
+    if mapUse.ExtraMap[image.Pt(x, y)] == nil {
+        mapUse.ExtraMap[image.Pt(x, y)] = make(map[maplib.ExtraKind]maplib.ExtraTile)
+    }
+    return true
+}
 
 // a land tile next to (x, y) with nothing on it: no city, stack, encounter or other extra
 func scenarioFreeNeighbour(host *GameHost, mapUse *maplib.Map, x int, y int) (image.Point, bool) {

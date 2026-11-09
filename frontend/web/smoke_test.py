@@ -10,8 +10,9 @@ scenario: attacks an AI capital with city walls, a wall of fire and darkness, ch
 on the field, and flees. Then the spellbook scenario: Spell Ward and Resurrection through the
 choice dialog, a sword made with Create Artifact in the item designer, the tax rate, renaming
 the capital and cancelling the ward, and diplomacy with the rival. Last, the items
-scenario: equips a hero from the items screen, destroys an item, and splits, inspects and
-disbands units in the stack panel.
+scenario: equips a hero from the items screen, destroys an item, renames the hero, and splits,
+inspects and disbands units in the stack panel. Last, the orders scenario: settles an outpost,
+starts a road (with its path shown while picking), travels through a tower and patrols.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -114,6 +115,7 @@ def main():
             siege(smoke, url)
             spellbook(smoke, url)
             items(smoke, url)
+            orders(smoke, url)
         finally:
             browser.close()
 
@@ -567,6 +569,13 @@ def items(smoke, url):
     click({"hero": hero["index"], "slot": weapon})
     page.click("#vault button[data-destroy]")
     check(state("s.view.you.mana") == mana + value and not state("s.view.you.items.heroes[0].slots")[weapon]["item"], f"destroyed the sword for {value} mana")
+    page.click("#vault button[data-rename]")
+    page.fill("#vault .rename input", "Smokey")
+    page.keyboard.press("i")
+    check(state("s.vault.open"), "typing an i in the name doesn't close the items screen")
+    page.fill("#vault .rename input", "Smokey")
+    page.press("#vault .rename input", "Enter")
+    check(state("s.view.you.items.heroes[0].name") == "Smokey" and "Smokey" in page.inner_text("#vault .vault-hero"), f"renamed {hero['name']} to Smokey")
     page.keyboard.press("Escape")
     check(not state("s.vault.open"), "Esc closes the items screen")
 
@@ -588,6 +597,75 @@ def items(smoke, url):
     page.click("#modalChoices button:has-text('Disband')")
     gone = state(f"!s.view.stacks.flatMap(stack => stack.units).some(unit => unit.id === {other})")
     check(gone, "disbanded a unit of the garrison")
+    smoke.no_errors()
+
+
+
+def map_point(page, location):
+    """A map tile's centre in page pixels, after centring the camera on it."""
+    return page.evaluate(f"""(() => {{
+        const s = window.civGame;
+        const location = {json.dumps(location)};
+        if (s.plane !== location.plane) {{ s.plane = location.plane; s.map.setData(s.core.map(s.plane), s.view); }}
+        s.map.centerOn(location.x, location.y);
+        return s.map.screenPoint(location.x, location.y);
+    }})()""")
+
+
+def orders(smoke, url):
+    """The orders scenario: settlers where an outpost can go, engineers next to the capital, and
+    swordsmen on an open tower."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=orders")
+
+    def select(predicate, what):
+        stack = state(f"s.view.stacks.find(stack => {predicate})")
+        check(stack is not None, f"the scenario has {what}")
+        page.mouse.click(*map_point(page, stack["location"]))
+        smoke.visible("#side .orders", f"the orders of {what}")
+        return stack
+
+    settlers = select("stack.build === 'settle'", "settlers")
+    check(page.locator("#side button[data-order='build']").inner_text() == "Settle (B)", "the stack panel offers Settle (B)")
+    cities = state("s.view.cities.length")
+    page.keyboard.press("b")
+    smoke.wait(f"window.civGame.view.cities.length === {cities + 1}", "the new outpost")
+    check("New outpost" in page.inner_text("#log"), "B founds an outpost and the log says so")
+
+    engineers = select("stack.road", "engineers")
+    page.click("#side button[data-order='road']")
+    check(state("!!s.roadPick") and "destination" in page.inner_text("#side"), "Road asks for the destination")
+    target = state(f"""(() => {{
+        const from = {json.dumps(engineers['location'])};
+        for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, -2], [2, -2], [-2, 2]]) {{
+            const to = {{ plane: from.plane, x: (from.x + dx + s.map.mapView.width) % s.map.mapView.width, y: from.y + dy }};
+            if (Array.isArray(s.core.roadPath(from, to))) return to;
+        }}
+        return null;
+    }})()""")
+    check(target is not None, f"a road destination near the engineers: {target}")
+    point = page.evaluate(f"window.civGame.map.screenPoint({target['x']}, {target['y']})")
+    page.mouse.move(*point)
+    smoke.wait("window.civGame.map.previewPath && window.civGame.map.previewPath.length >= 2", "the road preview")
+    smoke.shot("14-road-preview")
+    page.mouse.click(*point)
+    building = state("s.view.stacks.flatMap(stack => stack.units).some(unit => unit.busy === 'building road')")
+    check(building and not state("s.roadPick") and not state("s.map.previewPath"), "clicking the destination starts the road")
+
+    traveller = select("stack['planar-travel']", "a stack on a tower")
+    start = traveller["location"]
+    page.click("#side button[data-order='plane']")
+    other = "Myrror" if start["plane"] == "Arcanus" else "Arcanus"
+    moved = state(f"s.view.stacks.find(stack => stack.location.plane === '{other}' && stack.location.x === {start['x']} && stack.location.y === {start['y']})")
+    check(moved is not None and state("s.plane") == other, f"Plane takes the stack to {other} and the map follows")
+
+    page.keyboard.press("p")
+    unit = state(f"s.view.stacks.find(stack => stack.location.plane === '{other}' && stack.location.x === {start['x']}).units[0]")
+    check(unit["busy"] == "patrolling" and state("s.selectedUnit") is None, "P sets the stack on patrol")
+    page.keyboard.press("n")
+    selected = state("(() => { const stack = s.view.stacks.find(stack => stack.units.some(unit => unit.id === s.selectedUnit)); return stack ? stack.location : null; })()")
+    check(selected is None or selected["plane"] != other or selected["x"] != start["x"], "Next unit skips the patrolling stack")
+    smoke.shot("15-orders")
     smoke.no_errors()
 
 

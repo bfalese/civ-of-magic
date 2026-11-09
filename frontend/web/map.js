@@ -20,10 +20,13 @@ const fogPieces = {
 const fogEdgeAsset = (index) => `fog/${index}`;
 
 export class MapRenderer {
-    constructor(container, assets, { onTileClick }) {
+    constructor(container, assets, { onTileClick, onTileHover }) {
         this.container = container;
         this.assets = assets;
         this.onTileClick = onTileClick;
+        // the tile under the pointer changed (null when it leaves the map)
+        this.onTileHover = onTileHover || (() => {});
+        this.hovered = null;
         this.tileWidth = assets.tileWidth;
         this.tileHeight = assets.tileHeight;
 
@@ -51,6 +54,8 @@ export class MapRenderer {
         this.playerView = null;
         this.plane = "Arcanus";
         this.selected = null;
+        // a path being picked (a road): [{x, y}] on the shown plane, drawn over everything
+        this.previewPath = null;
         this.frame = 0;
         this.keys = new Set();
 
@@ -82,6 +87,12 @@ export class MapRenderer {
     // the selected stack's location (it blinks), or null
     setSelected(location) {
         this.selected = location;
+        this.draw();
+    }
+
+    // a path to show while the player picks a destination (null clears it)
+    setPreviewPath(points) {
+        this.previewPath = points && points.length ? points : null;
         this.draw();
     }
 
@@ -203,6 +214,28 @@ export class MapRenderer {
         });
         this.drawFogEdges(context);
 
+        // the path being picked: a yellow line through the tile centres, the end marked
+        if (this.previewPath) {
+            const centre = (point) => [point.x * tileWidth + tileWidth / 2, point.y * tileHeight + tileHeight / 2];
+            context.strokeStyle = "#ffd94a";
+            context.fillStyle = "#ffd94a";
+            context.lineWidth = 1;
+            context.beginPath();
+            this.previewPath.forEach((point, index) => {
+                const [x, y] = centre(point);
+                // the map wraps: don't draw a line across it between neighbours on the two edges
+                const previous = index > 0 ? this.previewPath[index - 1] : null;
+                if (!previous || Math.abs(previous.x - point.x) > 1) context.moveTo(x, y); else context.lineTo(x, y);
+            });
+            context.stroke();
+            for (const point of this.previewPath) {
+                const [x, y] = centre(point);
+                context.fillRect(x - 1, y - 1, 3, 3);
+            }
+            const [endX, endY] = centre(this.previewPath[this.previewPath.length - 1]);
+            context.strokeRect(endX - tileWidth / 2 + 0.5, endY - tileHeight / 2 + 0.5, tileWidth - 1, tileHeight - 1);
+        }
+
         this.texture.needsUpdate = true;
     }
 
@@ -298,12 +331,25 @@ export class MapRenderer {
         this.updateCamera();
     }
 
+    // a tile's centre in page coordinates (the copy of the wrapping map nearest the camera), for
+    // tests and anything that points at a tile
+    screenPoint(x, y) {
+        const bounds = this.renderer.domElement.getBoundingClientRect();
+        const width = this.pixelWidth;
+        let dx = (x + 0.5) * this.tileWidth - this.camera.position.x;
+        dx = ((dx % width) + width * 1.5) % width - width / 2;
+        const dy = -(y + 0.5) * this.tileHeight - this.camera.position.y;
+        return [bounds.left + bounds.width / 2 + dx * this.zoom, bounds.top + bounds.height / 2 - dy * this.zoom];
+    }
+
     // the tile under a point of the canvas, or null
     tileAt(clientX, clientY) {
         if (!this.mapView) {
             return null;
         }
         const bounds = this.renderer.domElement.getBoundingClientRect();
+        // the camera may have moved since the last frame (centerOn)
+        this.camera.updateMatrixWorld();
         const ndc = new THREE.Vector3(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1, 0);
         ndc.unproject(this.camera);
         const width = this.mapView.width;
@@ -325,6 +371,12 @@ export class MapRenderer {
         });
         element.addEventListener("pointermove", (event) => {
             if (!down) {
+                const tile = this.tileAt(event.clientX, event.clientY);
+                const same = tile && this.hovered && tile.x === this.hovered.x && tile.y === this.hovered.y && tile.plane === this.hovered.plane;
+                if (!same && (tile || this.hovered)) {
+                    this.hovered = tile;
+                    this.onTileHover(tile, event);
+                }
                 return;
             }
             const dx = event.clientX - down.x;
@@ -354,6 +406,12 @@ export class MapRenderer {
             this.zoomBy(event.deltaY < 0 ? 1 : -1);
         }, { passive: false });
         element.addEventListener("contextmenu", (event) => event.preventDefault());
+        element.addEventListener("pointerleave", () => {
+            if (this.hovered) {
+                this.hovered = null;
+                this.onTileHover(null);
+            }
+        });
 
         window.addEventListener("keydown", (event) => {
             if (event.target instanceof HTMLInputElement) {

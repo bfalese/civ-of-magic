@@ -23,6 +23,8 @@ export class VaultScreen {
         // the slot of the item picked up, e.g. {vault: 0}
         this.picked = null;
         this.message = "";
+        // the index of the hero whose name is being edited, or null
+        this.renaming = null;
     }
 
     get open() {
@@ -47,6 +49,7 @@ export class VaultScreen {
     hide() {
         this.root.classList.remove("open");
         this.picked = null;
+        this.renaming = null;
     }
 
     itemAt(slot) {
@@ -90,6 +93,28 @@ export class VaultScreen {
             this.picked = null;
         }
         this.render();
+    }
+
+    // the name editor of a hero: Enter or Save renames (rename-hero), Esc or Cancel leaves it
+    bindRename(box, hero) {
+        const input = box.querySelector("input");
+        const close = () => { this.renaming = null; this.render(); };
+        const save = () => {
+            const name = input.value.trim();
+            this.renaming = null;
+            if (name && name !== hero.name) {
+                const status = this.command("rename-hero", { hero: hero.index, name });
+                if (!status.error) this.message = `${hero.name} is now ${name}.`;
+            }
+            this.render();
+        };
+        box.querySelector("[data-save]").onclick = save;
+        box.querySelector("[data-cancel]").onclick = close;
+        input.onkeydown = (event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") save();
+            if (event.key === "Escape") close();
+        };
     }
 
     picture(asset) {
@@ -163,7 +188,15 @@ export class VaultScreen {
             const row = document.createElement("div");
             row.className = "vault-hero";
             const name = document.createElement("div");
-            name.innerHTML = `<b>${escape(hero.name)}</b> <span class="dim">the ${escape(hero.title)} · ${escape(hero.level)} · ${hero.location.x},${hero.location.y}${items.fortress && JSON.stringify(items.fortress) !== JSON.stringify(hero.location) ? " (away)" : ""}</span>`;
+            const about = `<span class="dim">the ${escape(hero.title)} · ${escape(hero.level)} · ${hero.location.x},${hero.location.y}${items.fortress && JSON.stringify(items.fortress) !== JSON.stringify(hero.location) ? " (away)" : ""}</span>`;
+            if (this.renaming === hero.index) {
+                name.className = "rename";
+                name.innerHTML = `<input maxlength="20" value="${escape(hero.name)}"><button class="small" data-save>Save</button><button class="small" data-cancel>Cancel</button> ${about}`;
+                this.bindRename(name, hero);
+            } else {
+                name.innerHTML = `<b>${escape(hero.name)}</b> <button class="tiny" data-rename title="rename">✎</button> ${about}`;
+                name.querySelector("[data-rename]").onclick = () => { this.renaming = hero.index; this.render(); };
+            }
             row.appendChild(name);
             const slots = document.createElement("div");
             slots.className = "vault-slots";
@@ -176,6 +209,11 @@ export class VaultScreen {
         }
 
         this.root.querySelector("[data-close]").onclick = () => this.hide();
+        const input = this.root.querySelector(".rename input");
+        if (input) {
+            input.focus();
+            input.select();
+        }
         this.root.querySelector("[data-destroy]").onclick = () => this.destroy();
     }
 }

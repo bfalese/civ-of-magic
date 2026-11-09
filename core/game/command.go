@@ -513,20 +513,7 @@ func (command *PlanarTravelCommand) Execute(context *CommandContext) error {
         return err
     }
 
-    // PlanarTravel moves the selected stack while the view is on the destination plane
-    viewedPlane := model.Plane
-    model.Plane = stack.Plane().Opposite()
-    defer func() {
-        model.Plane = viewedPlane
-    }()
-
-    player.SelectedStack = stack
-    startPlane := stack.Plane()
-    model.PlanarTravel(player)
-    if player.SelectedStack == nil || player.SelectedStack.Plane() == startPlane {
-        return errors.New("the stack can't travel to the other plane here")
-    }
-    return nil
+    return model.PlanarTravel(player, stack)
 }
 
 // the stack's active units stop and patrol (they guard the tile until given a new order)
@@ -637,6 +624,12 @@ func (command *SetUnitActiveCommand) Execute(context *CommandContext) error {
     // units in stasis can't be toggled
     if unit.GetBusy() == units.BusyStatusStasis {
         return errors.New("the unit is in stasis")
+    }
+    // activating a unit cancels its standing order (patrol, road building, purifying), as the
+    // desktop's unit toggle does
+    if command.Active && unit.GetBusy() != units.BusyStatusNone {
+        unit.SetBusy(units.BusyStatusNone)
+        unit.SetBuildRoadPath(nil)
     }
     stack.SetActive(unit, command.Active)
     return nil

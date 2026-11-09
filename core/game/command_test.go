@@ -352,6 +352,18 @@ func TestUnitOrderCommands(test *testing.T) {
         if unit.GetBusy() != units.BusyStatusPatrol {
             test.Errorf("%v should patrol", unit.GetName())
         }
+        if stack.IsActive(unit) {
+            test.Errorf("a patrolling unit shouldn't move with the stack")
+        }
+    }
+
+    // activating a unit again ends its patrol
+    woken := stack.Units()[1]
+    if err := model.Execute(context, &SetUnitActiveCommand{Unit: model.UnitId(woken), Active: true}); err != nil {
+        test.Fatalf("set-unit-active: %v", err)
+    }
+    if woken.GetBusy() != units.BusyStatusNone || !stack.IsActive(woken) {
+        test.Errorf("the activated unit should stop patrolling and be active: %v", woken.GetBusy())
     }
 
     before := len(stack.Units())

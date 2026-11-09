@@ -4254,8 +4254,13 @@ func (game *Game) PlaneShift(stack *playerlib.UnitStack, player *playerlib.Playe
     return err
 }
 
+// after the plane button switched the view: the selected stack follows to the plane now shown
 func (game *Game) doPlanarTraval() {
-    game.Model.PlanarTravel(game.Model.GetHumanPlayer())
+    player := game.Model.GetHumanPlayer()
+    stack := player.SelectedStack
+    if stack != nil && stack.Plane() != game.Model.Plane {
+        game.Model.PlanarTravel(player, stack)
+    }
 }
 
 func (game *Game) OnWaterTile(stack *playerlib.UnitStack) bool {

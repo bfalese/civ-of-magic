@@ -38,6 +38,9 @@
     .unit input { vertical-align: middle; margin: 0 2px 0 0; }
     button.tiny { padding: 0 4px; margin-left: 3px; font-size: 11px; line-height: 14px; }
     .unit-details { margin: 2px 0 6px 18px; font-size: 12px; }
+    .orders { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+    .orders button.small { padding: 1px 6px; }
+    .busy { color: var(--accent); }
     .unit-details .enchanted { color: var(--accent); }
     #vault { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
     #vault.open { display: flex; }
@@ -99,7 +102,9 @@
     #magic button.small { padding: 0 6px; }
     #magic .magic-message { margin-top: 8px; color: var(--accent); min-height: 1.2em; }
     #tax { font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 0 2px; }
-    #city .rename { display: flex; gap: 4px; align-items: center; }
+    #city .rename, #vault .rename { display: flex; gap: 4px; align-items: center; }
+    #vault button.tiny { padding: 0 4px; font-size: 11px; line-height: 14px; }
+    #vault .rename input,
     #city .rename input { font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 1px 4px; width: 12em; }
     #city button.tiny { padding: 0 4px; font-size: 11px; line-height: 14px; }
     #city .curse { color: #ff8a70; }

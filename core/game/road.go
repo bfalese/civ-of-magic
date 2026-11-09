@@ -1,6 +1,8 @@
 package game
 
 import (
+    "errors"
+    "fmt"
     "image"
 
     "github.com/bfalese/civ-of-magic/core/data"
@@ -141,4 +143,25 @@ func (model *GameModel) FindRoadPath(oldX int, oldY int, newX int, newY int, pla
     }
 
     return nil
+}
+
+// the road the player's engineers at stack would build to reach to (what build-road would do),
+// from the stack's tile to the destination; an error if there are no engineers or no way
+func (model *GameModel) RoadPathFor(player *playerlib.Player, stackAt Location, to Location) ([]Location, error) {
+    stack := player.FindStack(stackAt.X, stackAt.Y, stackAt.Plane)
+    if stack == nil {
+        return nil, fmt.Errorf("no stack of yours at %v,%v", stackAt.X, stackAt.Y)
+    }
+    if !stack.ActiveUnitsHasAbility(data.AbilityConstruction) {
+        return nil, errors.New("no engineers in the stack")
+    }
+    path := model.FindRoadPath(stack.X(), stack.Y(), to.X, to.Y, player, stack, player.GetFog(stack.Plane()))
+    if len(path) == 0 {
+        return nil, fmt.Errorf("no road path to %v,%v", to.X, to.Y)
+    }
+    out := []Location{}
+    for _, point := range path {
+        out = append(out, Location{Plane: stack.Plane(), X: point.X, Y: point.Y})
+    }
+    return out, nil
 }

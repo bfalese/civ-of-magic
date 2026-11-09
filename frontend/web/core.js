@@ -42,6 +42,11 @@ export class Core {
         return this.call("battle");
     }
 
+    // the road build-road would make from the stack to a tile: a list of locations, or {error}
+    roadPath(stack, to) {
+        return this.call("roadPath", JSON.stringify({ stack, to }));
+    }
+
     // the choices for a new game: {wizards, races, banners, difficulties, magic, land-sizes, ...}
     startOptions() {
         return this.call("startOptions");

@@ -10,6 +10,7 @@
 //   civ.view()                              -> the player view (JSON)
 //   civ.map("Arcanus" | "Myrror")           -> the map view (JSON)
 //   civ.battle()                            -> the battle view (JSON), while waiting is "battle"
+//   civ.roadPath(queryJSON)                 -> the road build-road would make ({stack, to} -> locations)
 //   civ.setLogging(true)                    -> the game's log on the console (off by default)
 //
 // Every function returns a JSON string. status is {"error"?, "waiting", "gameOver"?}; views are
@@ -173,6 +174,17 @@ func battle(arguments []js.Value) string {
     return viewResult(host.BattleView())
 }
 
+func roadPath(arguments []js.Value) string {
+    if host == nil {
+        return errorJSON(errNoGame)
+    }
+    encoded, err := stringArgument(arguments, 0)
+    if err != nil {
+        return errorJSON(err)
+    }
+    return viewResult(host.RoadPath([]byte(encoded)))
+}
+
 // the choices for a new game (wizards, races, banners, difficulties, ...): core StartOptions
 func startOptions(arguments []js.Value) string {
     encoded, err := json.Marshal(gamecore.MakeStartOptions())
@@ -201,6 +213,7 @@ func main() {
     api.Set("view", export("view", view, errorJSON))
     api.Set("map", export("map", mapView, errorJSON))
     api.Set("battle", export("battle", battle, errorJSON))
+    api.Set("roadPath", export("roadPath", roadPath, errorJSON))
     api.Set("setLogging", export("setLogging", setLogging, errorJSON))
     api.Set("startOptions", export("startOptions", startOptions, errorJSON))
     js.Global().Set("civ", api)

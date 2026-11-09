@@ -51,16 +51,16 @@ command isn't legal (not your city, not enough gold, no path...).
 | `set-city-farmers` | `city`, `farmers` | at least the subsistence farmers |
 | `buy-production` | `city` | pay gold to finish the current production |
 | `sell-building` | `city`, `building` | one sale per city per turn |
-| `build-action` | `stack` | settle an outpost / meld a node / purify |
-| `build-road` | `stack`, `to` | engineers build a road over the next turns |
+| `build-action` | `stack` | settle an outpost / meld a node / purify: the stack view's `build` says which |
+| `build-road` | `stack`, `to` | engineers build a road over the next turns (`civ.roadPath` shows the path first) |
 | `end-turn` | | the frontend's turn loop moves on (with `GameHost`: the AI turns; may wait for a battle an AI starts against you) |
 | `cast-spell` | `spell`, `target?` | cast now if mana and casting skill allow (spells that need a target must then come with one), otherwise start casting it over the next turns |
 | `cast-spell-target` | `target` | the target for a finished spell announced by `choose-spell-target` |
 | `answer-offer` | `accept` | accept or decline the open `hire-hero` / `hire-mercenaries` / `merchant` offer (a bought item then comes as a `vault` event) |
-| `planar-travel` | `stack` | move the stack's active units to the other plane (tower, Astral Gate, Plane Shift) |
-| `patrol` | `stack` | the stack's active units patrol their tile |
+| `planar-travel` | `stack` | move the stack's active units to the other plane (tower, Astral Gate, Plane Shift); the stack's plane counts, not the one shown |
+| `patrol` | `stack` | the stack's active units patrol their tile (their `busy` is `patrolling`; activating one again ends it) |
 | `disband-unit` | `unit` (id) | dismiss the unit |
-| `set-unit-active` | `unit` (id), `active` | whether the unit moves with the stack; `move-stack` only moves active units, the others stay behind as their own stack (that's how stacks split; they merge when they stop on the same tile) |
+| `set-unit-active` | `unit` (id), `active` | whether the unit moves with the stack; `move-stack` only moves active units, the others stay behind as their own stack (that's how stacks split; they merge when they stop on the same tile); activating a unit ends its standing order (patrol, road, purifying) |
 | `set-power-distribution` | `mana`, `research`, `skill` | shares of power, 0-1 each, adding up to 1 |
 | `alchemy` | `direction` (`mana-to-gold`, `gold-to-mana`), `amount` | convert at half rate (full rate with the Alchemy retort) |
 | `rename-city` | `city`, `name` | |
@@ -215,8 +215,10 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   buildings, `enchantments` `{name, upkeep, owner, yours}`; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
   `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, `active` (moves with the stack, see
-  `set-unit-active`), `details` {melee, ranged, ranged-type?, defense, resistance, hit-points,
-  figures, moves, level?, upkeep-gold/food/mana?, abilities, enchantments}; remaining path),
+  `set-unit-active`), `busy` (a standing order: `patrolling`, `building road`, `purifying land`, `stasis`), `details` {melee, ranged, ranged-type?, defense, resistance, hit-points,
+  figures, moves, level?, upkeep-gold/food/mana?, abilities, enchantments}; remaining path; `build`, what
+  `build-action` does for the active units now: `settle`, `meld`, `purify` or `road`; `road` when
+  engineers can take `build-road`; `planar-travel` when `planar-travel` would work now),
   `foreign-cities` and `foreign-stacks` (only where the player's fog shows them).
 - **Map view** (`MakeMapView`, per plane): `width`, `height`, `tiles[y][x]` with `terrain`, `road`,
   `bonus`, `encounter`, `corrupted`, `visible`; `null` for unexplored tiles.
@@ -265,7 +267,8 @@ Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (defa
 `difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
 `wizardName`, `scenario` (a setup for tests, `core/game/scenario.go`: `battle` puts a guarded
 lair next to the capital and gives the wizard Fire Bolt, Wall of Stone, mana and skill; `siege`
-puts a human army next to an AI capital with walls, a wall of fire and darkness; the web page
+puts a human army next to an AI capital with walls, a wall of fire and darkness; `orders` puts
+settlers where an outpost can go, engineers next to the capital and swordsmen on an open tower; the web page
 takes `?scenario=...`).
 
 A new game asks for the first research at once (`choose-research`); the turn loop asks again
@@ -285,6 +288,7 @@ next turn has started. Until then only battle commands are accepted.
 | `civ.execute(commandJSON)` | status |
 | `civ.events()` | JSON array of events since the last call |
 | `civ.view()`, `civ.map("Arcanus" \| "Myrror")`, `civ.battle()` | the view as JSON (`{"error": ...}` on failure) |
+| `civ.roadPath(queryJSON)` | the road `build-road` would make: `{stack, to}` (locations) → a list of locations from the stack's tile, or `{"error"}` |
 | `civ.setLogging(bool)` | the Go log on the console (off by default) |
 | `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
 

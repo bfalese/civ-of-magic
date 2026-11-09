@@ -22,6 +22,8 @@ const state = {
     // a spell waiting for its target on the map: {spell, target, start} (start: cast-spell from
     // the spellbook; otherwise a finished spell's cast-spell-target)
     spellTarget: null,
+    // engineers picking where to build a road: {stack: location}; the map shows the path
+    roadPick: null,
     questions: [],
     modalOpen: false,
     // the location of the city whose screen is open, or null
@@ -397,14 +399,22 @@ function updateSide(extra) {
         add(`<h3>${escape(state.spellTarget.spell)}</h3><div class="dim">click the target (${escape(state.spellTarget.target)}) · Esc: later</div>`);
         return;
     }
+    if (state.roadPick) {
+        add(`<h3>Build a road</h3><div class="dim">click the destination: the engineers build the road over the next turns · Esc cancels</div>`);
+        return;
+    }
 
     const stack = selectedStack();
     if (stack) {
         add(`<h3>Stack at ${stack.location.x},${stack.location.y}</h3>`);
+        const orders = stackOrders(stack);
+        if (orders.length) {
+            add(`<div class="orders">${orders.map((order) => `<button class="small" data-order="${order.id}" title="${escape(order.title)}">${escape(order.label)}</button>`).join("")}</div>`);
+        }
         for (const unit of stack.units) {
             add(`<div class="unit${unit.active ? "" : " inactive"}">
                 <label title="moves with the stack (unchecked: stays behind)"><input type="checkbox" data-active="${unit.id}"${unit.active ? " checked" : ""}> ${escape(unit.name)}</label>
-                <span class="dim">${unit["moves-left"]} mv · ${unit.health}/${unit["max-health"]}
+                <span class="dim">${unit.busy ? `<span class="busy">${escape(unit.busy)}</span> · ` : ""}${unit["moves-left"]} mv · ${unit.health}/${unit["max-health"]}
                     <button class="tiny" data-details="${unit.id}" title="details">i</button><button class="tiny" data-disband="${unit.id}" title="disband">✕</button></span>
             </div>`);
             if (state.detailUnit === unit.id) {
@@ -412,6 +422,9 @@ function updateSide(extra) {
             }
         }
         add(`<div class="dim" style="margin-top:4px">click a tile to move the checked units</div>`);
+        for (const button of side.querySelectorAll("button[data-order]")) {
+            button.onclick = () => runOrder(button.dataset.order);
+        }
         for (const box of side.querySelectorAll("input[data-active]")) {
             box.onchange = () => execute("set-unit-active", { unit: Number(box.dataset.active), active: box.checked });
         }
@@ -436,6 +449,93 @@ function updateSide(extra) {
     if (extra) {
         add(extra);
     }
+}
+
+// the orders the selected stack can take now: the build action the view names, a road for
+// engineers, planar travel where the view allows it, and patrol
+const buildLabels = {
+    settle: ["Settle (B)", "found an outpost here"],
+    meld: ["Meld (B)", "meld with the node: its power goes to you"],
+    purify: ["Purify (B)", "the priests cleanse the corruption over the next turns"],
+};
+
+function stackOrders(stack) {
+    const orders = [];
+    const build = buildLabels[stack.build];
+    if (build) {
+        orders.push({ id: "build", label: build[0], title: build[1] });
+    }
+    if (stack.road) {
+        orders.push({ id: "road", label: stack.build === "road" ? "Road (B)" : "Road (R)", title: "the engineers build a road to a tile you pick" });
+    }
+    if (stack["planar-travel"]) {
+        orders.push({ id: "plane", label: "Plane (T)", title: `go to ${stack.location.plane === "Arcanus" ? "Myrror" : "Arcanus"}` });
+    }
+    if (stack.units.some((unit) => unit.active)) {
+        orders.push({ id: "patrol", label: "Patrol (P)", title: "the checked units guard this tile and are skipped by Next unit" });
+    }
+    return orders;
+}
+
+function runOrder(id) {
+    const stack = selectedStack();
+    if (!stack || state.modalOpen) {
+        return;
+    }
+    if (!stackOrders(stack).some((order) => order.id === id)) {
+        if (id === "build") log("Nothing to build here.", "dim");
+        if (id === "plane") log("This stack can't travel to the other plane here.", "dim");
+        return;
+    }
+    switch (id) {
+        case "build":
+            if (!execute("build-action", { stack: stack.location }).error && stack.build === "meld") {
+                log(`${stack.units.find((unit) => unit.active).name} melded with the node.`);
+            }
+            break;
+        case "road":
+            state.roadPick = { stack: stack.location };
+            log("Road: click the destination (Esc cancels).");
+            updateSide();
+            break;
+        case "plane": {
+            const status = execute("planar-travel", { stack: stack.location });
+            if (!status.error) {
+                const moved = selectedStack();
+                if (moved && moved.location.plane !== state.plane) {
+                    state.plane = moved.location.plane;
+                    refresh();
+                    state.map.centerOn(moved.location.x, moved.location.y);
+                }
+                log(`The stack travels to ${moved ? moved.location.plane : "the other plane"}.`);
+            }
+            break;
+        }
+        case "patrol":
+            if (!execute("patrol", { stack: stack.location }).error) {
+                state.selectedUnit = null;
+                refresh();
+            }
+            break;
+    }
+}
+
+function endRoadPick() {
+    state.roadPick = null;
+    state.map.setPreviewPath(null);
+    updateSide();
+}
+
+function onTileHover(tile) {
+    if (!state.roadPick) {
+        return;
+    }
+    if (!tile || tile.plane !== state.roadPick.stack.plane) {
+        state.map.setPreviewPath(null);
+        return;
+    }
+    const path = state.core.roadPath(state.roadPick.stack, tile);
+    state.map.setPreviewPath(Array.isArray(path) ? [state.roadPick.stack, ...path] : null);
 }
 
 function unitDetails(unit, escape) {
@@ -600,6 +700,15 @@ function onTileClick(tile) {
         return;
     }
 
+    if (state.roadPick) {
+        const stack = state.roadPick.stack;
+        endRoadPick();
+        if (!execute("build-road", { stack, to: tile }).error) {
+            log(`The engineers start a road to ${tile.x},${tile.y}.`);
+        }
+        return;
+    }
+
     if (state.spellTarget) {
         const target = { location: tile };
         if (state.spellTarget.target === "friendly-unit") {
@@ -655,7 +764,8 @@ function onTileClick(tile) {
 
 function nextUnit() {
     const view = state.view;
-    const ready = view.stacks.filter((stack) => stack.units.some((unit) => unit["moves-left"] > 0) && !(stack.path && stack.path.length));
+    // units on patrol, building a road or purifying have their orders: skip them
+    const ready = view.stacks.filter((stack) => stack.units.some((unit) => unit["moves-left"] > 0 && !unit.busy) && !(stack.path && stack.path.length));
     if (ready.length === 0) {
         log("No units can move.", "dim");
         return;
@@ -674,6 +784,9 @@ function endTurn() {
     if (state.modalOpen) {
         return;
     }
+    if (state.roadPick) {
+        endRoadPick();
+    }
     state.selectedUnit = null;
     execute("end-turn");
 }
@@ -689,7 +802,8 @@ function bindControls() {
         refresh();
     };
     window.addEventListener("keydown", (event) => {
-        if (state.modalOpen) {
+        // typing a name: the field handles its own keys
+        if (state.modalOpen || event.target instanceof HTMLInputElement) {
             return;
         }
         if (state.battle.open) {
@@ -717,7 +831,20 @@ function bindControls() {
         if (event.key === "w" || event.key === "W") openDiplomacy();
         if (event.key === "Enter") endTurn();
         if (event.key === "n" || event.key === "N") nextUnit();
+        if (selectedStack() && !state.spellTarget && !state.roadPick) {
+            const key = event.key.toLowerCase();
+            if (key === "b") {
+                runOrder(selectedStack().build === "road" ? "road" : "build");
+            }
+            if (key === "r") runOrder("road");
+            if (key === "t") runOrder("plane");
+            if (key === "p") runOrder("patrol");
+        }
         if (event.key === "Escape") {
+            if (state.roadPick) {
+                endRoadPick();
+                return;
+            }
             state.spellTarget = null;
             state.selectedUnit = null;
             refresh();
@@ -764,7 +891,7 @@ async function main() {
             throw new Error(status.error);
         }
 
-        state.map = new MapRenderer(element("map"), assets, { onTileClick });
+        state.map = new MapRenderer(element("map"), assets, { onTileClick, onTileHover });
         state.magic = new MagicScreen(element("magic"), assets, {
             confirm: (text, yes) => ask(text, [["Yes", yes], ["No", () => {}]]),
             onCommand: (type, command) => execute(type, command),

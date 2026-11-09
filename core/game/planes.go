@@ -2,7 +2,6 @@ package game
 
 import (
     "errors"
-    "fmt"
     "slices"
 
     "github.com/bfalese/civ-of-magic/core/building"
@@ -25,53 +24,18 @@ func (model *GameModel) PlaneShift(stack *playerlib.UnitStack, player *playerlib
         return errors.New("Cannot plane shift while the Planar Seal is in effect")
     }
 
-    canMove := false
-
-    cityOppositePlane := player.FindCity(stack.X(), stack.Y(), stack.Plane().Opposite())
-
-    mapPlane := model.GetMap(stack.Plane().Opposite())
-
-    tile := mapPlane.GetTile(stack.X(), stack.Y())
-    canMove = cityOppositePlane != nil || stack.AllFlyers() || tile.Tile.IsLand()
-
-    if cityOppositePlane != nil {
-        for _, unit := range stack.ActiveUnits() {
-            if !cityOppositePlane.CanEnter(unit) {
-                canMove = false
-                break
-            }
-        }
-    }
-
-    // cannot planar travel if there is an encounter node
-    if canMove && mapPlane.GetEncounter(stack.X(), stack.Y()) != nil {
-        canMove = false
-    }
-
-    if canMove && tile.Tile.IsWater() && stack.AllLandWalkers() {
-        canMove = false
-    }
-
     cityStackInfo := model.ComputeCityStackInfo()
-
-    if cityStackInfo.ContainsEnemy(stack.X(), stack.Y(), stack.Plane().Opposite(), player) {
-        canMove = false
+    if err := model.planeShiftCheck(stack, player, cityStackInfo); err != nil {
+        return err
     }
 
-    // no matter what the reason, just emit a message that planar travel is not possible
-    if !canMove {
-        return errors.New("The selected units cannot planar travel at this location.")
+    // if there is a friendly stack at the new location then merge the stacks
+    mergeStack := cityStackInfo.FindFriendlyStack(stack.X(), stack.Y(), stack.Plane().Opposite(), player)
+    stack.SetPlane(stack.Plane().Opposite())
+    if mergeStack != nil {
+        player.MergeStacks(stack, mergeStack)
     }
-
-    if canMove {
-        // if there is a friendly stack at the new location then merge the stacks
-        mergeStack := cityStackInfo.FindFriendlyStack(stack.X(), stack.Y(), stack.Plane().Opposite(), player)
-        stack.SetPlane(stack.Plane().Opposite())
-        if mergeStack != nil {
-            player.MergeStacks(stack, mergeStack)
-        }
-        player.UpdateFogVisibility()
-    }
+    player.UpdateFogVisibility()
 
     return nil
 }
@@ -119,60 +83,113 @@ func (model *GameModel) ExploreFogForAwareness(awarenessOwner *playerlib.Player)
     }
 }
 
-// the player's selected stack (the active units in it) goes to the other plane, through an open
-// tower, an Astral Gate, or by Plane Shift. Planar Seal blocks it. Only works while the view
-// (model.Plane) is on the other plane, as the plane button switches it first.
-func (model *GameModel) PlanarTravel(player *playerlib.Player) {
-    // no switching planes if the global enchantment planar seal is in effect
-    if !model.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
-        stack := player.SelectedStack
+// how a stack could go to the other plane from where it stands: an open tower, an Astral Gate in
+// a city of the player's on either plane, or Plane Shift on its active units
+func (model *GameModel) hasPlanarTravelWay(player *playerlib.Player, stack *playerlib.UnitStack) bool {
+    if model.GetMap(stack.Plane()).HasOpenTower(stack.X(), stack.Y()) {
+        return true
+    }
+    cityThisPlane := player.FindCity(stack.X(), stack.Y(), stack.Plane())
+    cityOppositePlane := player.FindCity(stack.X(), stack.Y(), stack.Plane().Opposite())
+    if (cityThisPlane != nil && cityThisPlane.HasEnchantment(data.CityEnchantmentAstralGate)) ||
+       (cityOppositePlane != nil && cityOppositePlane.HasEnchantment(data.CityEnchantmentAstralGate)) {
+        return true
+    }
+    return stack.ActiveUnitsHasAbility(data.AbilityPlaneShift)
+}
 
-        if stack != nil && stack.Plane() == model.Plane.Opposite() {
-            activeStack := player.SplitActiveStack(stack)
-            // nothing to do
-            if len(activeStack.Units()) == 0 {
-                return
-            }
+// whether PlanarTravel would move the stack's active units now (for the player view)
+func (model *GameModel) CanPlanarTravel(player *playerlib.Player, stack *playerlib.UnitStack) bool {
+    if stack == nil || len(stack.ActiveUnits()) == 0 || model.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
+        return false
+    }
+    if !model.hasPlanarTravelWay(player, stack) {
+        return false
+    }
+    return model.planeShiftCheck(stack, player, model.ComputeCityStackInfo()) == nil
+}
 
-            travelEnabled := false
+// the active units of the player's stack go to the other plane, through an open tower, an Astral
+// Gate, or by Plane Shift. Planar Seal blocks it. The stack's own plane counts, not the one the
+// frontend shows. On success player.SelectedStack is the stack that arrived.
+func (model *GameModel) PlanarTravel(player *playerlib.Player, stack *playerlib.UnitStack) error {
+    if stack == nil {
+        return errors.New("no stack")
+    }
+    if model.IsGlobalEnchantmentActive(data.EnchantmentPlanarSeal) {
+        return errors.New("Planar Seal keeps everyone on their plane")
+    }
+    if !model.hasPlanarTravelWay(player, stack) {
+        return errors.New("planar travel needs a tower, an Astral Gate or Plane Shift")
+    }
 
-            if model.CurrentMap().HasOpenTower(activeStack.X(), activeStack.Y()) {
-                travelEnabled = true
-            } else {
-                cityThisPlane := player.FindCity(activeStack.X(), activeStack.Y(), activeStack.Plane())
-                cityOppositePlane := player.FindCity(activeStack.X(), activeStack.Y(), activeStack.Plane().Opposite())
-                hasAstralGate := (cityThisPlane != nil && cityThisPlane.HasEnchantment(data.CityEnchantmentAstralGate)) ||
-                                 (cityOppositePlane != nil && cityOppositePlane.HasEnchantment(data.CityEnchantmentAstralGate))
+    activeStack := player.SplitActiveStack(stack)
+    if len(activeStack.Units()) == 0 {
+        return errors.New("no active units to travel")
+    }
 
-                hasPlanarTravel := activeStack.ActiveUnitsHasAbility(data.AbilityPlaneShift)
+    if err := model.PlaneShift(activeStack, player); err != nil {
+        if activeStack != stack {
+            player.MergeStacks(stack, activeStack)
+        }
+        select {
+            case model.Events <- &GameEventNotice{Message: "The selected units cannot planar travel at this location."}:
+            default:
+        }
+        return err
+    }
 
-                if hasAstralGate || hasPlanarTravel {
-                    travelEnabled = true
-                }
-            }
+    // PlaneShift merges into a friendly stack on the other side: find the stack that holds them
+    arrived := activeStack
+    if leader := activeStack.Leader(); leader != nil {
+        if found := player.FindStack(leader.GetX(), leader.GetY(), leader.GetPlane()); found != nil {
+            arrived = found
+        }
+    }
+    player.SelectedStack = arrived
+    player.UpdateFogVisibility()
+    model.AnnounceVisibleWizards()
+    return nil
+}
 
-            moved := false
-            if travelEnabled {
-                err := model.PlaneShift(activeStack, player)
-                if err != nil {
-                    select {
-                        case model.Events<- &GameEventNotice{Message: fmt.Sprintf("The selected units cannot planar travel at this location.")}:
-                        default:
-                    }
-                } else {
-                    model.AnnounceVisibleWizards()
-                    moved = true
-                    player.SelectedStack = stack
-                    player.UpdateFogVisibility()
-                    model.AnnounceVisibleWizards()
-                }
-            }
+// why the stack can't land on the other plane at its position (nil if it can): water for walkers,
+// an encounter, an enemy, a city it may not enter
+func (model *GameModel) planeShiftCheck(stack *playerlib.UnitStack, player *playerlib.Player, cityStackInfo playerlib.CityStackInfo) error {
+    canMove := false
 
-            if !moved {
-                if activeStack != stack {
-                    player.MergeStacks(stack, activeStack)
-                }
+    cityOppositePlane := player.FindCity(stack.X(), stack.Y(), stack.Plane().Opposite())
+
+    mapPlane := model.GetMap(stack.Plane().Opposite())
+
+    tile := mapPlane.GetTile(stack.X(), stack.Y())
+    canMove = cityOppositePlane != nil || stack.AllFlyers() || tile.Tile.IsLand()
+
+    if cityOppositePlane != nil {
+        for _, unit := range stack.ActiveUnits() {
+            if !cityOppositePlane.CanEnter(unit) {
+                canMove = false
+                break
             }
         }
     }
+
+    // cannot planar travel if there is an encounter node
+    if canMove && mapPlane.GetEncounter(stack.X(), stack.Y()) != nil {
+        canMove = false
+    }
+
+    if canMove && tile.Tile.IsWater() && stack.AllLandWalkers() {
+        canMove = false
+    }
+
+    if cityStackInfo.ContainsEnemy(stack.X(), stack.Y(), stack.Plane().Opposite(), player) {
+        canMove = false
+    }
+
+    // no matter what the reason, just emit a message that planar travel is not possible
+    if !canMove {
+        return errors.New("The selected units cannot planar travel at this location.")
+    }
+
+    return nil
 }

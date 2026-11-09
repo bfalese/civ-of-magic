@@ -234,6 +234,22 @@ func (host *GameHost) MapView(plane data.Plane) ([]byte, error) {
     return host.Model.EncodeMapView(host.Human, plane)
 }
 
+// the road build-road would make: {"stack": location, "to": location} -> a JSON list of locations
+func (host *GameHost) RoadPath(encoded []byte) ([]byte, error) {
+    var query struct {
+        Stack Location `json:"stack"`
+        To Location `json:"to"`
+    }
+    if err := json.Unmarshal(encoded, &query); err != nil {
+        return nil, fmt.Errorf("road path: %v", err)
+    }
+    path, err := host.Model.RoadPathFor(host.Human, query.Stack, query.To)
+    if err != nil {
+        return nil, err
+    }
+    return json.Marshal(path)
+}
+
 // the battlefield, while WaitingFor is "battle"
 func (host *GameHost) BattleView() ([]byte, error) {
     if host.Session.Battle == nil {
