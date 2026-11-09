@@ -120,6 +120,8 @@ func TestExport(test *testing.T) {
     check(assets.TerrainTile(0))
     check(assets.Item(0))
     check(assets.FogEdge(0))
+    check(assets.SpellEffect("Fire Bolt"))
+    check(assets.SpellEffect("Summoning Circle"))
     check(assets.FogEdge(13))
     check(assets.Item(115))
 

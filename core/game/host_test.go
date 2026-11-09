@@ -265,6 +265,44 @@ func TestHostBattleScenario(test *testing.T) {
         if !castable {
             test.Fatalf("fire bolt should be castable: %+v", view.Magic)
         }
+        // no walls at a lair: Disrupt has nothing to hit
+        for _, spell := range view.Magic.Spells {
+            if spell.Name == "Disrupt" && (spell.Castable || !spell.NoTarget) {
+                test.Errorf("Disrupt at a lair: %+v", spell)
+            }
+        }
+        if err := host.Execute(&BattleCastCommand{Spell: "Disrupt"}); err == nil || host.Session.Battle.View().Casting != nil {
+            test.Errorf("casting Disrupt without walls should be refused: %v", err)
+        }
+
+        // Fire Bolt on a skeleton: the step names the target, its tile and the effect to play
+        var enemy *BattleUnitView
+        for i := range view.Units {
+            if !view.Units[i].Yours {
+                enemy = &view.Units[i]
+                break
+            }
+        }
+        if enemy == nil {
+            test.Fatalf("no enemy on the field")
+        }
+        enemyId := enemy.Id
+        if err := host.Execute(&BattleCastCommand{Spell: "Fire Bolt", Target: &BattleTarget{Unit: &enemyId}}); err != nil {
+            test.Fatalf("Fire Bolt: %v", err)
+        }
+        if host.WaitingFor() == WaitingBattle {
+            var spellStep *BattleStepView
+            for _, step := range host.Session.Battle.View().Steps {
+                if step.Kind == "spell" {
+                    spellStep = &step
+                }
+            }
+            if spellStep == nil || spellStep.Effect != "spell-effect/fire-bolt" || spellStep.Target == nil || *spellStep.Target != enemyId || spellStep.Tile == nil || *spellStep.Tile != [2]int{enemy.X, enemy.Y} {
+                test.Errorf("the Fire Bolt step: %+v", spellStep)
+            }
+        } else {
+            continue
+        }
         if err := host.Execute(&BattleAutoCommand{}); err != nil {
             test.Fatalf("auto: %v", err)
         }

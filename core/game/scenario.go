@@ -19,7 +19,7 @@ import (
 // playing (and retrying) random games until it comes up. HostSettings.Scenario names one.
 //
 //   battle: a lair guarded by skeletons next to the human's capital (the only encounter next to
-//           it), and a wizard who knows Wall of Stone and
+//           it), and a wizard who knows Wall of Stone, Disrupt and
 //           Fire Bolt with mana and casting skill to spare: one move-stack starts a battle
 //   spellbook: a wizard with the spells that take a choice (Spell Ward, Spell Binding,
 //           Disjunction, Resurrection) and the item spells (Create Artifact, Enchant Item), mana
@@ -114,8 +114,9 @@ func scenarioBattle(host *GameHost) error {
     }
     human.LiftFogSquare(capital.X, capital.Y, 3, capital.Plane)
 
-    // Fire Bolt for the battle, Wall of Stone to cast on the capital from the spellbook
-    for _, name := range []string{"Fire Bolt", "Wall of Stone"} {
+    // Fire Bolt for the battle, Disrupt (no walls at a lair: nothing to cast it on), Wall of
+    // Stone to cast on the capital from the spellbook
+    for _, name := range []string{"Fire Bolt", "Disrupt", "Wall of Stone"} {
         spell := model.AllSpells.FindByName(name)
         if spell.Valid() && !human.KnownSpells.Contains(spell) {
             human.KnownSpells.AddSpell(spell)

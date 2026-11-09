@@ -242,6 +242,10 @@ func (session *BattleSession) cast(command *BattleCastCommand) error {
         }
     }
 
+    if session.noTarget(army, unitCaster, spell) {
+        return fmt.Errorf("there's nothing to cast %v on", spell.Name)
+    }
+
     paid := false
     session.actions.flush()
     model.InvokeSpell(session.spells, army, unitCaster, spell, func(success bool) {
@@ -259,7 +263,7 @@ func (session *BattleSession) cast(command *BattleCastCommand) error {
         }
         return session.finishCast(pending, command.Target)
     }
-    return session.castDone(paid, spell, command.Caster)
+    return session.castDone(paid, spell, command.Caster, nil)
 }
 
 // answer the pending cast's question; a target the spell refuses leaves the question open
@@ -269,15 +273,28 @@ func (session *BattleSession) finishCast(pending *pendingCast, target *BattleTar
     }
     session.casting = nil
     session.drainEvents()
-    return session.castDone(*pending.paid, pending.spell, pending.caster)
+    return session.castDone(*pending.paid, pending.spell, pending.caster, target)
 }
 
-func (session *BattleSession) castDone(paid bool, spell spellbook.Spell, caster *uint64) error {
+func (session *BattleSession) castDone(paid bool, spell spellbook.Spell, caster *uint64, target *BattleTarget) error {
     model := session.Battle.Combat
     if !paid {
         return errors.New("the spell had no effect")
     }
-    session.actions.add(BattleStepView{Kind: "spell", Unit: caster, Spell: spell.Name})
+    step := BattleStepView{Kind: "spell", Unit: caster, Spell: spell.Name, Effect: assets.SpellEffect(spell.Name)}
+    if spell.IsSummoning() {
+        step.Effect = assets.SpellEffect("Summoning Circle")
+    }
+    if target != nil && target.Unit != nil {
+        unit := *target.Unit
+        step.Target = &unit
+        if targetUnit := model.GetUnitById(unit); targetUnit != nil {
+            step.Tile = &[2]int{targetUnit.X, targetUnit.Y}
+        }
+    } else if target != nil && target.X != nil && target.Y != nil {
+        step.Tile = &[2]int{*target.X, *target.Y}
+    }
+    session.actions.add(step)
 
     // a unit that cast is done (as Update does after an action)
     if model.SelectedUnit != nil && model.InControl(session.Player) && (model.SelectedUnit.GetHealth() <= 0 || model.SelectedUnit.MovesLeft.LessThanEqual(fraction.Zero())) {
@@ -504,8 +521,11 @@ type BattleSpellView struct {
     // the realm: Life, Death, Chaos, Nature, Sorcery or Arcane
     Magic string `json:"magic"`
     Cost int `json:"cost"`
-    // whether a battle-cast of it would be accepted now (cost within what's available, not cast yet)
+    // whether a battle-cast of it would be accepted now (cost within what's available, not cast
+    // yet, and something to cast it on)
     Castable bool `json:"castable"`
+    // the spell needs a target and nothing on the field qualifies (e.g. Disrupt without walls)
+    NoTarget bool `json:"no-target,omitempty"`
     // for a spell from an item: the charges left
     Charges int `json:"charges,omitempty"`
 }
@@ -774,14 +794,22 @@ func (session *BattleSession) magicView(inControl bool) *BattleMagicView {
     }
     for _, spell := range player.KnownSpells.CombatSpells(session.defendingCity()).Spells {
         cost := player.ComputeEffectiveSpellCost(spell, false)
+        noTarget := session.noTarget(army, nil, spell)
         view.Spells = append(view.Spells, BattleSpellView{
             Name: spell.Name,
             Magic: spell.Magic.String(),
             Cost: cost,
-            Castable: inControl && !army.Casted && cost <= available,
+            Castable: inControl && !army.Casted && cost <= available && !noTarget,
+            NoTarget: noTarget,
         })
     }
     return view
+}
+
+// the spell needs a target and nothing on the field qualifies (combat.SpellHasTarget)
+func (session *BattleSession) noTarget(army *combat.Army, unitCaster *combat.ArmyUnit, spell spellbook.Spell) bool {
+    hasTarget, needsTarget := session.Battle.Combat.SpellHasTarget(session.spells, army, unitCaster, spell)
+    return needsTarget && !hasTarget
 }
 
 func (session *BattleSession) unitMagicView(unit *combat.ArmyUnit) *BattleUnitMagicView {
@@ -796,20 +824,24 @@ func (session *BattleSession) unitMagicView(unit *combat.ArmyUnit) *BattleUnitMa
     }
     for _, spell := range unit.Spells.CombatSpells(session.defendingCity()).Spells {
         cost := spell.Cost(false)
+        noTarget := session.noTarget(session.army(), unit, spell)
         view.Spells = append(view.Spells, BattleSpellView{
             Name: spell.Name,
             Magic: spell.Magic.String(),
             Cost: cost,
-            Castable: canCast && float32(cost) <= unit.CastingSkill,
+            Castable: canCast && float32(cost) <= unit.CastingSkill && !noTarget,
+            NoTarget: noTarget,
         })
     }
     var charged []BattleSpellView
     for spell, charges := range unit.SpellCharges {
+        noTarget := session.noTarget(session.army(), unit, spell)
         charged = append(charged, BattleSpellView{
             Name: spell.Name,
             Magic: spell.Magic.String(),
             Charges: charges,
-            Castable: canCast && charges > 0,
+            Castable: canCast && charges > 0 && !noTarget,
+            NoTarget: noTarget,
         })
     }
     slices.SortFunc(charged, func(a BattleSpellView, b BattleSpellView) int { return strings.Compare(a.Name, b.Name) })

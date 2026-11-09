@@ -17,9 +17,13 @@ type BattleStepView struct {
     Unit *uint64 `json:"unit,omitempty"`
     // move: the tiles walked, in order; teleport: the destination
     Path [][2]int `json:"path,omitempty"`
-    // melee / ranged: the unit attacked
+    // melee / ranged: the unit attacked; spell: the unit it was cast on
     Target *uint64 `json:"target,omitempty"`
     Spell string `json:"spell,omitempty"`
+    // spell: the tile it was cast on (unit spells also have Target), and the sprite to play there
+    // and on the units it touched (core/assets SpellEffect; may be missing from an export)
+    Tile *[2]int `json:"tile,omitempty"`
+    Effect string `json:"effect,omitempty"`
     // the health this step changed, counterattacks included
     Changes []BattleHealthChange `json:"changes,omitempty"`
 }
