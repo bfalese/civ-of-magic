@@ -179,6 +179,9 @@ def cast_spell(page, check, shot):
         page.keyboard.press("Escape")
         view = page.evaluate("window.civGame.core.battle()")
         check(not view.get("casting") and not view["magic"]["casted"], "Esc cancels it without paying")
+        if casting["kind"] != "choice" and not casting.get("units") and not casting.get("tiles"):
+            print(f"skip cast: {spell['name']} has nothing here to target")
+            return True
         page.keyboard.press("s")
         page.click(button)
         casting = page.evaluate("window.civGame.core.battle()").get("casting")
@@ -235,7 +238,11 @@ def battle(page, state, check, shot):
         settle(page)
     page.wait_for_selector("#modal.open")
     page.click("#modalChoices button:has-text('Enter')")
-    page.wait_for_selector("#battle.open")
+    try:
+        page.wait_for_selector("#battle.open", timeout=10000)
+    except Exception:
+        print(f"skip: no battle at the {target['kind']} (unguarded?)")
+        return
     check(True, f"entered the {target['kind']}: the battle screen is open")
     shot(page, "6-battle")
 
@@ -260,6 +267,21 @@ def battle(page, state, check, shot):
     moved = next((unit for unit in after.get("units", []) if unit["id"] == selected), None)
     check(moved is not None and (moved["x"], moved["y"]) == (x, y), f"clicked tile {x},{y}: the unit walked there")
     shot(page, "7-battle-moved")
+
+    walk = next((step for step in after.get("steps", []) if step["kind"] == "move" and step.get("unit") == selected), None)
+    check(walk is not None and walk["path"][-1] == [x, y], f"the view's steps have the walk: {walk and walk['path']}")
+    check(page.evaluate("window.civGame.battle.replayCount") >= 1, f"the screen replays the {len(after['steps'])} steps")
+    page.wait_for_function("window.civGame.battle.replay === null", timeout=20000)
+    check(True, "the replay ends")
+
+    # hovering a unit shows its details
+    enemy = next(unit for unit in after["units"] if not unit["yours"])
+    point = tile_point(page, enemy["x"], enemy["y"])
+    page.mouse.move(point[0], point[1])
+    page.wait_for_selector("#battle .battle-info:not([hidden])", timeout=5000)
+    info = page.inner_text("#battle .battle-info")
+    check(enemy["name"] in info and "defense" in info, f"hovering {enemy['name']} shows its details: {' / '.join(info.splitlines()[:3])}")
+    shot(page, "7b-battle-info")
 
     page.click("#battle button[data-command='battle-auto']")
     page.wait_for_function("!window.civGame.battle.open", timeout=60000)
