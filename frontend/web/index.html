@@ -63,6 +63,14 @@
     #magic .spell { display: flex; justify-content: space-between; gap: 6px; text-align: left; padding: 2px 6px; }
     #magic button.small { padding: 0 6px; }
     #magic .magic-message { margin-top: 8px; color: var(--accent); min-height: 1.2em; }
+    #magic .item-types, #magic .item-images { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    #magic .chosen { border-color: var(--accent); background: #5a4326; }
+    #magic .item-image { padding: 2px; line-height: 0; }
+    #magic .item-name { margin: 6px 0; justify-content: flex-start; }
+    #magic input[type=text], #magic select { font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 1px 4px; max-width: 100%; }
+    #magic .item-group { display: grid; grid-template-columns: 7em minmax(0, 1fr) auto; align-items: center; gap: 6px; margin-top: 3px; }
+    #magic .item-many { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1px 8px; }
+    #magic .item-many input { vertical-align: middle; }
     @media (max-width: 640px) { #magic .columns { grid-template-columns: 1fr; } }
     #battle { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: #000; }
     #battle.open { display: flex; }

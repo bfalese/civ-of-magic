@@ -118,6 +118,8 @@ func TestExport(test *testing.T) {
     check(assets.OpenTower)
     check(assets.Corruption)
     check(assets.TerrainTile(0))
+    check(assets.Item(0))
+    check(assets.Item(115))
 
     animated := 0
     for index := 0; ; index++ {

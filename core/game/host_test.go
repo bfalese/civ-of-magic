@@ -5,9 +5,11 @@ import (
     "io"
     "log"
     "os"
+    "slices"
     "strings"
     "testing"
 
+    "github.com/bfalese/civ-of-magic/core/artifact"
     "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/gamedata"
@@ -339,5 +341,136 @@ func TestHostSiegeScenario(test *testing.T) {
         if host.WaitingFor() == WaitingBattle {
             test.Fatalf("fleeing should end the battle")
         }
+    }
+}
+
+// the spellbook scenario: spells cast with a choice from the view's own list, and an item made
+// from the view's design options
+func TestHostSpellbookScenario(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "spellbook"})
+    if err != nil {
+        test.Fatalf("setup: %v", err)
+    }
+    host.TakeEvents()
+
+    spellView := func(name string) SpellView {
+        for _, spell := range host.Model.MakePlayerView(host.Human).You.Spells {
+            if spell.Name == name {
+                return spell
+            }
+        }
+        test.Fatalf("no %v in the spellbook", name)
+        return SpellView{}
+    }
+    castChoice := func(name string, choice SpellChoiceView) {
+        target := &CommandSpellTarget{Choice: choice.Name, Location: choice.Location, Wizard: choice.Wizard}
+        if err := host.Execute(&CastSpellCommand{Spell: name, Target: target}); err != nil {
+            test.Fatalf("cast %v on %+v: %v", name, choice, err)
+        }
+    }
+
+    for _, name := range []string{"Spell Ward", "Spell Binding", "Disjunction", "Resurrection"} {
+        spell := spellView(name)
+        if !spell.ChoiceSpell || len(spell.Choices) == 0 || !spell.Now {
+            test.Fatalf("%v: %+v", name, spell)
+        }
+    }
+    if spellView("Create Artifact").ChoiceSpell {
+        test.Errorf("Create Artifact takes no choice")
+    }
+
+    ward := spellView("Spell Ward").Choices[0]
+    castChoice("Spell Ward", ward)
+    city := host.Human.FindCity(ward.Location.X, ward.Location.Y, ward.Location.Plane)
+    warded := false
+    if city != nil {
+        for _, enchantment := range city.Enchantments.Values() {
+            warded = warded || enchantment.Enchantment.Name() == ward.Name
+        }
+    }
+    if !warded {
+        test.Errorf("Spell Ward didn't put %v on the city", ward.Name)
+    }
+    for _, choice := range spellView("Spell Ward").Choices {
+        if choice.City == ward.City && choice.Name == ward.Name {
+            test.Errorf("%v is still offered for %v", ward.Name, ward.City)
+        }
+    }
+
+    hero := spellView("Resurrection").Choices[0]
+    castChoice("Resurrection", hero)
+    if len(spellView("Resurrection").Choices) != 0 {
+        test.Errorf("the hero is still dead")
+    }
+
+    binding := spellView("Spell Binding").Choices[0]
+    if binding.Wizard == "" || binding.Name != "Detect Magic" {
+        test.Errorf("Spell Binding choice: %+v", binding)
+    }
+    castChoice("Spell Binding", binding)
+    if host.Human.GlobalEnchantments.Contains(data.EnchantmentDetectMagic) && len(spellView("Spell Binding").Choices) != 0 {
+        test.Errorf("Detect Magic is still offered after taking it")
+    }
+
+    if err := host.Execute(&CastSpellCommand{Spell: "Resurrection", Target: &CommandSpellTarget{Choice: "Nobody"}}); err == nil {
+        test.Errorf("a choice that isn't offered should be refused")
+    }
+
+    // an item from the design options: a sword with the first attack power it can have
+    create := spellView("Create Artifact")
+    design := host.Model.MakePlayerView(host.Human).You.ItemDesign
+    if !create.NeedsDesign || create.CostFactor <= 0 || design == nil || len(design.Types) != 10 || len(design.Powers) == 0 {
+        test.Fatalf("item design: %+v %+v", create, design)
+    }
+    var sword ItemTypeView
+    for _, kind := range design.Types {
+        if kind.Name == "Sword" {
+            sword = kind
+        }
+    }
+    if len(sword.Images) == 0 || sword.Images[0].Asset != "item/0" {
+        test.Errorf("sword pictures: %+v", sword.Images)
+    }
+    power := ""
+    powerCost := 0
+    for _, candidate := range design.Powers {
+        if candidate.Group == "Attack" && slices.Contains(candidate.Types, "Sword") {
+            power, powerCost = candidate.Name, candidate.Cost
+            break
+        }
+    }
+    if power == "" {
+        test.Fatalf("no attack power for a sword")
+    }
+    manaBefore := host.Human.Mana
+    host.TakeEvents()
+    if err := host.Execute(&CastSpellCommand{Spell: "Create Artifact", Artifact: &artifact.Design{Type: "Sword", Image: sword.Images[1].Image, Powers: []string{power}}}); err != nil {
+        test.Fatalf("Create Artifact: %v", err)
+    }
+    expected := int(float64(sword.BaseCost + powerCost) * create.CostFactor)
+    if paid := manaBefore - host.Human.Mana; paid < expected - 1 || paid > expected + 1 {
+        test.Errorf("paid %v for the sword, the view's prices say %v", paid, expected)
+    }
+    vault := false
+    for _, encoded := range host.TakeEvents() {
+        if strings.Contains(string(encoded), `"vault"`) {
+            vault = true
+        }
+    }
+    if !vault {
+        test.Errorf("the sword didn't go to the vault")
     }
 }

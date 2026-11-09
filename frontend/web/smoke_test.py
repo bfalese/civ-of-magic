@@ -6,7 +6,8 @@ turn and answers the research question. Then starts the battle scenario (a guard
 the capital, Fire Bolt known; see core/game/scenario.go), enters the lair, casts the spell, moves
 a unit, checks the replay and unit details, and lets auto finish the battle. Last, the siege
 scenario: attacks an AI capital with city walls, a wall of fire and darkness, checks they are
-on the field, and flees.
+on the field, and flees. Then the spellbook scenario: Spell Ward and Resurrection through the
+choice dialog, and a sword made with Create Artifact in the item designer.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -106,6 +107,7 @@ def main():
             first_turn(smoke, url)
             battle(smoke, url)
             siege(smoke, url)
+            spellbook(smoke, url)
         finally:
             browser.close()
 
@@ -389,6 +391,50 @@ def siege(smoke, url):
     page.click("#battle button[data-command='battle-flee']")
     smoke.wait("!window.civGame.battle.open", "the battle to end after fleeing", BATTLE_TIMEOUT)
     check(True, "fled: the battle screen closed")
+
+
+def spellbook(smoke, url):
+    """The spellbook scenario: Spell Ward and Resurrection through the choice dialog, a sword
+    designed and made with Create Artifact."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=spellbook")
+
+    for name, question in [("Spell Ward", "which ward"), ("Resurrection", "which hero")]:
+        page.keyboard.press("m")
+        smoke.visible("#magic.open", "the magic screen")
+        choices = state(f"s.view.you.spells.find(spell => spell.name === {json.dumps(name)}).choices")
+        page.click(f"#magic .spell[data-spell={json.dumps(name)}]")
+        smoke.visible("#modal.open", f"the {name} choice")
+        check(question in page.inner_text("#modalText") and page.locator("#modalChoices button").count() == len(choices) + 1,
+              f"{name} asks {question}: {len(choices)} choices")
+        if name == "Spell Ward":
+            smoke.shot("9-spell-ward")
+        page.click("#modalChoices button >> nth=0")
+        after = state(f"s.view.you.spells.find(spell => spell.name === {json.dumps(name)}).choices || []")
+        check(len(after) < len(choices), f"cast {name} on {choices[0].get('city', '') + ' ' if choices[0].get('city') else ''}{choices[0]['name']}")
+
+    page.keyboard.press("m")
+    page.click("#magic .spell[data-spell='Create Artifact']")
+    smoke.visible("#magic .designer", "the item designer")
+    page.click("#magic button[data-type='Sword']")
+    page.click("#magic .item-image >> nth=2")
+    select = page.locator("#magic select[data-group='Attack']")
+    option = select.locator("option:not([disabled])").nth(1).get_attribute("value")
+    select.select_option(option)
+    page.fill("#magic [data-name]", "Smoke Blade")
+    cost = state("s.magic.designer.cost()")
+    check(cost > state("s.view.you['item-design'].types.find(t => t.name === 'Sword')['base-cost']") * 0.4,
+          f"designed a sword with {option}: cost {cost}")
+    smoke.shot("10-item-designer")
+    mana = state("s.view.you.mana")
+    page.click("#magic button[data-create]")
+    paid = mana - state("s.view.you.mana")
+    check(state("!s.magic.designer") and abs(paid - cost) <= 1, f"Create Artifact made it for {paid} mana")
+    smoke.no_errors()
+    # the new item waits in the vault: whatever the page asks, leave it
+    while page.locator("#modal.open").count():
+        page.click("#modalChoices button >> nth=-1")
+    page.keyboard.press("Escape")
 
 
 if __name__ == "__main__":

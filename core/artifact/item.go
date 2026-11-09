@@ -553,6 +553,11 @@ func GetName(artifact *Artifact, customName string) string {
     return prefix + base + postfix
 }
 
+// the price of one charge of a spell held by a staff or wand
+func SpellChargeCost(spell spellbook.Spell) int {
+    return spell.Cost(false) * 20
+}
+
 func CalculateCost(artifact *Artifact, costs map[Power]int) int {
     base := 0
     switch artifact.Type {
@@ -572,7 +577,7 @@ func CalculateCost(artifact *Artifact, costs map[Power]int) int {
     spellCost := 0
     for _, power := range artifact.Powers {
         if power.Type == PowerTypeSpellCharges {
-            spellCost += power.Amount * power.Spell.Cost(false) * 20
+            spellCost += power.Amount * SpellChargeCost(power.Spell)
         } else {
             powerCost += costs[power]
         }

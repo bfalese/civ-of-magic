@@ -55,7 +55,13 @@ func artifactTypeByName(name string) ArtifactType {
     return ArtifactTypeNone
 }
 
-func isAbility(power Power) bool {
+// the first and last picture a type can use
+func DesignImages(kind ArtifactType) (int, int) {
+    images := designImages[kind]
+    return images[0], images[1]
+}
+
+func IsAbility(power Power) bool {
     return power.Type == PowerTypeAbility1 || power.Type == PowerTypeAbility2 || power.Type == PowerTypeAbility3
 }
 
@@ -106,7 +112,7 @@ func BuildDesign(design Design, enchantItem bool, wizard spellbook.Wizard, avail
             return nil, fmt.Errorf("a %v can't have %v", design.Type, name)
         }
 
-        if isAbility(power) {
+        if IsAbility(power) {
             if wizard.MagicLevel(power.Magic) < power.Amount {
                 return nil, fmt.Errorf("%v needs %v %v spellbooks", name, power.Amount, power.Magic)
             }

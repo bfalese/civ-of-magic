@@ -7,6 +7,7 @@ import (
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/data"
+    herolib "github.com/bfalese/civ-of-magic/core/hero"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/units"
@@ -19,6 +20,9 @@ import (
 //   battle: a lair guarded by skeletons next to the human's capital (the only encounter next to
 //           it), and a wizard who knows Wall of Stone and
 //           Fire Bolt with mana and casting skill to spare: one move-stack starts a battle
+//   spellbook: a wizard with the spells that take a choice (Spell Ward, Spell Binding,
+//           Disjunction, Resurrection) and the item spells (Create Artifact, Enchant Item), mana
+//           and casting skill for them this turn, a dead hero, and a known rival with Detect Magic
 //   siege:  an AI wizard's capital with city walls, a wall of fire and a wall of darkness, and a
 //           human army next to it: one move-stack starts a battle at the walls
 func applyScenario(host *GameHost, name string) error {
@@ -29,6 +33,8 @@ func applyScenario(host *GameHost, name string) error {
             return scenarioBattle(host)
         case "siege":
             return scenarioSiege(host)
+        case "spellbook":
+            return scenarioSpellbook(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
 }
@@ -115,6 +121,48 @@ func scenarioBattle(host *GameHost) error {
     human.CastingSkillPower = max(human.CastingSkillPower, 4000)
     human.RemainingCastingSkill = human.ComputeOverworldCastingSkill()
     return nil
+}
+
+func scenarioSpellbook(host *GameHost) error {
+    model := host.Model
+    human := host.Human
+
+    for _, name := range []string{"Spell Ward", "Spell Binding", "Disjunction", "Resurrection", "Create Artifact", "Enchant Item", "Fire Bolt"} {
+        spell := model.AllSpells.FindByName(name)
+        if !spell.Valid() {
+            return fmt.Errorf("spellbook scenario: no spell %v", name)
+        }
+        if !human.KnownSpells.Contains(spell) {
+            human.KnownSpells.AddSpell(spell)
+        }
+    }
+    human.Mana = max(human.Mana, 5000)
+    human.CastingSkillPower = max(human.CastingSkillPower, 5000000)
+    human.RemainingCastingSkill = human.ComputeOverworldCastingSkill()
+
+    // a hero who died, for Resurrection
+    dead := false
+    for _, hero := range human.HeroPool {
+        if hero != nil && hero.Status == herolib.StatusAvailable && hero.HeroType != herolib.HeroTorin {
+            hero.SetStatus(herolib.StatusDead)
+            dead = true
+            break
+        }
+    }
+    if !dead {
+        return fmt.Errorf("spellbook scenario: no hero to kill")
+    }
+
+    // a rival the human knows, with a global enchantment for Spell Binding / Disjunction
+    for _, player := range model.Players {
+        if player != human && player.AIBehavior != nil && !player.IsNeutral() {
+            human.AwarePlayer(player)
+            player.AwarePlayer(human)
+            player.GlobalEnchantments.Insert(data.EnchantmentDetectMagic)
+            return nil
+        }
+    }
+    return fmt.Errorf("spellbook scenario: no AI wizard")
 }
 
 var scenarioNeighbours = []image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}}
