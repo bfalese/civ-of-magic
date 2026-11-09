@@ -13,7 +13,7 @@ the capital and cancelling the ward, and diplomacy with the rival. Last, the ite
 scenario: equips a hero from the items screen, destroys an item, renames the hero, and splits,
 inspects and disbands units in the stack panel. Last, the orders scenario: settles an outpost,
 starts a road (with its path shown while picking), travels through a tower and patrols, and
-checks the city and army lists. Then
+checks the minimap, the tile info and the city and army lists. Then
 saving: the autosave, a save, a downloaded file, loading each back, and Continue on the start
 screen.
 
@@ -489,7 +489,11 @@ def diplomacy(smoke):
     rival = state("s.view.diplomacy[0]")
     banner = rival["wizard"]["banner"]
     card = f"#diplomacy .wizard[data-wizard='{banner}']"
-    check(page.locator("#diplomacy .wizard").count() == 1, f"W lists {rival['wizard']['wizard']}: {rival['mood']} ({rival['relation']}), {rival['treaty']}")
+    check(page.locator("#diplomacy .wizard[data-wizard]").count() == 1, f"W lists {rival['wizard']['wizard']}: {rival['mood']} ({rival['relation']}), {rival['treaty']}")
+    you = state("s.view.you.mirror")
+    books = ", ".join(f"{count} {realm}" for realm, count in you["books"].items())
+    check("(you)" in page.inner_text("#diplomacy .wizard.you") and f"casting skill {you['casting-skill']}" in page.inner_text("#diplomacy .wizard.you")
+          and page.locator(f"{card} .mirror").count() == 1, f"the wizards screen shows your mirror ({books}; {', '.join(you['retorts'])}) and the rival's")
     page.click(f"{card} button[data-treaty='pact']")
     check(state("s.view.diplomacy[0].treaty") == "pact", "proposed a wizard's pact: accepted")
 
@@ -629,6 +633,7 @@ def orders(smoke, url):
         smoke.visible("#side .orders", f"the orders of {what}")
         return stack
 
+    overview(smoke)
     settlers = select("stack.build === 'settle'", "settlers")
     check(page.locator("#side button[data-order='build']").inner_text() == "Settle (B)", "the stack panel offers Settle (B)")
     cities = state("s.view.cities.length")
@@ -673,6 +678,33 @@ def orders(smoke, url):
 
     lists(smoke)
     smoke.no_errors()
+
+
+def overview(smoke):
+    """The minimap (a click moves the view) and the tile info shown on hover."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.visible("#minimap canvas", "the minimap")
+    size = page.evaluate("[document.querySelector('#minimap canvas').width, document.querySelector('#minimap canvas').height]")
+    width = state("s.map.mapView.width")
+    check(size[0] >= width * 2, f"the minimap shows the {width}-tile-wide plane at {size[0]}x{size[1]}")
+    before = state("s.map.camera.position.x")
+    box = page.locator("#minimap canvas").bounding_box()
+    page.mouse.click(box["x"] + box["width"] * 0.1, box["y"] + box["height"] * 0.5)
+    after = state("s.map.camera.position.x")
+    check(abs(after - before) > 1, f"clicking the minimap moves the view ({before:.0f} -> {after:.0f})")
+    smoke.shot("18-minimap")
+
+    settlers = state("s.view.stacks.find(stack => stack.build === 'settle').location")
+    page.mouse.move(*map_point(page, settlers))
+    smoke.visible("#tileinfo", "the tile info")
+    text = page.inner_text("#tileinfo")
+    check("city site" in text and "max pop" in text, f"hovering the settlers' tile shows a city site: {' / '.join(text.splitlines()[:2])}")
+    capital = state("s.view.cities[0].location")
+    near = dict(capital, x=capital["x"] + 1)
+    page.mouse.move(*map_point(page, near))
+    smoke.wait("document.getElementById('tileinfo').textContent.includes('3 squares') || document.getElementById('tileinfo').textContent.includes('water')", "the reason a city can't go next to the capital")
+    check(True, "next to the capital the tile info says why no city can go there")
+    smoke.shot("19-tile-info")
 
 
 def lists(smoke):

@@ -240,6 +240,19 @@ func (host *GameHost) MapView(plane data.Plane) ([]byte, error) {
     return host.Model.EncodeMapView(host.Human, plane)
 }
 
+// the surveyor's view of a tile (MakeTileInfo): a location as JSON -> TileInfoView as JSON
+func (host *GameHost) TileInfo(encoded []byte) ([]byte, error) {
+    var location Location
+    if err := json.Unmarshal(encoded, &location); err != nil {
+        return nil, fmt.Errorf("tile info: %v", err)
+    }
+    info, err := host.Model.MakeTileInfo(host.Human, location)
+    if err != nil {
+        return nil, err
+    }
+    return json.Marshal(info)
+}
+
 // the road build-road would make: {"stack": location, "to": location} -> a JSON list of locations
 func (host *GameHost) RoadPath(encoded []byte) ([]byte, error) {
     var query struct {

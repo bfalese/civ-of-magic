@@ -32,11 +32,44 @@ type DiplomacyView struct {
     GlobalEnchantments []string `json:"global-enchantments"`
     Fame int `json:"fame"`
     Cities int `json:"cities"`
+    // books, retorts, fame and heroes, as their mirror shows them
+    Mirror MirrorView `json:"mirror"`
 }
 
 type TradeOfferView struct {
     Give string `json:"give"`
     Receive string `json:"receive"`
+}
+
+// what the wizard's mirror shows (the desktop's mirror screen): spellbooks by realm, retorts,
+// fame and heroes; for your own wizard also the casting skill
+type MirrorView struct {
+    Books map[string]int `json:"books"`
+    Retorts []string `json:"retorts"`
+    Fame int `json:"fame"`
+    Heroes []string `json:"heroes"`
+    CastingSkill int `json:"casting-skill,omitempty"`
+}
+
+func makeMirrorView(player *playerlib.Player) MirrorView {
+    view := MirrorView{
+        Books: map[string]int{},
+        Retorts: []string{},
+        Fame: player.GetFame(),
+        Heroes: []string{},
+    }
+    for _, book := range player.Wizard.Books {
+        if book.Count > 0 {
+            view.Books[book.Magic.String()] += book.Count
+        }
+    }
+    for _, retort := range player.Wizard.Retorts {
+        view.Retorts = append(view.Retorts, retort.String())
+    }
+    for _, hero := range player.AliveHeroes() {
+        view.Heroes = append(view.Heroes, hero.GetFullName())
+    }
+    return view
 }
 
 func (model *GameModel) makeDiplomacyViews(player *playerlib.Player) []DiplomacyView {
@@ -54,6 +87,7 @@ func (model *GameModel) makeDiplomacyViews(player *playerlib.Player) []Diplomacy
             GlobalEnchantments: []string{},
             Fame: other.Fame,
             Cities: len(other.Cities),
+            Mirror: makeMirrorView(other),
         }
         if relation, ok := player.GetDiplomaticRelation(other); ok {
             view.Treaty = relation.Treaty.String()

@@ -20,12 +20,14 @@ const fogPieces = {
 const fogEdgeAsset = (index) => `fog/${index}`;
 
 export class MapRenderer {
-    constructor(container, assets, { onTileClick, onTileHover }) {
+    constructor(container, assets, { onTileClick, onTileHover, onFrame }) {
         this.container = container;
         this.assets = assets;
         this.onTileClick = onTileClick;
         // the tile under the pointer changed (null when it leaves the map)
         this.onTileHover = onTileHover || (() => {});
+        // after every rendered frame (the minimap follows the camera)
+        this.onFrame = onFrame || (() => {});
         this.hovered = null;
         this.tileWidth = assets.tileWidth;
         this.tileHeight = assets.tileHeight;
@@ -448,6 +450,7 @@ export class MapRenderer {
                 this.draw();
             }
             this.renderer.render(this.scene, this.camera);
+            this.onFrame();
             requestAnimationFrame(loop);
         };
         requestAnimationFrame(loop);

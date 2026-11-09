@@ -17,6 +17,11 @@ a turn, open a city, pick research, and AI-vs-AI (`-watch`, headless).
       the raiders' towns appear if enabled
 - [ ] Overworld map and minimap draw correctly, scrolling works, both planes
 - [ ] Cartographer (map of the world) and Surveyor open and show the right info
+- [ ] Surveyor (now drawn from core `MakeTileInfo`, PR for handoff 043 group 4): terrain, food /
+      production / gold, a bonus, a node and its melder, a lair's guards, a city; "City Resources"
+      with max pop / prod / gold, or why no city can go there (water, 3 squares)
+- [ ] Plane button with a stack on a tower: the stack goes to the other plane (PlanarTravel now
+      takes the stack; group 1)
 - [ ] Random events: a few turns in, with random events on in settings (an event popup appears)
 - [ ] Meeting a wizard: diplomacy greeting screen when an enemy wizard is first seen
 - [ ] Several turns in a row: gold/mana/food income changes as expected, research progresses

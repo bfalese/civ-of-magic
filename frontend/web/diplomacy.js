@@ -1,9 +1,23 @@
-// The diplomacy screen: the wizards you know (player view "diplomacy", core DiplomacyView), how
+// The wizards screen: your wizard's mirror (books, retorts, fame, casting skill, heroes), then
+// the wizards you know (player view "diplomacy", core DiplomacyView) with their mirror, how
 // they feel about you, and what you can offer them: treaties (propose-treaty), tributes of gold or
 // a spell (offer-tribute), and spell trades (trade-spells, answered with answer-trade).
 
 function escape(text) {
     return String(text).replace(/[&<>"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character]);
+}
+
+const realmColors = {
+    Life: "#f4f0d8", Death: "#b07ae0", Chaos: "#ff7a50", Nature: "#7ed06a", Sorcery: "#6ab4ff",
+};
+
+// a wizard's mirror (core MirrorView) as lines: books by realm, retorts, heroes
+function mirrorLines(mirror) {
+    const books = Object.entries(mirror.books).map(([realm, count]) => `<span style="color: ${realmColors[realm] || ""}">${count} ${escape(realm)}</span>`).join(" ");
+    return `<div class="mirror">
+        <div>${books || `<span class="dim">no spellbooks</span>`}${mirror.retorts.length ? ` · ${mirror.retorts.map(escape).join(", ")}` : ""}</div>
+        ${mirror.heroes.length ? `<div class="dim">heroes: ${mirror.heroes.map(escape).join(", ")}</div>` : ""}
+    </div>`;
 }
 
 export class DiplomacyScreen {
@@ -60,9 +74,17 @@ export class DiplomacyScreen {
         this.root.innerHTML = `
             <div class="panel">
                 <div class="row"><h3>Wizards</h3><button class="small" data-close>Close</button></div>
+                <div class="wizard you"></div>
                 <div class="wizards"></div>
                 <div class="magic-message">${escape(this.message)}</div>
             </div>`;
+        const you = this.view.you;
+        this.root.querySelector(".wizard.you").innerHTML = `
+            <div class="row">
+                <h3 style="color: ${this.bannerColor(you.player.banner)}">${escape(you.player.wizard)} <span class="dim">(you)</span></h3>
+                <span class="dim">fame ${you.mirror.fame} · casting skill ${you.mirror["casting-skill"]} · ${this.view.cities.length} cities</span>
+            </div>
+            ${mirrorLines(you.mirror)}`;
         const list = this.root.querySelector(".wizards");
         if (wizards.length === 0) {
             list.innerHTML = `<div class="dim">you haven't met another wizard yet</div>`;
@@ -81,6 +103,7 @@ export class DiplomacyScreen {
                     <h3 style="color: ${this.bannerColor(banner)}">${escape(name)}${wizard.banished ? ` <span class="dim">(banished)</span>` : ""}</h3>
                     <span class="dim">${treaty}${wizard["peace-turns"] ? ` · peace ${wizard["peace-turns"]} turns` : ""} · fame ${wizard.fame} · ${wizard.cities} cities</span>
                 </div>
+                ${mirrorLines(wizard.mirror)}
                 <div class="mood" title="how ${escape(name)} feels about you: ${relation}">
                     <span>${escape(wizard.mood)}</span>
                     <span class="meter"><span style="left: ${(relation + 100) / 2}%"></span></span>

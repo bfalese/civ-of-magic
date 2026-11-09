@@ -56,6 +56,11 @@ export class Core {
         return this.call("battle");
     }
 
+    // what the surveyor tells about an explored tile (core TileInfoView), or {error}
+    tileInfo(location) {
+        return this.call("tileInfo", JSON.stringify(location));
+    }
+
     // the road build-road would make from the stack to a tile: a list of locations, or {error}
     roadPath(stack, to) {
         return this.call("roadPath", JSON.stringify({ stack, to }));

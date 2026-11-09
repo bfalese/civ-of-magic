@@ -9,6 +9,7 @@ import { MagicScreen } from "./magic.js";
 import { VaultScreen } from "./vault.js";
 import { DiplomacyScreen } from "./diplomacy.js";
 import { ListScreen } from "./lists.js";
+import { Minimap } from "./minimap.js";
 import { chooseStart } from "./start.js";
 import { storeSave, readSave, saveInfo, downloadSave, pickSaveFile, describeSave, slotNames, savedGames } from "./saves.js";
 
@@ -35,6 +36,7 @@ const state = {
     vault: null,
     diplomacy: null,
     lists: null,
+    minimap: null,
     // the unit whose details the stack panel shows
     detailUnit: null,
     lastDate: null,
@@ -476,6 +478,7 @@ function refresh() {
     state.view = state.core.view();
     const mapView = state.core.map(state.plane);
     state.map.setData(mapView, state.view);
+    state.minimap.setData(mapView, state.view);
     const stack = selectedStack();
     if (state.selectedUnit !== null && !stack) {
         state.selectedUnit = null;
@@ -671,7 +674,49 @@ function endRoadPick() {
     updateSide();
 }
 
+// the surveyor's view of the tile under the pointer (core TileInfoView), in the corner
+function showTileInfo(tile) {
+    const panel = element("tileinfo");
+    const info = tile ? state.core.tileInfo(tile) : null;
+    if (!info || info.error) {
+        panel.hidden = true;
+        return;
+    }
+    const lines = [];
+    const add = (html) => lines.push(`<div>${html}</div>`);
+    const percent = (value) => `+${value}%`;
+    add(`<div class="row"><b>${escapeHtml(info.terrain)}</b><span class="dim">${info.location.x},${info.location.y}</span></div>`);
+    const terrain = [info.corrupted ? "corrupted" : "", info["food-text"] ? `${info["food-text"]} food` : "", info["production-bonus"] ? `${percent(info["production-bonus"])} production` : "", info["gold-bonus"] ? `${percent(info["gold-bonus"])} gold` : ""].filter(Boolean);
+    if (terrain.length) add(`<span class="dim">${terrain.join(" · ")}</span>`);
+    if (info.bonus) {
+        const bonus = info.bonus;
+        const gives = [bonus.food ? `+${bonus.food} food` : "", bonus.gold ? `+${bonus.gold} gold` : "", bonus.power ? `+${bonus.power} power` : "", bonus["unit-cost-reduction"] ? `units −${bonus["unit-cost-reduction"]}%` : ""].filter(Boolean);
+        add(`${escapeHtml(bonus.name)} <span class="dim">${gives.join(" · ")}</span>`);
+    }
+    if (info.node) {
+        const node = info.node;
+        const meld = node.warped ? "warped" : node["melded-by"] ? `${escapeHtml(node.spirit)} of ${escapeHtml(node["melded-by"].wizard)}` : "";
+        add(`${escapeHtml(node.kind)}${meld ? ` <span class="dim">${meld}</span>` : ""}`);
+    }
+    if (info.encounter) {
+        add(`${info.node ? "guards" : escapeHtml(info.encounter.type)}: <span class="dim">${escapeHtml(info.encounter.guards)}</span>`);
+    }
+    if (info.city) {
+        add(`${escapeHtml(info.city)}${info["city-owner"] && !info["city-owner"].human ? ` <span class="dim">(${escapeHtml(info["city-owner"].wizard)})</span>` : ""}`);
+    }
+    const site = info.site;
+    if (site["maximum-population"]) {
+        add(`<div class="site">${site["can-build"] ? "city site" : info.city ? "city resources" : `<span class="dim">${escapeHtml(site.reason || "")}</span>`}
+            <div class="row"><span class="dim">max pop ${site["maximum-population"]}</span><span class="dim">prod ${percent(site["production-bonus"])} · gold ${percent(site["gold-bonus"])}</span></div></div>`);
+    } else if (site.reason) {
+        add(`<div class="site dim">${escapeHtml(site.reason)}</div>`);
+    }
+    panel.innerHTML = lines.join("");
+    panel.hidden = false;
+}
+
 function onTileHover(tile) {
+    showTileInfo(tile);
     if (!state.roadPick) {
         return;
     }
@@ -1065,7 +1110,8 @@ async function main() {
         }
         state.autosave = !(settings && settings.scenario);
 
-        state.map = new MapRenderer(element("map"), assets, { onTileClick, onTileHover });
+        state.map = new MapRenderer(element("map"), assets, { onTileClick, onTileHover, onFrame: () => state.minimap.update() });
+        state.minimap = new Minimap(element("minimap").querySelector("canvas"), state.map, assets);
         state.magic = new MagicScreen(element("magic"), assets, {
             confirm: (text, yes) => ask(text, [["Yes", yes], ["No", () => {}]]),
             onCommand: (type, command) => execute(type, command),
@@ -1086,7 +1132,7 @@ async function main() {
             onCommand: (type, command) => execute(type, command),
         });
         element("loading").remove();
-        for (const id of ["top", "log", "hint"]) {
+        for (const id of ["top", "log", "hint", "corner"]) {
             element(id).hidden = false;
         }
         bindControls();

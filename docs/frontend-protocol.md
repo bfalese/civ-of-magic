@@ -208,7 +208,8 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   location, asset, slots: [{kind, takes, item}]}], teleport-cost, fortress}` with items `{name,
   type, asset, cost, value (mana from destroy-item), powers}`; the slots are what `move-item` and
   `destroy-item` name),
-  `known-wizards`, `diplomacy` (per known wizard: `{wizard, treaty (none/pact/alliance/war),
+  `mirror` (your books `{realm: count}`, `retorts`, `fame`, `heroes`, `casting-skill`),
+  `known-wizards`, `diplomacy` (per known wizard: `{wizard, mirror (books, retorts, fame, heroes), treaty (none/pact/alliance/war),
   relation (-100..100, how they feel about you), mood, peace-turns?, banished?, tribute-gold (what
   a gold tribute gives now), spells (yours they lack: for offer-tribute and trade-spells),
   can-teach, trade-offer? {give, receive}, global-enchantments, fame, cities}`), `cities` (full detail: citizens, production, buy cost,
@@ -220,6 +221,12 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   `build-action` does for the active units now: `settle`, `meld`, `purify` or `road`; `road` when
   engineers can take `build-road`; `planar-travel` when `planar-travel` would work now),
   `foreign-cities` and `foreign-stacks` (only where the player's fog shows them).
+- **Tile info** (`MakeTileInfo`, `civ.tileInfo`; the desktop surveyor draws the same): `terrain`
+  (a node shows its land), `corrupted`, `food` / `food-text`, `production-bonus` / `gold-bonus` (%),
+  `bonus` `{name, food, gold, power, unit-cost-reduction}`, `node` `{kind, warped, melded-by,
+  spirit}`, `encounter` `{type, guards}` (`Unexplored` until looked into), `city` / `city-owner`,
+  and `site` `{can-build, reason, maximum-population, production-bonus, gold-bonus}` (the
+  resources show for a land tile 3+ squares from cities, and for a city's own tile).
 - **Map view** (`MakeMapView`, per plane): `width`, `height`, `tiles[y][x]` with `terrain`, `road`,
   `bonus`, `encounter`, `corrupted`, `visible`; `null` for unexplored tiles.
 - **Sprites**: views name their images with asset IDs (`core/assets`): a tile's `asset` (terrain)
@@ -290,6 +297,7 @@ next turn has started. Until then only battle commands are accepted.
 | `civ.view()`, `civ.map("Arcanus" \| "Myrror")`, `civ.battle()` | the view as JSON (`{"error": ...}` on failure) |
 | `civ.save(name)` | the game as JSON (a `HostSave`, below), or `{"error"}` while a battle / encounter / captured city waits for an answer |
 | `civ.load(gamedataJSON, saveJSON)` | status; the saved game replaces the current one (fetch the views again; unit ids are new) |
+| `civ.tileInfo(locationJSON)` | what the surveyor tells about an explored tile (`TileInfoView`, below), or `{"error"}` (unexplored) |
 | `civ.roadPath(queryJSON)` | the road `build-road` would make: `{stack, to}` (locations) → a list of locations from the stack's tile, or `{"error"}` |
 | `civ.setLogging(bool)` | the Go log on the console (off by default) |
 | `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
