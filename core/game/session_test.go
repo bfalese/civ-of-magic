@@ -1,6 +1,7 @@
 package game
 
 import (
+    "slices"
     "image"
     "strings"
     "time"
@@ -279,13 +280,40 @@ func TestSessionBattleCast(test *testing.T) {
     }
     manaBefore := human.Mana
 
-    if err := session.Execute(&BattleCastCommand{Spell: "Fire Bolt"}); err == nil {
-        test.Errorf("fire bolt without a target should be refused")
-    }
-    if human.Mana != manaBefore || session.Battle.army().Casted {
-        test.Errorf("a refused cast shouldn't cost anything")
+    view := session.Battle.View()
+    if view.Magic == nil || len(view.Magic.Spells) != 1 || view.Magic.Spells[0].Name != "Fire Bolt" || !view.Magic.Spells[0].Castable || view.Magic.Spells[0].Magic != "Chaos" {
+        test.Fatalf("the wizard's spells: %+v", view.Magic)
     }
 
+    // without a target the spell waits for one: the view lists the units it accepts
+    if err := session.Execute(&BattleCastCommand{Spell: "Fire Bolt"}); err != nil {
+        test.Fatalf("fire bolt without a target: %v", err)
+    }
+    view = session.Battle.View()
+    if view.Casting == nil || view.Casting.Kind != "unit" || view.Casting.Spell != "Fire Bolt" || !slices.Equal(view.Casting.Units, []uint64{spearman.Id}) {
+        test.Fatalf("casting: %+v", view.Casting)
+    }
+    if human.Mana != manaBefore || session.Battle.army().Casted {
+        test.Errorf("a spell waiting for its target shouldn't cost anything yet")
+    }
+    ownId := *view.Selected
+    if err := session.Execute(&BattleTargetCommand{BattleTarget{Unit: &ownId}}); err == nil {
+        test.Errorf("fire bolt on your own unit should be refused")
+    }
+    if session.Battle.View().Casting == nil {
+        test.Errorf("a refused target should leave the spell waiting")
+    }
+    if err := session.Execute(&BattleCancelCommand{}); err != nil {
+        test.Errorf("cancel: %v", err)
+    }
+    if session.Battle.View().Casting != nil || human.Mana != manaBefore || session.Battle.army().Casted {
+        test.Errorf("a cancelled spell should cost nothing and wait no more")
+    }
+    if err := session.Execute(&BattleCancelCommand{}); err == nil {
+        test.Errorf("cancel with nothing waiting should be refused")
+    }
+
+    // a battle-cast with its target is still cast in one step
     id := spearman.Id
     if err := session.Execute(&BattleCastCommand{Spell: "Fire Bolt", Target: &BattleTarget{Unit: &id}}); err != nil {
         test.Fatalf("fire bolt: %v", err)
@@ -307,5 +335,59 @@ func TestSessionBattleCast(test *testing.T) {
     }
     if session.WaitingFor() != WaitingNothing || len(enemy.Stacks) != 0 {
         test.Errorf("the battle should be won")
+    }
+}
+
+// a spell with a choice of units (Animate Dead) offers killed units, picked by id
+func TestSessionBattleCastChoice(test *testing.T) {
+    model, human, enemy := makeSessionTestModel()
+    for range 2 {
+        enemy.AddUnit(units.MakeOverworldUnitFromUnit(units.HighMenSpearmen, 4, 3, data.PlaneArcanus, enemy.Wizard.Banner, enemy.MakeExperienceInfo(), enemy.MakeUnitEnchantmentProvider()))
+    }
+    human.KnownSpells.AddSpell(spellbook.Spell{Name: "Animate Dead", Magic: data.DeathMagic, CastCost: 30, Section: spellbook.SectionCombatSpell})
+    human.Mana = 500
+    human.CastingSkillPower = 1000
+    session := MakeCommandSession(model, human)
+
+    if err := session.Execute(&MoveStackCommand{From: Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, To: Location{Plane: data.PlaneArcanus, X: 4, Y: 3}}); err != nil {
+        test.Fatalf("move: %v", err)
+    }
+    if session.WaitingFor() != WaitingBattle {
+        test.Fatalf("expected a battle, waiting for %q", session.WaitingFor())
+    }
+
+    combatModel := session.Battle.Battle.Combat
+    defenders := combatModel.DefendingArmy.GetUnits()
+    if len(defenders) != 3 {
+        test.Fatalf("expected 3 spearmen, got %v", len(defenders))
+    }
+    first, second := defenders[0], defenders[1]
+    killed := []uint64{first.Id, second.Id}
+    combatModel.KillUnit(first)
+    combatModel.KillUnit(second)
+
+    if err := session.Execute(&BattleCastCommand{Spell: "Animate Dead"}); err != nil {
+        test.Fatalf("animate dead: %v", err)
+    }
+    casting := session.Battle.View().Casting
+    if casting == nil || casting.Kind != "choice" || len(casting.Choices) != 2 || casting.Title == "" {
+        test.Fatalf("casting: %+v", casting)
+    }
+    for _, choice := range casting.Choices {
+        if !slices.Contains(killed, choice.Id) || !strings.HasPrefix(choice.Asset, "battle-unit/") {
+            test.Errorf("choice: %+v", choice)
+        }
+    }
+
+    pick := casting.Choices[0].Id
+    if err := session.Execute(&BattleTargetCommand{BattleTarget{Unit: &pick}}); err != nil {
+        test.Fatalf("pick a unit to animate: %v", err)
+    }
+    animated := combatModel.GetUnitById(pick)
+    if animated == nil || animated.GetHealth() <= 0 || combatModel.GetArmyForPlayer(human) != combatModel.AttackingArmy || !slices.Contains(combatModel.AttackingArmy.GetUnits(), animated) {
+        test.Errorf("the picked unit should fight for the human now")
+    }
+    if !session.Battle.army().Casted {
+        test.Errorf("the army should have used its spell for this turn")
     }
 }

@@ -5,6 +5,7 @@ import (
     "errors"
     "fmt"
     "slices"
+    "strings"
 
     "github.com/bfalese/civ-of-magic/core/assets"
     "github.com/bfalese/civ-of-magic/core/combat"
@@ -27,6 +28,17 @@ type BattleSession struct {
     // the outcome once known: CombatModel.FinalState has side effects when the battle ends (the
     // flee rolls, FinishCombat), so it must only be asked until it reports an end
     finalState combat.CombatState
+    // a spell waiting for its target (a battle-cast without one); battle-target answers it
+    casting *pendingCast
+}
+
+// a cast whose spell asked for a target: the model's question, answered by battle-target
+type pendingCast struct {
+    question combat.CombatEvent
+    spell spellbook.Spell
+    caster *uint64
+    // set once the model has taken the cost (the target was accepted, or the spell fizzled)
+    paid *bool
 }
 
 func makeBattleSession(battle *Battle, player *playerlib.Player) *BattleSession {
@@ -112,6 +124,23 @@ func (session *BattleSession) apply(command Command) error {
     if model.SelectedUnit == nil || !model.InControl(session.Player) {
         return errors.New("none of your units is up")
     }
+
+    // a spell waiting for its target is answered by battle-target, dropped by anything else
+    switch command.(type) {
+        case *BattleTargetCommand:
+            if session.casting == nil {
+                return errors.New("no spell is waiting for a target")
+            }
+            target := command.(*BattleTargetCommand).BattleTarget
+            return session.finishCast(session.casting, &target)
+        case *BattleCancelCommand:
+            if session.casting == nil {
+                return errors.New("no spell is waiting for a target")
+            }
+            session.casting = nil
+            return nil
+    }
+    session.casting = nil
 
     switch command.(type) {
         case *BattleActCommand:
@@ -214,24 +243,37 @@ func (session *BattleSession) cast(command *BattleCastCommand) error {
         castedCallback(success)
     })
 
-    // answer the model's question for a target with the command's target
-    var targetErr error
-    for _, question := range session.drainEvents() {
-        if err := session.answerTarget(question, command.Target); err != nil && targetErr == nil {
-            targetErr = err
+    // the model asks for a target: answer with the command's, or wait for a battle-target
+    questions := session.drainEvents()
+    if len(questions) > 0 {
+        pending := &pendingCast{question: questions[0], spell: spell, caster: command.Caster, paid: &paid}
+        if command.Target == nil {
+            session.casting = pending
+            return nil
         }
+        return session.finishCast(pending, command.Target)
     }
-    session.drainEvents()
+    return session.castDone(paid)
+}
 
+// answer the pending cast's question; a target the spell refuses leaves the question open
+func (session *BattleSession) finishCast(pending *pendingCast, target *BattleTarget) error {
+    if err := session.answerTarget(pending.question, target); err != nil {
+        return err
+    }
+    session.casting = nil
+    session.drainEvents()
+    return session.castDone(*pending.paid)
+}
+
+func (session *BattleSession) castDone(paid bool) error {
+    model := session.Battle.Combat
     if !paid {
-        if targetErr != nil {
-            return targetErr
-        }
         return errors.New("the spell had no effect")
     }
 
     // a unit that cast is done (as Update does after an action)
-    if model.SelectedUnit != nil && model.InControl(player) && (model.SelectedUnit.GetHealth() <= 0 || model.SelectedUnit.MovesLeft.LessThanEqual(fraction.Zero())) {
+    if model.SelectedUnit != nil && model.InControl(session.Player) && (model.SelectedUnit.GetHealth() <= 0 || model.SelectedUnit.MovesLeft.LessThanEqual(fraction.Zero())) {
         model.DoneTurn()
     }
     return nil
@@ -270,9 +312,17 @@ func (session *BattleSession) answerTarget(question combat.CombatEvent, target *
             }
             ask.SelectTile(*target.X, *target.Y)
         case *combat.CombatSelectTargets:
+            // the choices can be killed units, which aren't in the armies any more
             ask := question.(*combat.CombatSelectTargets)
-            unit := targetUnit()
-            if unit == nil || !slices.Contains(ask.Targets, unit) {
+            var unit *combat.ArmyUnit
+            if target != nil && target.Unit != nil {
+                for _, choice := range ask.Targets {
+                    if choice.Id == *target.Unit {
+                        unit = choice
+                    }
+                }
+            }
+            if unit == nil {
                 return fmt.Errorf("choose one of the units offered (%v)", ask.Title)
             }
             ask.Select(unit)
@@ -298,6 +348,21 @@ type BattleCastCommand struct {
 
 func (command *BattleCastCommand) CommandType() string { return "battle-cast" }
 func (command *BattleCastCommand) Execute(context *CommandContext) error { return errors.New("not in a battle") }
+
+// the target for the spell a battle-cast without one left waiting
+type BattleTargetCommand struct {
+    BattleTarget
+}
+
+func (command *BattleTargetCommand) CommandType() string { return "battle-target" }
+func (command *BattleTargetCommand) Execute(context *CommandContext) error { return errors.New("not in a battle") }
+
+// drop the spell waiting for a target; nothing is paid
+type BattleCancelCommand struct {
+}
+
+func (command *BattleCancelCommand) CommandType() string { return "battle-cancel" }
+func (command *BattleCancelCommand) Execute(context *CommandContext) error { return errors.New("not in a battle") }
 
 // the selected unit moves to, or attacks, the tile (as a click on the battle field)
 type BattleActCommand struct {
@@ -391,6 +456,58 @@ type BattleTargetView struct {
     Kind string `json:"kind"`
 }
 
+// a combat spell the wizard or the selected unit can cast
+type BattleSpellView struct {
+    Name string `json:"name"`
+    // the realm: Life, Death, Chaos, Nature, Sorcery or Arcane
+    Magic string `json:"magic"`
+    Cost int `json:"cost"`
+    // whether a battle-cast of it would be accepted now (cost within what's available, not cast yet)
+    Castable bool `json:"castable"`
+    // for a spell from an item: the charges left
+    Charges int `json:"charges,omitempty"`
+}
+
+// the wizard's combat magic: one spell per turn, paid from the army's mana pool (the casting
+// skill) and from the wizard's mana times the range from the fortress
+type BattleMagicView struct {
+    ManaPool int `json:"mana-pool"`
+    Mana int `json:"mana"`
+    Range float64 `json:"range"`
+    // the most a spell can cost now: the lower of the mana pool and mana / range
+    Available int `json:"available"`
+    // already cast a spell this turn
+    Casted bool `json:"casted"`
+    Spells []BattleSpellView `json:"spells"`
+}
+
+// the selected unit's own spells and item charges (battle-cast with caster = its id)
+type BattleUnitMagicView struct {
+    Caster uint64 `json:"caster"`
+    CastingSkill int `json:"casting-skill"`
+    Spells []BattleSpellView `json:"spells"`
+}
+
+// a unit offered by a spell with a choice (Raise Dead, Animate Dead), possibly a killed one
+type BattleChoiceView struct {
+    Id uint64 `json:"id"`
+    Name string `json:"name"`
+    Asset string `json:"asset"`
+    Banner string `json:"banner"`
+}
+
+// a spell waiting for its target: answer with battle-target, or battle-cancel
+type BattleCastingView struct {
+    Spell string `json:"spell"`
+    Caster *uint64 `json:"caster,omitempty"`
+    // "unit" (one of units), "tile" (one of tiles) or "choice" (one of choices)
+    Kind string `json:"kind"`
+    Title string `json:"title,omitempty"`
+    Units []uint64 `json:"units,omitempty"`
+    Tiles [][2]int `json:"tiles,omitempty"`
+    Choices []BattleChoiceView `json:"choices,omitempty"`
+}
+
 type BattleView struct {
     Turn int `json:"turn"`
     // the player's unit that is up, if any
@@ -408,6 +525,10 @@ type BattleView struct {
     // for the selected unit: the tiles battle-act moves it to, and the enemies it can attack
     Moves [][2]int `json:"moves"`
     Targets []BattleTargetView `json:"targets"`
+    Magic *BattleMagicView `json:"magic,omitempty"`
+    // only while the selected unit can cast
+    UnitMagic *BattleUnitMagicView `json:"unit-magic,omitempty"`
+    Casting *BattleCastingView `json:"casting,omitempty"`
 }
 
 func (session *BattleSession) View() BattleView {
@@ -451,6 +572,13 @@ func (session *BattleSession) View() BattleView {
     view.Targets = []BattleTargetView{}
     if view.Selected != nil {
         view.Moves, view.Targets = session.reach(model.SelectedUnit)
+    }
+    view.Magic = session.magicView(view.Selected != nil)
+    if view.Selected != nil {
+        view.UnitMagic = session.unitMagicView(model.SelectedUnit)
+    }
+    if session.casting != nil {
+        view.Casting = session.castingView(session.casting)
     }
 
     for _, army := range []*combat.Army{model.AttackingArmy, model.DefendingArmy} {
@@ -521,6 +649,129 @@ func (session *BattleSession) reach(unit *combat.ArmyUnit) ([][2]int, []BattleTa
         }
     }
     return moves, targets
+}
+
+func (session *BattleSession) defendingCity() bool {
+    model := session.Battle.Combat
+    return model.Zone.City != nil && session.army() == model.DefendingArmy
+}
+
+// the wizard's combat spells; castable only while one of the player's units is up
+func (session *BattleSession) magicView(inControl bool) *BattleMagicView {
+    player := session.Player
+    army := session.army()
+    if army == nil {
+        return nil
+    }
+    available := army.ManaPool
+    if army.Range.ToFloat() > 0 {
+        available = min(available, int(float64(player.GetMana()) / army.Range.ToFloat()))
+    }
+    view := &BattleMagicView{
+        ManaPool: army.ManaPool,
+        Mana: player.GetMana(),
+        Range: army.Range.ToFloat(),
+        Available: available,
+        Casted: army.Casted,
+        Spells: []BattleSpellView{},
+    }
+    for _, spell := range player.KnownSpells.CombatSpells(session.defendingCity()).Spells {
+        cost := player.ComputeEffectiveSpellCost(spell, false)
+        view.Spells = append(view.Spells, BattleSpellView{
+            Name: spell.Name,
+            Magic: spell.Magic.String(),
+            Cost: cost,
+            Castable: inControl && !army.Casted && cost <= available,
+        })
+    }
+    return view
+}
+
+func (session *BattleSession) unitMagicView(unit *combat.ArmyUnit) *BattleUnitMagicView {
+    if unit.CastingSkill <= 0 && len(unit.SpellCharges) == 0 {
+        return nil
+    }
+    canCast := unit.CanCast()
+    view := &BattleUnitMagicView{
+        Caster: unit.Id,
+        CastingSkill: int(unit.CastingSkill),
+        Spells: []BattleSpellView{},
+    }
+    for _, spell := range unit.Spells.CombatSpells(session.defendingCity()).Spells {
+        cost := spell.Cost(false)
+        view.Spells = append(view.Spells, BattleSpellView{
+            Name: spell.Name,
+            Magic: spell.Magic.String(),
+            Cost: cost,
+            Castable: canCast && float32(cost) <= unit.CastingSkill,
+        })
+    }
+    var charged []BattleSpellView
+    for spell, charges := range unit.SpellCharges {
+        charged = append(charged, BattleSpellView{
+            Name: spell.Name,
+            Magic: spell.Magic.String(),
+            Charges: charges,
+            Castable: canCast && charges > 0,
+        })
+    }
+    slices.SortFunc(charged, func(a BattleSpellView, b BattleSpellView) int { return strings.Compare(a.Name, b.Name) })
+    view.Spells = append(view.Spells, charged...)
+    if len(view.Spells) == 0 {
+        return nil
+    }
+    return view
+}
+
+// the targets the waiting spell accepts, by the model's own checks
+func (session *BattleSession) castingView(pending *pendingCast) *BattleCastingView {
+    model := session.Battle.Combat
+    view := &BattleCastingView{Spell: pending.spell.Name, Caster: pending.caster}
+    switch pending.question.(type) {
+        case *combat.CombatEventSelectUnit:
+            ask := pending.question.(*combat.CombatEventSelectUnit)
+            view.Kind = "unit"
+            view.Units = []uint64{}
+            for _, army := range []*combat.Army{model.AttackingArmy, model.DefendingArmy} {
+                for _, unit := range army.GetUnits() {
+                    if unit.GetHealth() <= 0 {
+                        continue
+                    }
+                    if ask.SelectTeam != combat.TeamEither && unit.Team != ask.SelectTeam {
+                        continue
+                    }
+                    if ask.CanTarget != nil && !ask.CanTarget(unit) {
+                        continue
+                    }
+                    view.Units = append(view.Units, unit.Id)
+                }
+            }
+        case *combat.CombatEventSelectTile:
+            ask := pending.question.(*combat.CombatEventSelectTile)
+            view.Kind = "tile"
+            view.Tiles = [][2]int{}
+            for y, row := range model.Tiles {
+                for x := range row {
+                    if ask.CanTarget == nil || ask.CanTarget(x, y) {
+                        view.Tiles = append(view.Tiles, [2]int{x, y})
+                    }
+                }
+            }
+        case *combat.CombatSelectTargets:
+            ask := pending.question.(*combat.CombatSelectTargets)
+            view.Kind = "choice"
+            view.Title = ask.Title
+            view.Choices = []BattleChoiceView{}
+            for _, unit := range ask.Targets {
+                view.Choices = append(view.Choices, BattleChoiceView{
+                    Id: unit.Id,
+                    Name: unit.Unit.GetName(),
+                    Asset: assets.BattleUnit(unit.Unit.GetRawUnit().Race, unit.Unit.GetRawUnit().Name, units.FacingDown),
+                    Banner: unit.Unit.GetBanner().String(),
+                })
+            }
+    }
+    return view
 }
 
 func (session *BattleSession) EncodeView() ([]byte, error) {

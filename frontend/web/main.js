@@ -491,11 +491,7 @@ function bindControls() {
             return;
         }
         if (state.battle.open) {
-            const keys = { d: "battle-done", w: "battle-wait", a: "battle-auto" };
-            const command = keys[event.key.toLowerCase()];
-            if (command) {
-                execute(command);
-            }
+            state.battle.key(event.key);
             return;
         }
         if (state.cityOpen) {
@@ -538,8 +534,7 @@ async function main() {
 
         state.map = new MapRenderer(element("map"), assets, { onTileClick });
         state.battle = new BattleScreen(element("battle"), assets, {
-            onAct: (x, y) => execute("battle-act", { x, y }),
-            onCommand: (type) => execute(type),
+            onCommand: (type, command) => execute(type, command),
         });
         element("loading").remove();
         for (const id of ["top", "log", "hint"]) {
