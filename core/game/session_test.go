@@ -321,6 +321,12 @@ func TestSessionBattleCast(test *testing.T) {
     if human.Mana >= manaBefore {
         test.Errorf("the cast should cost mana")
     }
+    if session.WaitingFor() == WaitingBattle {
+        steps := session.Battle.View().Steps
+        if len(steps) == 0 || steps[0].Kind != "spell" || steps[0].Spell != "Fire Bolt" || steps[0].Unit != nil {
+            test.Errorf("the cast's step: %+v", steps)
+        }
+    }
 
     // the bolt's damage depends on defense rolls; what's certain is that the spell was cast
     if session.WaitingFor() == WaitingBattle && !session.Battle.army().Casted {
@@ -390,4 +396,101 @@ func TestSessionBattleCastChoice(test *testing.T) {
     if !session.Battle.army().Casted {
         test.Errorf("the army should have used its spell for this turn")
     }
+}
+
+// the view's steps replay what a battle command did: the tiles walked, attacks and damage
+func TestSessionBattleSteps(test *testing.T) {
+    model, human, enemyPlayer := makeSessionTestModel()
+    // enough spearmen that the battle goes on after the first attack
+    for range 5 {
+        enemyPlayer.AddUnit(units.MakeOverworldUnitFromUnit(units.HighMenSpearmen, 4, 3, data.PlaneArcanus, enemyPlayer.Wizard.Banner, enemyPlayer.MakeExperienceInfo(), enemyPlayer.MakeUnitEnchantmentProvider()))
+    }
+    session := MakeCommandSession(model, human)
+    if err := session.Execute(&MoveStackCommand{From: Location{Plane: data.PlaneArcanus, X: 3, Y: 3}, To: Location{Plane: data.PlaneArcanus, X: 4, Y: 3}}); err != nil {
+        test.Fatalf("move: %v", err)
+    }
+
+    view := session.Battle.View()
+    if view.Steps == nil || view.Log == nil {
+        test.Fatalf("steps and log should be lists")
+    }
+    for _, unit := range view.Units {
+        if unit.Melee <= 0 || unit.Defense <= 0 || unit.HitPoints <= 0 || unit.FigureCount <= 0 || unit.Abilities == nil {
+            test.Errorf("unit stats: %+v", unit)
+        }
+    }
+
+    // walk toward the spearmen until a drake can attack, then attack
+    attacked := false
+    for range 20 {
+        if session.WaitingFor() != WaitingBattle {
+            break
+        }
+        view = session.Battle.View()
+        if view.Selected == nil {
+            break
+        }
+        selected := *view.Selected
+        var enemy BattleUnitView
+        for _, unit := range view.Units {
+            if !unit.Yours {
+                enemy = unit
+            }
+        }
+
+        if len(view.Targets) > 0 {
+            for _, unit := range view.Units {
+                if unit.Id == view.Targets[0].Id {
+                    enemy = unit
+                }
+            }
+            if err := session.Execute(&BattleActCommand{X: enemy.X, Y: enemy.Y}); err != nil {
+                test.Fatalf("attack: %v", err)
+            }
+            if session.WaitingFor() != WaitingBattle {
+                test.Fatalf("six spearmen shouldn't fall to one attack")
+            }
+            steps := session.Battle.View().Steps
+            if len(steps) == 0 || steps[0].Unit == nil || *steps[0].Unit != selected || steps[0].Target == nil || *steps[0].Target != enemy.Id {
+                test.Fatalf("attack steps: %+v", steps)
+            }
+            if steps[0].Kind != "melee" && steps[0].Kind != "ranged" {
+                test.Errorf("attack kind %q", steps[0].Kind)
+            }
+            if len(steps[0].Changes) == 0 {
+                test.Errorf("a great drake's attack should change someone's health: %+v", steps[0])
+            }
+            attacked = true
+            break
+        }
+
+        if len(view.Moves) == 0 {
+            session.Execute(&BattleDoneCommand{})
+            continue
+        }
+        best := view.Moves[0]
+        distance := func(tile [2]int) int { return max(abs(tile[0] - enemy.X), abs(tile[1] - enemy.Y)) }
+        for _, tile := range view.Moves {
+            if distance(tile) < distance(best) {
+                best = tile
+            }
+        }
+        if err := session.Execute(&BattleActCommand{X: best[0], Y: best[1]}); err != nil {
+            test.Fatalf("move: %v", err)
+        }
+        steps := session.Battle.View().Steps
+        if len(steps) == 0 || steps[0].Kind != "move" || *steps[0].Unit != selected || len(steps[0].Path) == 0 || steps[0].Path[len(steps[0].Path) - 1] != best {
+            test.Fatalf("move steps to %v: %+v", best, steps)
+        }
+    }
+    if !attacked {
+        test.Errorf("the drakes never got to attack")
+    }
+}
+
+func abs(value int) int {
+    if value < 0 {
+        return -value
+    }
+    return value
 }

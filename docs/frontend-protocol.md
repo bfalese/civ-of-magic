@@ -97,10 +97,21 @@ Answers while a command is paused (see Sessions):
 During a battle, `session.Battle.View()` gives the battlefield: `turn`, `selected` (the id of your
 unit that is up), `you-attack`, `width`, `height`, `units` (id, name, owner, yours, x, y, health,
 max-health, moves-left, ranged-attacks, `asset`/`banner`/`facing` for its combat sprite, `figures`
-(pixel offsets of its living figures from the tile centre), `flying`), `tiles[y][x]` (`asset`, `top`
+(pixel offsets of its living figures from the tile centre), `flying`, and for unit details
+`melee`, `ranged`, `ranged-type`, `defense`, `resistance`, `hit-points` (per figure),
+`figure-count`, `level`, `abilities`, `enchantments`), `tiles[y][x]` (`asset`, `top`
 and `top-align` for a tree/rock/building, `mud`), `road`/`clouds` for a town, `moves` (tiles the
 selected unit can walk to), `targets` (`{id, kind}`, enemies it can attack: `ranged` or `melee`)
 and `state`. Ask for it again after each battle command.
+
+What happened: `steps` lists what the last battle command and the AI moves after it did, in
+order, so a frontend can replay them from the previous view (the core resolves everything at
+once). A step is `{kind, unit?, path?, target?, spell?, changes?}`: `move` (`path`: the tiles
+walked), `teleport` (`path`: the destination), `melee` / `ranged` (`target`), `spell` (cast by
+you; `unit` is the casting unit, absent for the wizard), `effect` (health changed otherwise: the
+AI's spells, walls, vortexes). `changes` are `{unit, damage, killed?}` (negative damage heals),
+counterattacks included. `log` holds the latest battle log lines (`{turn, text}`, oldest first).
+Units turn to face where they walk and whom they attack.
 
 Magic in the battle view: `magic` is the wizard's (`mana-pool`, `mana`, `range`, `available` = the
 most a spell can cost now, `casted` this turn, `spells`); `unit-magic` the selected unit's when it

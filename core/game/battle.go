@@ -23,7 +23,8 @@ import (
 type BattleSession struct {
     Battle *Battle
     Player *playerlib.Player
-    actions *combat.ProxyActions
+    // records what each command (and the AI moves after it) did, for the view's steps
+    actions *battleRecorder
     spells *combat.ProxySpellSystem
     // the outcome once known: CombatModel.FinalState has side effects when the battle ends (the
     // flee rolls, FinishCombat), so it must only be asked until it reports an end
@@ -45,7 +46,7 @@ func makeBattleSession(battle *Battle, player *playerlib.Player) *BattleSession 
     return &BattleSession{
         Battle: battle,
         Player: player,
-        actions: &combat.ProxyActions{Model: battle.Combat},
+        actions: makeBattleRecorder(battle.Combat),
         spells: &combat.ProxySpellSystem{Model: battle.Combat},
         finalState: combat.CombatStateRunning,
     }
@@ -124,6 +125,9 @@ func (session *BattleSession) apply(command Command) error {
     if model.SelectedUnit == nil || !model.InControl(session.Player) {
         return errors.New("none of your units is up")
     }
+
+    // the view's steps show what this command and the AI moves after it did
+    session.actions.reset()
 
     // a spell waiting for its target is answered by battle-target, dropped by anything else
     switch command.(type) {
@@ -238,6 +242,7 @@ func (session *BattleSession) cast(command *BattleCastCommand) error {
     }
 
     paid := false
+    session.actions.flush()
     model.InvokeSpell(session.spells, army, unitCaster, spell, func(success bool) {
         paid = true
         castedCallback(success)
@@ -253,7 +258,7 @@ func (session *BattleSession) cast(command *BattleCastCommand) error {
         }
         return session.finishCast(pending, command.Target)
     }
-    return session.castDone(paid)
+    return session.castDone(paid, spell, command.Caster)
 }
 
 // answer the pending cast's question; a target the spell refuses leaves the question open
@@ -263,14 +268,15 @@ func (session *BattleSession) finishCast(pending *pendingCast, target *BattleTar
     }
     session.casting = nil
     session.drainEvents()
-    return session.castDone(*pending.paid)
+    return session.castDone(*pending.paid, pending.spell, pending.caster)
 }
 
-func (session *BattleSession) castDone(paid bool) error {
+func (session *BattleSession) castDone(paid bool, spell spellbook.Spell, caster *uint64) error {
     model := session.Battle.Combat
     if !paid {
         return errors.New("the spell had no effect")
     }
+    session.actions.add(BattleStepView{Kind: "spell", Unit: caster, Spell: spell.Name})
 
     // a unit that cast is done (as Update does after an action)
     if model.SelectedUnit != nil && model.InControl(session.Player) && (model.SelectedUnit.GetHealth() <= 0 || model.SelectedUnit.MovesLeft.LessThanEqual(fraction.Zero())) {
@@ -438,6 +444,25 @@ type BattleUnitView struct {
     Figures [][2]int `json:"figures"`
     // flying units flap in place (the sprite's frames loop)
     Flying bool `json:"flying,omitempty"`
+    // for unit details
+    Melee int `json:"melee"`
+    Ranged int `json:"ranged"`
+    // the ranged attack's kind (units.Damage), if any
+    RangedType string `json:"ranged-type,omitempty"`
+    Defense int `json:"defense"`
+    Resistance int `json:"resistance"`
+    // per figure; the figures are FigureCount, the living ones len(Figures)
+    HitPoints int `json:"hit-points"`
+    FigureCount int `json:"figure-count"`
+    Level string `json:"level,omitempty"`
+    Abilities []string `json:"abilities"`
+    Enchantments []string `json:"enchantments"`
+}
+
+// a line of the battle log
+type BattleLogView struct {
+    Turn int `json:"turn"`
+    Text string `json:"text"`
 }
 
 // a battlefield tile: its ground, and a tree/rock/building on it
@@ -529,6 +554,11 @@ type BattleView struct {
     // only while the selected unit can cast
     UnitMagic *BattleUnitMagicView `json:"unit-magic,omitempty"`
     Casting *BattleCastingView `json:"casting,omitempty"`
+    // what the last battle command, and the AI moves after it, did; replay these from the
+    // previous view to animate the change
+    Steps []BattleStepView `json:"steps"`
+    // the latest lines of the battle log, oldest first
+    Log []BattleLogView `json:"log"`
 }
 
 func (session *BattleSession) View() BattleView {
@@ -580,6 +610,11 @@ func (session *BattleSession) View() BattleView {
     if session.casting != nil {
         view.Casting = session.castingView(session.casting)
     }
+    view.Steps = session.actions.current()
+    view.Log = []BattleLogView{}
+    for _, entry := range model.Log[max(0, len(model.Log) - battleLogLines):] {
+        view.Log = append(view.Log, BattleLogView{Turn: entry.Turn, Text: entry.Text})
+    }
 
     for _, army := range []*combat.Army{model.AttackingArmy, model.DefendingArmy} {
         var owner *PlayerRef
@@ -590,7 +625,7 @@ func (session *BattleSession) View() BattleView {
             if unit.GetHealth() <= 0 {
                 continue
             }
-            view.Units = append(view.Units, BattleUnitView{
+            unitView := BattleUnitView{
                 Id: unit.Id,
                 Name: unit.Unit.GetName(),
                 Owner: owner,
@@ -606,11 +641,34 @@ func (session *BattleSession) View() BattleView {
                 Facing: assets.FacingName(unit.Facing),
                 Figures: figurePoints(unit.VisibleFigures()),
                 Flying: unit.Unit.IsFlying(),
-            })
+                Melee: unit.GetMeleeAttackPower(),
+                Ranged: unit.GetRangedAttackPower(),
+                Defense: unit.GetDefense(),
+                Resistance: unit.GetResistance(),
+                HitPoints: unit.GetHitPoints(),
+                FigureCount: unit.Figures(),
+                Abilities: []string{},
+                Enchantments: []string{},
+            }
+            if unitView.Ranged > 0 {
+                unitView.RangedType = unit.GetRangedAttackDamageType().String()
+            }
+            if !unit.Unit.IsHero() && unit.Unit.GetRace() != data.RaceFantastic {
+                unitView.Level = unit.GetExperienceLevel().Name()
+            }
+            for _, ability := range unit.GetAbilities() {
+                unitView.Abilities = append(unitView.Abilities, ability.Name())
+            }
+            for _, enchantment := range unit.GetEnchantments() {
+                unitView.Enchantments = append(unitView.Enchantments, enchantment.Name())
+            }
+            view.Units = append(view.Units, unitView)
         }
     }
     return view
 }
+
+const battleLogLines = 30
 
 func figurePoints(count int) [][2]int {
     out := [][2]int{}
