@@ -329,6 +329,12 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
                 Wizard *PlayerRef `json:"wizard"`
                 Attacked bool `json:"attacked,omitempty"`
             }{MakePlayerRef(war.Player), MakePlayerRef(war.Wizard), war.Attacked}, true
+        case *GameEventSpellOfMastery:
+            mastery := event.(*GameEventSpellOfMastery)
+            return "spell-of-mastery", struct {
+                Player *PlayerRef `json:"player"`
+                Started bool `json:"started,omitempty"`
+            }{MakePlayerRef(mastery.Player), mastery.Started}, true
 
         case *GameEventChooseSpellTarget:
             choose := event.(*GameEventChooseSpellTarget)

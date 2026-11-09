@@ -458,6 +458,8 @@ func MakeChooseSpellInfo(allSpells spellbook.Spells, magic data.MagicType, books
     }
 }
 
+// the starting spells for the wizard's books, picked at random (at most the realm's spells of a
+// rarity, so a short spell list doesn't panic)
 func GetStartingSpells(wizard *WizardCustom, allSpells spellbook.Spells) spellbook.Spells {
     var spellsOut spellbook.Spells
     magicOrder := []data.MagicType{data.LifeMagic, data.DeathMagic, data.ChaosMagic, data.NatureMagic, data.SorceryMagic}
@@ -470,17 +472,17 @@ func GetStartingSpells(wizard *WizardCustom, allSpells spellbook.Spells) spellbo
         }
 
         // assign common spells
-        for _, index := range rand.Perm(len(spellInfo.CommonSpells.Spells))[0:spellInfo.CommonMax] {
+        for _, index := range rand.Perm(len(spellInfo.CommonSpells.Spells))[0:min(spellInfo.CommonMax, len(spellInfo.CommonSpells.Spells))] {
             spellsOut.AddSpell(spellInfo.CommonSpells.Spells[index])
         }
 
         // assign uncommon spells
-        for _, index := range rand.Perm(len(spellInfo.UncommonSpells.Spells))[0:spellInfo.UncommonMax] {
+        for _, index := range rand.Perm(len(spellInfo.UncommonSpells.Spells))[0:min(spellInfo.UncommonMax, len(spellInfo.UncommonSpells.Spells))] {
             spellsOut.AddSpell(spellInfo.UncommonSpells.Spells[index])
         }
 
         // assign rare spells
-        for _, index := range rand.Perm(len(spellInfo.RareSpells.Spells))[0:spellInfo.RareMax] {
+        for _, index := range rand.Perm(len(spellInfo.RareSpells.Spells))[0:min(spellInfo.RareMax, len(spellInfo.RareSpells.Spells))] {
             spellsOut.AddSpell(spellInfo.RareSpells.Spells[index])
         }
     }

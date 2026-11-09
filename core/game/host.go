@@ -70,6 +70,8 @@ type HostSettings struct {
     Wizard *setup.WizardCustom `json:"-"`
     // or a premade wizard by name (StartOptions wizards), with a race and banner (random if empty)
     WizardChoice string `json:"wizard,omitempty"`
+    // or a wizard made on the start screen (books and retorts), with Race and Banner as above
+    Custom *CustomWizardSettings `json:"custom,omitempty"`
     Race string `json:"race,omitempty"`
     Banner string `json:"banner,omitempty"`
     // a setup for tests (see applyScenario): "battle"
@@ -134,7 +136,13 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
         Magic: magic,
     }
 
-    if settings.Wizard == nil && settings.WizardChoice != "" {
+    if settings.Wizard == nil && settings.Custom != nil {
+        wizard, err := makeCustomWizard(*settings.Custom, settings.Race, settings.Banner, gameData.Spells)
+        if err != nil {
+            return nil, err
+        }
+        settings.Wizard = wizard
+    } else if settings.Wizard == nil && settings.WizardChoice != "" {
         wizard, err := makeStartWizard(settings.WizardChoice, settings.Race, settings.Banner, gameData.Spells)
         if err != nil {
             return nil, err
@@ -222,8 +230,15 @@ func (host *GameHost) TakeEvents() [][]byte {
     return out
 }
 
-// "" while the game goes on; "lost" if the human was defeated, "won" if every other wizard was
+// "" while the game goes on; "won" if the human cast the Spell of Mastery or every other wizard was
+// defeated, "lost" if the human was defeated or another wizard cast the Spell of Mastery
 func (host *GameHost) GameOver() string {
+    if winner := host.Model.MasteryWinner; winner != nil {
+        if winner == host.Human {
+            return "won"
+        }
+        return "lost"
+    }
     if host.Human.Defeated {
         return "lost"
     }

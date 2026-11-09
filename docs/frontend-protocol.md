@@ -125,7 +125,9 @@ has spells or item charges (`caster` id, `casting-skill`, `spells`). A spell is 
 now; `unusable` says why casting it now would do nothing, and battle-cast refuses it: "nothing to
 cast it on here" (Disrupt without walls), "nothing it would affect here" (Holy Word without
 fantastic enemies), "nobody is wounded" (Mass Healing), "already in effect" (a combat
-enchantment), "the wall of fire is already up", "no dead to raise".
+enchantment), "the wall of fire is already up", "no dead to raise", "nothing to dispel here"
+(Disenchant Area / True with no enemy enchantment and no curse on your units), "no room to summon"
+(Summon Demon); Call Chaos without a living enemy is "nothing it would affect here".
 `casting` is the spell waiting for a target: `spell`, `caster?`, `kind` and the targets it accepts,
 by the model's own checks: `units` (ids, for `kind: "unit"`), `tiles` (`[x, y]`, for `"tile"`) or
 `choices` (`{id, name, asset, banner}` with a `title`, for `"choice"`: Raise/Animate Dead, which
@@ -146,7 +148,7 @@ fields the spell needs:
 - Resurrection: `choice`, the dead hero's name.
 
 Summons, hero summons, global enchantments, Death Wish and Great Unsummoning need no target.
-Refused for now: Spell of Mastery (its victory screens).
+The Spell of Mastery wins the game when its casting finishes (`spell-of-mastery` events, below).
 
 Example: `{"type": "move-stack", "command": {"from": {"plane": "Arcanus", "x": 3, "y": 3}, "to": {"plane": "Arcanus", "x": 6, "y": 4}}}`
 
@@ -183,6 +185,7 @@ attacking such a wizard breaks the treaty. Your own proposals are still always a
 | `battle-ended` | `attacker`, `defender`, `location`, `result` | `attacker-won`, `defender-won`, `attacker-fled`, `defender-fled` |
 | `choose-encounter` | `player`, `encounter`, `guards` | enter? answer with `confirm-encounter` |
 | `choose-raze` | `player`, `city` | raze or keep? answer with `raze-city` |
+| `spell-of-mastery` | `player`, `started?` | `started`: the wizard began casting the Spell of Mastery (every wizard hears it); otherwise the casting finished and that wizard won: the game is over (`gameOver` is `won` or `lost`) |
 | `treaty-proposal` | `player`, `wizard`, `treaty` | an AI wizard proposes `pact`, `alliance` or `peace`: answer with `answer-proposal` |
 | `war-declared` | `player`, `wizard`, `attacked?` | `wizard` declared war on `player`; `attacked`: the treaty between them broke because `wizard` attacked (also sent when you attack a wizard you have a treaty with) |
 
@@ -277,13 +280,13 @@ returns at the start of the human's next turn. `host.TakeEvents()` returns the e
 last call that concern the human: an event naming a player only when it's the human, a battle the
 human fights in, a random event on the human or one of their cities, and the events without a
 player (notices, scrolls, refresh, banishments). The AI players' own events are handled inside.
-Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `"won"` or `"lost"`.
+Views: `PlayerView()`, `MapView(plane)`, `BattleView()`. `GameOver()` is `""`, `"won"` or `"lost"` (every rival defeated, you defeated, or someone cast the Spell of Mastery).
 
 Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (default true),
 `difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
 `wizardName`, `scenario` (a setup for tests, `core/game/scenario.go`: `battle` puts a guarded
 lair next to the capital and gives the wizard Fire Bolt, Wall of Stone, mana and skill; `siege`
-puts a human army next to an AI capital with walls, a wall of fire and darkness; `proposal` loads the AI diplomacy's dice so a rival who likes you proposes a pact on the first end-turn; `orders` puts
+puts a human army next to an AI capital with walls, a wall of fire and darkness; `mastery` gives the wizard the Spell of Mastery with the mana and skill to cast it now; `proposal` loads the AI diplomacy's dice so a rival who likes you proposes a pact on the first end-turn; `orders` puts
 settlers where an outpost can go, engineers next to the capital and swordsmen on an open tower; the web page
 takes `?scenario=...`).
 
@@ -309,7 +312,8 @@ next turn has started. Until then only battle commands are accepted.
 | `civ.tileInfo(locationJSON)` | what the surveyor tells about an explored tile (`TileInfoView`, below), or `{"error"}` (unexplored) |
 | `civ.roadPath(queryJSON)` | the road `build-road` would make: `{stack, to}` (locations) → a list of locations from the stack's tile, or `{"error"}` |
 | `civ.setLogging(bool)` | the Go log on the console (off by default) |
-| `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?, portrait}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
+| `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?, portrait}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents, custom: {picks, realms, retorts: [{name, picks, requires?}], portraits: [{portrait, asset}]}}` |
+| `civ.checkWizard(customJSON)` | the custom wizard builder's choices so far: `{picks-left, error?, retorts: {name: why it can't be taken now, or ""}, ready}` |
 
 Saves (`core/game/hostsave.go`): `{version, game, human, pending-spell?, pending-items?}`. `game`
 is the model as the desktop saves it (`SerializeModel`); `human` the human's banner; a finished
@@ -320,8 +324,10 @@ researched). Open offers and trades are not kept. The web page gzips saves into 
 downloads / loads them as files; `?load=autosave` or `?load=save` continues one.
 
 Settings for `newGame`: `opponents` (1-4), `difficulty`, `magic` (weak/normal/powerful),
-`landSize` (0-2), `raiders`, `wizardName`, and a premade `wizard` by name with `race` and
-`banner` (each random when left out; a Myrror race only for a wizard with the Myrran retort, who
+`landSize` (0-2), `raiders`, `wizardName`, and a premade `wizard` by name, or a `custom` wizard
+`{name, portrait (0-13), books: {realm: count}, retorts: [names]}` (books and retorts use exactly
+`custom.picks` picks, not both Life and Death, retorts whose book requirements are met; the
+starting spells are picked at random), with `race` and `banner` (each random when left out; a Myrror race only for a wizard with the Myrran retort, who
 then starts on Myrror); `scenario` for tests.
 
 Status is `{"error"?, "waiting", "gameOver"?}`. Every function returns a JSON string. The page

@@ -51,7 +51,8 @@ var enchantmentSpells = map[string]data.CombatEnchantment{
 
 // why casting the spell now would do nothing, or "" when it may work: no target (Disrupt
 // without walls), nobody an area spell would touch, nobody wounded for Mass Healing, a combat
-// enchantment or wall already in effect, no dead to raise
+// enchantment or wall already in effect, no dead to raise, nothing Disenchant Area could dispel,
+// no enemy for Call Chaos, no free tile for Summon Demon
 func (model *CombatModel) SpellCanWork(spellSystem SpellSystem, army *Army, unitCaster *ArmyUnit, spell spellbook.Spell) (bool, string) {
     if enchantment, ok := enchantmentSpells[spell.Name]; ok {
         if army.HasEnchantment(enchantment) || slices.Contains(model.GlobalEnchantments, enchantment) {
@@ -70,6 +71,24 @@ func (model *CombatModel) SpellCanWork(spellSystem SpellSystem, army *Army, unit
         case "Wall of Fire":
             if model.AnyTile(func(tile *Tile) bool { return tile.Fire != nil }) {
                 return false, "the wall of fire is already up"
+            }
+            return true, ""
+        case "Disenchant Area", "Disenchant True":
+            if !model.hasSomethingToDisenchant(army) {
+                return false, "nothing to dispel here"
+            }
+            return true, ""
+        case "Call Chaos":
+            for _, unit := range model.GetOppositeArmyForPlayer(army.Player).units {
+                if unit.GetHealth() > 0 {
+                    return true, ""
+                }
+            }
+            return false, "nothing it would affect here"
+        case "Summon Demon":
+            // the demon appears on any free tile near the middle (FindEmptyTile)
+            if !model.AnyTileAt(func(x int, y int) bool { return model.GetUnit(x, y) == nil }) {
+                return false, "no room to summon"
             }
             return true, ""
         case "Wall of Darkness":
@@ -137,6 +156,38 @@ func (model *CombatModel) probeSpell(spellSystem SpellSystem, army *Army, unitCa
         return false, false
     }
     return probe.found, true
+}
+
+// Disenchant Area / True: an enchantment on the other army or its living units, or a curse on one
+// of the army's own living units (DoDisenchantArea's targets)
+func (model *CombatModel) hasSomethingToDisenchant(army *Army) bool {
+    enemy := model.GetOppositeArmyForPlayer(army.Player)
+    if len(enemy.Enchantments) > 0 {
+        return true
+    }
+    for _, unit := range enemy.units {
+        if unit.GetHealth() > 0 && (len(unit.Enchantments) > 0 || len(unit.Unit.GetEnchantments()) > 0) {
+            return true
+        }
+    }
+    for _, unit := range army.units {
+        if unit.GetHealth() > 0 && len(unit.GetCurses()) > 0 {
+            return true
+        }
+    }
+    return false
+}
+
+// whether any battlefield tile passes the check
+func (model *CombatModel) AnyTileAt(check func(x int, y int) bool) bool {
+    for y, row := range model.Tiles {
+        for x := range row {
+            if check(x, y) {
+                return true
+            }
+        }
+    }
+    return false
 }
 
 func (model *CombatModel) hasEmptyTileOnSide(army *Army) bool {

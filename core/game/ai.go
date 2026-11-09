@@ -92,6 +92,9 @@ func (model *GameModel) ApplyAiDecisions(player *playerlib.Player, decisions []p
 
                 if player.CastingSpell.Invalid() {
                     player.CastingSpell = cast.Spell
+                    if cast.Spell.IsSpellOfMastery() {
+                        model.AnnounceMasteryStarted(player)
+                    }
                 }
             case *playerlib.AICastUnitSpellDecision:
                 cast := decision.(*playerlib.AICastUnitSpellDecision)

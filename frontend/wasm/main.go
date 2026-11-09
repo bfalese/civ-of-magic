@@ -14,6 +14,7 @@
 //   civ.load(gamedataJSON, saveJSON)        -> status: the saved game replaces the current one
 //   civ.tileInfo(locationJSON)              -> what the surveyor tells about an explored tile
 //   civ.roadPath(queryJSON)                 -> the road build-road would make ({stack, to} -> locations)
+//   civ.checkWizard(customJSON)             -> the custom wizard builder's check (picks left, ...)
 //   civ.setLogging(true)                    -> the game's log on the console (off by default)
 //
 // Every function returns a JSON string. status is {"error"?, "waiting", "gameOver"?}; views are
@@ -231,6 +232,23 @@ func roadPath(arguments []js.Value) string {
     return viewResult(host.RoadPath([]byte(encoded)))
 }
 
+// the custom wizard builder's choices so far -> picks left, problems, which retorts are allowed
+func checkWizard(arguments []js.Value) string {
+    encoded, err := stringArgument(arguments, 0)
+    if err != nil {
+        return errorJSON(err)
+    }
+    var custom gamecore.CustomWizardSettings
+    if err := json.Unmarshal([]byte(encoded), &custom); err != nil {
+        return errorJSON(err)
+    }
+    result, err := json.Marshal(gamecore.CheckCustomWizard(custom))
+    if err != nil {
+        return errorJSON(err)
+    }
+    return string(result)
+}
+
 // the choices for a new game (wizards, races, banners, difficulties, ...): core StartOptions
 func startOptions(arguments []js.Value) string {
     encoded, err := json.Marshal(gamecore.MakeStartOptions())
@@ -264,6 +282,7 @@ func main() {
     api.Set("tileInfo", export("tileInfo", tileInfo, errorJSON))
     api.Set("roadPath", export("roadPath", roadPath, errorJSON))
     api.Set("setLogging", export("setLogging", setLogging, errorJSON))
+    api.Set("checkWizard", export("checkWizard", checkWizard, errorJSON))
     api.Set("startOptions", export("startOptions", startOptions, errorJSON))
     js.Global().Set("civ", api)
 

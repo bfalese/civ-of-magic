@@ -465,6 +465,9 @@ func (command *CastSpellCommand) Execute(context *CommandContext) error {
 
     player.CastingSpell = spell
     player.CastingSpellProgress = 0
+    if spell.IsSpellOfMastery() {
+        model.AnnounceMasteryStarted(player)
+    }
     return nil
 }
 

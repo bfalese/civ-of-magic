@@ -15,7 +15,9 @@ inspects and disbands units in the stack panel. Last, the orders scenario: settl
 starts a road (with its path shown while picking), travels through a tower and patrols, and
 checks the minimap, the tile info and the city and army lists. Then
 saving: the autosave, a save, a downloaded file, loading each back, and Continue on the start
-screen. Last, an AI wizard proposing a pact at the end of the turn.
+screen. Then the mastery scenario: casting the Spell of Mastery wins and shows the ending.
+Then a custom wizard made with the start screen's builder. Last, an AI wizard proposing a
+pact at the end of the turn.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -120,6 +122,8 @@ def main():
             items(smoke, url)
             orders(smoke, url)
             saves(smoke, url)
+            mastery(smoke, url)
+            custom_wizard(smoke, url)
             proposal(smoke, url)
         finally:
             browser.close()
@@ -210,7 +214,8 @@ def first_turn(smoke, url):
 
     date = state("s.view.date")
     page.keyboard.press("Enter")
-    smoke.wait(f"window.civGame.view.date !== {json.dumps(date)}", "the next turn")
+    # the AI turns run in between: allow them more than a click's time
+    smoke.wait(f"window.civGame.view.date !== {json.dumps(date)}", "the next turn", BATTLE_TIMEOUT)
     check(True, f"end turn: {date} -> {state('s.view.date')}")
     # other questions may come with the new turn (offers, ...): answer them
     while page.locator("#modal.open").count():
@@ -695,7 +700,10 @@ def overview(smoke):
     check(size[0] >= width * 2, f"the minimap shows the {width}-tile-wide plane at {size[0]}x{size[1]}")
     before = state("s.map.camera.position.x")
     box = page.locator("#minimap canvas").bounding_box()
-    page.mouse.click(box["x"] + box["width"] * 0.1, box["y"] + box["height"] * 0.5)
+    # click the side of the minimap away from the view, so the camera has to move
+    camera_tile = state("s.map.camera.position.x / s.map.tileWidth / s.map.mapView.width")
+    side = 0.85 if camera_tile < 0.5 else 0.15
+    page.mouse.click(box["x"] + box["width"] * side, box["y"] + box["height"] * 0.5)
     after = state("s.map.camera.position.x")
     check(abs(after - before) > 1, f"clicking the minimap moves the view ({before:.0f} -> {after:.0f})")
     smoke.shot("18-minimap")
@@ -790,6 +798,52 @@ def saves(smoke, url):
     check(True, "Load a save file loads the downloaded save")
     smoke.no_errors()
 
+
+
+def mastery(smoke, url):
+    """The mastery scenario: the Spell of Mastery cast from the magic screen wins the game."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=mastery")
+    page.keyboard.press("m")
+    smoke.visible("#magic.open", "the magic screen")
+    page.click("#magic .spell[data-spell='Spell of Mastery']")
+    smoke.visible("#ending.open", "the ending screen")
+    text = page.inner_text("#ending")
+    check("Spell of Mastery" in text and "yours to rule" in text, "casting the Spell of Mastery wins: the ending screen says so")
+    check("You cast the Spell of Mastery" in page.inner_text("#log"), "the log tells it too")
+    smoke.shot("20-mastery")
+    page.click("#ending button[data-look]")
+    check(not state("document.getElementById('ending').classList.contains('open')"), "Look at the map closes the ending")
+    smoke.no_errors()
+
+
+def custom_wizard(smoke, url):
+    """The start screen's builder: 9 Chaos books and Warlord use the 11 picks; the game starts with them."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    page.goto(url)
+    smoke.visible("#start [data-wizard='Custom']", "the Custom card")
+    page.click("#start [data-wizard='Custom']")
+    smoke.visible("#start .start-builder", "the builder")
+    check(page.locator("#start [data-start]").is_disabled(), "Start waits until all picks are used")
+    page.click("#start [data-portrait='4']")
+    for _ in range(9):
+        page.click("#start [data-book='Chaos'][data-step='1']")
+    check("2 of 11 picks left" in page.inner_text("#start .start-builder"), "9 Chaos books leave 2 picks")
+    check(page.locator("#start [data-retort='Myrran']").is_disabled() and page.locator("#start [data-book='Life'][data-step='1']").is_enabled(),
+          "a 3-pick retort is out of reach")
+    check(page.locator("#start [data-retort='Infernal Power']").is_disabled(), "Infernal Power needs Death books")
+    page.click("#start [data-retort='Warlord']")
+    check(page.locator("#start [data-start]").is_enabled(), "Warlord uses the last 2 picks: Start is on")
+    page.fill("#start [data-name]", "Zed")
+    smoke.shot("21-custom-wizard")
+    page.click("#start [data-start]")
+    smoke.wait("window.civGame && window.civGame.view", "the game with the custom wizard", LOAD_TIMEOUT)
+    if page.locator("#modal.open").count():
+        page.click("#modalChoices button >> nth=0")
+    mirror = state("s.view.you.mirror")
+    check(state("s.view.you.player.wizard") == "Zed" and mirror["books"].get("Chaos") == 9 and "Warlord" in mirror["retorts"] and mirror["portrait"] == "wizard-portrait/4",
+          f"the game starts with Zed: {mirror['books']}, {mirror['retorts']}")
+    smoke.no_errors()
 
 
 def proposal(smoke, url):
