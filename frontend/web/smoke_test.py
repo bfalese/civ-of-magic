@@ -82,9 +82,12 @@ class Smoke:
     def visible(self, selector, what, timeout=STEP_TIMEOUT):
         self.wait(f"(() => {{ const element = document.querySelector({json.dumps(selector)}); return !!element && element.getClientRects().length > 0; }})()", what, timeout)
 
-    def load(self, url):
+    def load(self, url, answer_research=True):
         self.page.goto(url)
         self.wait("window.civGame && window.civGame.view", "the game to load", LOAD_TIMEOUT)
+        # a new game asks for the first research at once
+        if answer_research and self.page.locator("#modal.open").count():
+            self.page.click("#modalChoices button >> nth=0")
 
 
 def main():
@@ -111,8 +114,12 @@ def main():
 
 def first_turn(smoke, url):
     page, state, check = smoke.page, smoke.state, smoke.check
-    smoke.load(url + "?opponents=1")
+    smoke.load(url + "?opponents=1", answer_research=False)
     check(state("s.view.cities.length") == 1, "the game starts with a capital")
+    smoke.visible("#modal.open", "the first research question")
+    candidates = state("s.view.you['research-candidates'].length")
+    page.click("#modalChoices button >> nth=0")
+    check(state("s.view.you.researching") is not None, f"the first turn asks what to research: {state('s.view.you.researching')} (of {candidates})")
     smoke.shot("1-start")
 
     # the camera starts on the capital: its tile is in the middle of the map area
@@ -167,10 +174,53 @@ def first_turn(smoke, url):
     page.keyboard.press("Enter")
     smoke.wait(f"window.civGame.view.date !== {json.dumps(date)}", "the next turn")
     check(True, f"end turn: {date} -> {state('s.view.date')}")
-    smoke.visible("#modal.open", "the research question")
-    page.click("#modalChoices button >> nth=0")
-    check(state("s.view.you.researching") is not None, f"research chosen: {state('s.view.you.researching')}")
+    # other questions may come with the new turn (offers, ...): answer them
+    while page.locator("#modal.open").count():
+        page.click("#modalChoices button >> nth=0")
+    check(state("s.view.you.researching") is not None, f"still researching {state('s.view.you.researching')}")
     smoke.shot("5-next-turn")
+
+    magic_screen(smoke)
+
+
+def magic_screen(smoke):
+    """M opens the magic screen: change the power shares, cast or start a spell, alchemy, Esc."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    page.keyboard.press("m")
+    smoke.visible("#magic.open", "the magic screen")
+    spells = state("s.view.you.spells")
+    listed = page.locator("#magic .spell").count()
+    check(listed == len(spells), f"M opens the magic screen: {listed} spells in the spellbook, power {state('s.view.you.power')}")
+    smoke.shot("5b-magic")
+
+    research = state("s.view.you['power-distribution'].research")
+    wanted = 60 if round(research * 100) != 60 else 40
+    page.evaluate(f"""(() => {{ const input = document.querySelector("#magic input[data-share='research']");
+        input.value = {wanted}; input.dispatchEvent(new Event('change')); }})()""")
+    share = state("s.view.you['power-distribution']")
+    check(abs(share["research"] - wanted / 100) < 0.01 and abs(sum(share.values()) - 1) < 0.01,
+          f"research share {round(research * 100)}% -> {round(share['research'] * 100)}%, mana {round(share['mana'] * 100)}%, skill {round(share['skill'] * 100)}%")
+
+    spell = next((spell for spell in spells if not spell.get("target") and not spell.get("needs-design")), None)
+    if spell:
+        mana = state("s.view.you.mana")
+        page.click(f"#magic .spell[data-spell={json.dumps(spell['name'])}]")
+        you = state("s.view.you")
+        if spell["now"]:
+            check(you["mana"] < mana, f"cast {spell['name']} at once for {spell['cost']} mana")
+        else:
+            check(you.get("casting") == spell["name"], f"started casting {spell['name']} ({you['casting-progress']}/{you['casting-cost']})")
+    else:
+        print("skip cast: no overland spell without a target")
+
+    gold, mana = state("s.view.you.gold"), state("s.view.you.mana")
+    if gold >= 2:
+        page.fill("#magic [data-alchemy-amount]", "2")
+        page.click("#magic button[data-alchemy='gold-to-mana']")
+        you = state("s.view.you")
+        check(you["gold"] == gold - 2 and you["mana"] > mana, f"alchemy: 2 gold -> {you['mana'] - mana} mana")
+    page.keyboard.press("Escape")
+    check(not state("s.magic.open"), "Esc closes the magic screen")
 
 
 # the lair the battle scenario puts next to the capital
@@ -243,6 +293,16 @@ def cast_spell(smoke):
 def battle(smoke, url):
     page, check = smoke.page, smoke.check
     smoke.load(url + "?opponents=1&scenario=battle")
+
+    # a spell from the spellbook cast now on a target picked on the map: Wall of Stone on the capital
+    page.keyboard.press("m")
+    smoke.visible("#magic.open", "the magic screen")
+    page.click("#magic .spell[data-spell='Wall of Stone']")
+    check(not smoke.state("s.magic.open") and smoke.state("s.spellTarget && s.spellTarget.start"), "Wall of Stone asks for its target on the map")
+    page.mouse.click(600, 400)
+    buildings = smoke.state("s.view.cities[0].buildings")
+    check("City Walls" in buildings and not smoke.state("s.spellTarget"), "clicking the capital casts it: the city has walls")
+
     lair = page.evaluate(FIND_LAIR)
     check(lair is not None, f"the scenario put a {lair and lair['kind']} next to the capital")
 

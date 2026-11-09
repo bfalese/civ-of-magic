@@ -5,6 +5,7 @@ import { loadCore } from "./core.js";
 import { loadAssets } from "./assets.js";
 import { MapRenderer } from "./map.js";
 import { BattleScreen } from "./battle.js";
+import { MagicScreen } from "./magic.js";
 
 const element = (id) => document.getElementById(id);
 
@@ -15,13 +16,15 @@ const state = {
     plane: "Arcanus",
     // the selected stack is followed by its first unit's id (stacks move; ids don't)
     selectedUnit: null,
-    // a finished spell waiting for its target: {spell, target}
+    // a spell waiting for its target on the map: {spell, target, start} (start: cast-spell from
+    // the spellbook; otherwise a finished spell's cast-spell-target)
     spellTarget: null,
     questions: [],
     modalOpen: false,
     // the location of the city whose screen is open, or null
     cityOpen: null,
     battle: null,
+    magic: null,
     lastDate: null,
 };
 
@@ -235,6 +238,28 @@ function chooseSpellTarget(spell, target) {
     log(`${spell} needs a ${target} target; this screen can't pick one yet.`, "dim");
 }
 
+// a spell from the spellbook that can be cast now and needs a target
+function pickSpellTarget(spell) {
+    if (spell.target === "wizard") {
+        const wizards = state.view ? state.view["known-wizards"] : [];
+        ask(`${spell.name}: on which wizard?`, [
+            ...wizards.map((wizard) => [wizard.wizard, () => execute("cast-spell", { spell: spell.name, target: { wizard: wizard.banner } })]),
+            ["Cancel", () => {}],
+        ]);
+        return;
+    }
+    state.spellTarget = { spell: spell.name, target: spell.target, start: true };
+    log(`${spell.name}: click the target on the map (Esc cancels).`);
+    updateSide();
+}
+
+function openMagic() {
+    if (state.view && !state.battle.open) {
+        closeCity();
+        state.magic.show(state.view);
+    }
+}
+
 // ---- views
 
 function refresh() {
@@ -248,6 +273,9 @@ function refresh() {
     state.map.setSelected(stack ? stack.location : null);
     updateHud();
     updateSide();
+    if (state.magic) {
+        state.magic.update(state.view);
+    }
     if (state.cityOpen) {
         renderCityScreen();
     }
@@ -421,8 +449,13 @@ function onTileClick(tile) {
             }
             target.unit = stack.units[0].id;
         }
+        const { spell, start } = state.spellTarget;
         state.spellTarget = null;
-        execute("cast-spell-target", { target });
+        if (start) {
+            execute("cast-spell", { spell, target });
+        } else {
+            execute("cast-spell-target", { target });
+        }
         return;
     }
 
@@ -487,6 +520,7 @@ function endTurn() {
 function bindControls() {
     element("endTurn").onclick = endTurn;
     element("nextUnit").onclick = nextUnit;
+    element("magicButton").onclick = openMagic;
     element("plane").onclick = () => {
         state.plane = state.plane === "Arcanus" ? "Myrror" : "Arcanus";
         refresh();
@@ -499,10 +533,15 @@ function bindControls() {
             state.battle.key(event.key);
             return;
         }
+        if (state.magic.open) {
+            if (event.key === "Escape" || event.key === "m" || event.key === "M") state.magic.hide();
+            return;
+        }
         if (state.cityOpen) {
             if (event.key === "Escape") closeCity();
             return;
         }
+        if (event.key === "m" || event.key === "M") openMagic();
         if (event.key === "Enter") endTurn();
         if (event.key === "n" || event.key === "N") nextUnit();
         if (event.key === "Escape") {
@@ -542,6 +581,10 @@ async function main() {
         }
 
         state.map = new MapRenderer(element("map"), assets, { onTileClick });
+        state.magic = new MagicScreen(element("magic"), {
+            onCommand: (type, command) => execute(type, command),
+            onPickTarget: pickSpellTarget,
+        });
         state.battle = new BattleScreen(element("battle"), assets, {
             onCommand: (type, command) => execute(type, command),
         });

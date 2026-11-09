@@ -17,7 +17,7 @@ import (
 // playing (and retrying) random games until it comes up. HostSettings.Scenario names one.
 //
 //   battle: a lair guarded by skeletons next to the human's capital (the only encounter next to
-//           it), and a wizard who knows
+//           it), and a wizard who knows Wall of Stone and
 //           Fire Bolt with mana and casting skill to spare: one move-stack starts a battle
 //   siege:  an AI wizard's capital with city walls, a wall of fire and a wall of darkness, and a
 //           human army next to it: one move-stack starts a battle at the walls
@@ -103,12 +103,17 @@ func scenarioBattle(host *GameHost) error {
     }
     human.LiftFogSquare(capital.X, capital.Y, 3, capital.Plane)
 
-    fireBolt := model.AllSpells.FindByName("Fire Bolt")
-    if fireBolt.Valid() && !human.KnownSpells.Contains(fireBolt) {
-        human.KnownSpells.AddSpell(fireBolt)
+    // Fire Bolt for the battle, Wall of Stone to cast on the capital from the spellbook
+    for _, name := range []string{"Fire Bolt", "Wall of Stone"} {
+        spell := model.AllSpells.FindByName(name)
+        if spell.Valid() && !human.KnownSpells.Contains(spell) {
+            human.KnownSpells.AddSpell(spell)
+        }
     }
+    // a casting skill of about 60, available this turn already
     human.Mana = max(human.Mana, 300)
-    human.CastingSkillPower = max(human.CastingSkillPower, 1000)
+    human.CastingSkillPower = max(human.CastingSkillPower, 4000)
+    human.RemainingCastingSkill = human.ComputeOverworldCastingSkill()
     return nil
 }
 

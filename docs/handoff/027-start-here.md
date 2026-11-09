@@ -1,6 +1,6 @@
 # Handoff 027: start here (state at end of 2026-11-07)
 
-This is the entry point for the next session. It replaces [020](020-start-here.md).
+This was the entry point; superseded by [034](034-start-here.md).
 Read `CLAUDE.md` first, then this file. Handoffs 021–026 have the details of each round.
 
 ## Where things stand

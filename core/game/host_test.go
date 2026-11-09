@@ -5,6 +5,7 @@ import (
     "io"
     "log"
     "os"
+    "strings"
     "testing"
 
     "github.com/bfalese/civ-of-magic/core/combat"
@@ -67,6 +68,22 @@ func TestGameHost(test *testing.T) {
     if err := json.Unmarshal(view, &decoded); err != nil {
         test.Fatalf("player view JSON: %v", err)
     }
+    // the magic screen's data, and the first research question at once
+    you := host.Model.MakePlayerView(host.Human).You
+    share := you.PowerDistribution
+    if len(you.Spells) == 0 || len(you.ResearchCandidates) == 0 || you.Power <= 0 || share.Mana + share.Research + share.Skill < 0.99 {
+        test.Errorf("magic view: %v spells, %v candidates, power %v, shares %+v", len(you.Spells), len(you.ResearchCandidates), you.Power, share)
+    }
+    askedResearch := false
+    for _, encoded := range host.TakeEvents() {
+        if strings.Contains(string(encoded), `"choose-research"`) {
+            askedResearch = true
+        }
+    }
+    if !askedResearch {
+        test.Errorf("a new game should ask for the first research")
+    }
+
     if _, err := host.MapView(data.PlaneArcanus); err != nil {
         test.Errorf("map view: %v", err)
     }

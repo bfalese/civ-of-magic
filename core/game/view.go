@@ -39,6 +39,46 @@ type WizardView struct {
     GlobalEnchantments []string `json:"global-enchantments,omitempty"`
     Banished bool `json:"banished,omitempty"`
     Defeated bool `json:"defeated,omitempty"`
+
+    // the magic screen: power per turn and how it is shared (set-power-distribution)
+    Power int `json:"power"`
+    PowerDistribution PowerDistributionView `json:"power-distribution"`
+    ResearchPerTurn int `json:"research-per-turn"`
+    SkillPerTurn int `json:"skill-per-turn"`
+    // casting skill left this turn: a spell is cast at once if it costs no more than this and mana
+    RemainingCastingSkill int `json:"remaining-casting-skill"`
+    // the full cost of the spell being cast over several turns
+    CastingCost int `json:"casting-cost,omitempty"`
+    // the spells set-research may pick
+    ResearchCandidates []string `json:"research-candidates"`
+    // the spellbook: overland spells cast-spell takes
+    Spells []SpellView `json:"spells"`
+    // alchemy converts at full rate (the Alchemy retort), otherwise at half
+    AlchemyFullRate bool `json:"alchemy-full-rate,omitempty"`
+}
+
+type PowerDistributionView struct {
+    Mana float64 `json:"mana"`
+    Research float64 `json:"research"`
+    Skill float64 `json:"skill"`
+}
+
+// an overland spell in the spellbook
+type SpellView struct {
+    Name string `json:"name"`
+    // the realm: Life, Death, Chaos, Nature, Sorcery or Arcane
+    Magic string `json:"magic"`
+    // Summoning, Unit Enchantments, City Enchantments, ...
+    Section string `json:"section"`
+    Cost int `json:"cost"`
+    // what cast-spell needs as its target (choose-spell-target's names: friendly-city, enemy-unit,
+    // wizard, ...), "" for none
+    Target string `json:"target,omitempty"`
+    // cast at once now (mana and the casting skill left this turn cover it); otherwise cast-spell
+    // starts casting it over the next turns
+    Now bool `json:"now"`
+    // the item spells take a design (cast-spell's artifact) the page can't make yet
+    NeedsDesign bool `json:"needs-design,omitempty"`
 }
 
 type CityView struct {
@@ -243,6 +283,39 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
     }
     for _, enchantment := range player.GlobalEnchantments.Values() {
         you.GlobalEnchantments = append(you.GlobalEnchantments, enchantment.String())
+    }
+
+    you.Power = power
+    you.PowerDistribution = PowerDistributionView{Mana: player.PowerDistribution.Mana, Research: player.PowerDistribution.Research, Skill: player.PowerDistribution.Skill}
+    you.ResearchPerTurn = player.ComputeEffectiveResearchPerTurn(player.SpellResearchPerTurn(power), player.ResearchingSpell)
+    you.SkillPerTurn = player.CastingSkillPerTurn(power)
+    you.RemainingCastingSkill = player.RemainingCastingSkill
+    if player.CastingSpell.Valid() {
+        you.CastingCost = player.ComputeEffectiveSpellCost(player.CastingSpell, true)
+    }
+    you.AlchemyFullRate = player.Wizard.RetortEnabled(data.RetortAlchemy)
+    you.ResearchCandidates = []string{}
+    for _, spell := range player.ResearchCandidateSpells.Spells {
+        you.ResearchCandidates = append(you.ResearchCandidates, spell.Name)
+    }
+    you.Spells = []SpellView{}
+    for _, spell := range player.KnownSpells.OverlandSpells().Spells {
+        if spell.Name == "Spell of Return" {
+            continue
+        }
+        cost := player.ComputeEffectiveSpellCost(spell, true)
+        spellView := SpellView{
+            Name: spell.Name,
+            Magic: spell.Magic.String(),
+            Section: spell.Section.Name(),
+            Cost: cost,
+            Now: cost <= player.Mana && cost <= player.RemainingCastingSkill,
+            NeedsDesign: spell.Name == "Create Artifact" || spell.Name == "Enchant Item",
+        }
+        if target, ok := model.SpellTargetType(player, spell); ok {
+            spellView.Target = target.Name()
+        }
+        you.Spells = append(you.Spells, spellView)
     }
 
     // lists are empty rather than null in JSON
