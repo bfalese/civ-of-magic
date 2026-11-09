@@ -183,3 +183,70 @@ func TestHostAiBattle(test *testing.T) {
         test.Errorf("the attackers should be gone, the drakes still there")
     }
 }
+
+// the battle scenario: a guarded lair next to the capital and Fire Bolt to cast there (10 games,
+// since the maps are random)
+func TestHostBattleScenario(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    if _, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "nonsense"}); err == nil {
+        test.Errorf("an unknown scenario should be refused")
+    }
+
+    for range 10 {
+        host, err := MakeGameHost(gameData, HostSettings{Opponents: 1, Scenario: "battle"})
+        if err != nil {
+            test.Fatalf("setup: %v", err)
+        }
+        capital := host.Human.FindFortressCity()
+        mapUse := host.Model.GetMap(capital.Plane)
+        var lair *Location
+        for _, offset := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}} {
+            x, y := mapUse.WrapX(capital.X + offset[0]), capital.Y + offset[1]
+            if mapUse.GetEncounter(x, y) != nil {
+                lair = &Location{Plane: capital.Plane, X: x, Y: y}
+            }
+        }
+        if lair == nil {
+            test.Fatalf("no lair next to the capital")
+        }
+
+        stack := host.Human.FindStack(capital.X, capital.Y, capital.Plane)
+        if err := host.Execute(&MoveStackCommand{From: Location{Plane: capital.Plane, X: capital.X, Y: capital.Y}, To: *lair}); err != nil {
+            test.Fatalf("move: %v", err)
+        }
+        if host.WaitingFor() != WaitingEncounter || stack == nil {
+            test.Fatalf("walking into the lair should ask first, waiting for %q", host.WaitingFor())
+        }
+        if err := host.Execute(&ConfirmEncounterCommand{Enter: true}); err != nil {
+            test.Fatalf("enter: %v", err)
+        }
+        if host.WaitingFor() != WaitingBattle {
+            test.Fatalf("entering should start a battle, waiting for %q", host.WaitingFor())
+        }
+        view := host.Session.Battle.View()
+        castable := false
+        for _, spell := range view.Magic.Spells {
+            if spell.Name == "Fire Bolt" && spell.Castable {
+                castable = true
+            }
+        }
+        if !castable {
+            test.Fatalf("fire bolt should be castable: %+v", view.Magic)
+        }
+        if err := host.Execute(&BattleAutoCommand{}); err != nil {
+            test.Fatalf("auto: %v", err)
+        }
+    }
+}

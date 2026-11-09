@@ -67,6 +67,8 @@ type HostSettings struct {
     WizardName string `json:"wizardName,omitempty"`
     // the human wizard; random if not set
     Wizard *setup.WizardCustom `json:"-"`
+    // a setup for tests (see applyScenario): "battle"
+    Scenario string `json:"scenario,omitempty"`
 }
 
 func parseDifficulty(name string) (data.DifficultySetting, error) {
@@ -150,6 +152,9 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
 
     ai.Model.CurrentPlayer = 0
     host.startPlayerTurn(human)
+    if err := applyScenario(host, settings.Scenario); err != nil {
+        return nil, err
+    }
     host.drainEvents()
 
     return host, nil
