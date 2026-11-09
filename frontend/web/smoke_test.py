@@ -146,6 +146,7 @@ def first_turn(smoke, url):
     page, state, check = smoke.page, smoke.state, smoke.check
     smoke.load(url + "?opponents=1", answer_research=False)
     check(state("s.view.cities.length") == 1, "the game starts with a capital")
+    check(state("s.map.assets.has('fog/0') && s.map.assets.has('fog/13')"), "the soft fog edges are in the assets (re-export them if not)")
     smoke.visible("#modal.open", "the first research question")
     candidates = state("s.view.you['research-candidates'].length")
     page.click("#modalChoices button >> nth=0")
@@ -506,7 +507,7 @@ def city_extras(smoke):
     page, state, check = smoke.page, smoke.state, smoke.check
     page.select_option("#tax", "4")
     rate = state("s.view.you['tax-rate']")
-    check(rate == "2/1", f"the top bar sets the tax rate: {rate}, {page.locator('#tax option:checked').inner_text()}")
+    check(rate == "2/1" and page.locator("#tax option >> nth=2").inner_text().startswith("1 ("), f"the top bar sets the tax rate: {rate}, {page.locator('#tax option:checked').inner_text()}")
     check(page.evaluate("document.getElementById('top').getBoundingClientRect().height") < 50, "the top bar still fits on one line")
 
     page.mouse.click(600, 400)

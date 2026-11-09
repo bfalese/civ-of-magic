@@ -9,6 +9,16 @@ import * as THREE from "three";
 const zoomLevels = [1, 2, 3, 4, 6, 8];
 const animationMilliseconds = 250;
 
+// how dark explored land the player doesn't see now is drawn
+const dimAlpha = 0.45;
+
+// the soft fog edge pieces (mapback.lbx indexes, core/assets FogEdge)
+const fogPieces = {
+    northEast: 0, southEast: 1, east: 2, southWest: 3, south: 5, northWest: 7, north: 8, west: 11,
+    cornerNorthEast: 10, cornerSouthWest: 13, cornerSouthEast: 6, cornerNorthWest: 12,
+};
+const fogEdgeAsset = (index) => `fog/${index}`;
+
 export class MapRenderer {
     constructor(container, assets, { onTileClick }) {
         this.container = container;
@@ -183,7 +193,7 @@ export class MapRenderer {
         }
 
         // what the player saw before but doesn't see now is dimmed
-        context.fillStyle = "rgba(0, 0, 0, 0.45)";
+        context.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
         this.mapView.tiles.forEach((row, y) => {
             row.forEach((tile, x) => {
                 if (tile && !tile.visible) {
@@ -191,8 +201,60 @@ export class MapRenderer {
                 }
             });
         });
+        this.drawFogEdges(context);
 
         this.texture.needsUpdate = true;
+    }
+
+    // soft edges, as the desktop Overworld.DrawFog: an explored tile next to unexplored land gets
+    // black edge pieces on those sides; a visible tile next to explored-but-not-visible land gets
+    // them at the dimming strength, so the dim area fades in
+    drawFogEdges(context) {
+        const assets = this.assets;
+        if (!assets.has(fogEdgeAsset(0))) {
+            return;
+        }
+        const tiles = this.mapView.tiles;
+        const width = this.mapView.width;
+        const height = this.mapView.height;
+        const { tileWidth, tileHeight } = assets;
+        const kind = (x, y) => {
+            if (y < 0 || y >= height) return "edge";
+            const tile = tiles[y][((x % width) + width) % width];
+            return !tile ? "unexplored" : tile.visible ? "visible" : "explored";
+        };
+        const piece = (index, x, y) => assets.draw(context, fogEdgeAsset(index), x * tileWidth, y * tileHeight);
+        // which pieces border (x, y) where the neighbours are of the given kind
+        const border = (x, y, fogKind) => {
+            const is = (dx, dy) => kind(x + dx, y + dy) === fogKind;
+            const n = is(0, -1), e = is(1, 0), s = is(0, 1), w = is(-1, 0);
+            if (n && e) piece(fogPieces.northEast, x, y);
+            else if (n) piece(fogPieces.north, x, y);
+            else if (e) piece(fogPieces.east, x, y);
+            else if (is(1, -1)) piece(fogPieces.cornerNorthEast, x, y);
+            if (s && e) piece(fogPieces.southEast, x, y);
+            else if (s) piece(fogPieces.south, x, y);
+            else if (is(1, 1)) piece(fogPieces.cornerSouthEast, x, y);
+            if (n && w) piece(fogPieces.northWest, x, y);
+            else if (w) piece(fogPieces.west, x, y);
+            else if (is(-1, -1)) piece(fogPieces.cornerNorthWest, x, y);
+            if (s && w) piece(fogPieces.southWest, x, y);
+            else if (is(-1, 1)) piece(fogPieces.cornerSouthWest, x, y);
+        };
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const here = kind(x, y);
+                if (here === "visible") {
+                    context.globalAlpha = dimAlpha;
+                    border(x, y, "explored");
+                    context.globalAlpha = 1;
+                }
+                if (here !== "unexplored") {
+                    border(x, y, "unexplored");
+                }
+            }
+        }
+        context.globalAlpha = 1;
     }
 
     resize() {

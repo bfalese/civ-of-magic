@@ -134,6 +134,12 @@ func BattleWall(index int) string {
     return fmt.Sprintf("battle-wall/%v", index)
 }
 
+// a soft fog edge (mapback.lbx 0-13): drawn in black over a tile next to unexplored land, the
+// index naming which side or corner (see frontend/web/map.js, the desktop Overworld.DrawFog)
+func FogEdge(index int) string {
+    return fmt.Sprintf("fog/%v", index)
+}
+
 // an item picture (items.lbx at index; artifact.Artifact.Image)
 func Item(index int) string {
     return fmt.Sprintf("item/%v", index)
