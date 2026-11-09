@@ -82,9 +82,6 @@ func TestCastSpellTargetTypes(test *testing.T) {
         test.Errorf("a global enchantment needs no target")
     }
 
-    if err := model.CastSpell(player, spellbook.Spell{Name: "Spell of Mastery"}, SpellTarget{}); !errors.Is(err, ErrSpellNotSupported) {
-        test.Errorf("spell of mastery still needs the UI: %v", err)
-    }
     if err := model.CastSpell(player, spellbook.Spell{Name: "Spell Ward"}, SpellTarget{}); !errors.Is(err, ErrSpellNeedsTarget) {
         test.Errorf("spell ward needs a city: %v", err)
     }
@@ -182,5 +179,50 @@ func TestWordOfRecallRule(test *testing.T) {
     rule.Apply(unit)
     if unit.GetX() != 5 || unit.GetY() != 5 {
         test.Errorf("the unit should be at the summoning circle, is at %v,%v", unit.GetX(), unit.GetY())
+    }
+}
+
+// starting the Spell of Mastery is announced to everyone; finishing it wins the game
+func TestSpellOfMastery(test *testing.T) {
+    model, player, _ := makeCommandTestModel()
+    mastery := spellbook.Spell{Name: "Spell of Mastery", Magic: data.ArcaneMagic, CastCost: 5000}
+    player.KnownSpells.AddSpell(mastery)
+    player.Mana = 100
+    player.RemainingCastingSkill = 100
+    for len(model.Events) > 0 {
+        <-model.Events
+    }
+
+    context := &CommandContext{Player: player}
+    if err := model.Execute(context, &CastSpellCommand{Spell: "Spell of Mastery"}); err != nil {
+        test.Fatalf("start casting: %v", err)
+    }
+    if !player.CastingSpell.IsSpellOfMastery() || model.MasteryWinner != nil {
+        test.Fatalf("the spell should be cast over the next turns")
+    }
+    started := false
+    for len(model.Events) > 0 {
+        if event, ok := (<-model.Events).(*GameEventSpellOfMastery); ok && event.Started && event.Player == player {
+            started = true
+        }
+    }
+    if !started {
+        test.Errorf("starting the Spell of Mastery should be announced")
+    }
+
+    if err := model.CastSpell(player, mastery, SpellTarget{}); err != nil {
+        test.Fatalf("finishing the Spell of Mastery: %v", err)
+    }
+    if model.MasteryWinner != player {
+        test.Errorf("the caster should win")
+    }
+    won := false
+    for len(model.Events) > 0 {
+        if event, ok := (<-model.Events).(*GameEventSpellOfMastery); ok && !event.Started && event.Player == player {
+            won = true
+        }
+    }
+    if !won {
+        test.Errorf("the win should be announced")
     }
 }
