@@ -265,6 +265,27 @@ func (relationship *Relationship) Increment(starting int) int {
 }
 
 func (relationship *Relationship) UpdateTurn() {
+    // a peace treaty lasts its turns
+    if relationship.PeaceCounter > 0 {
+        relationship.PeaceCounter -= 1
+    }
+
+    // treaties bring wizards closer over time, wars drive them apart
+    switch relationship.Treaty {
+        case data.TreatyPact:
+            if rand.N(4) == 0 {
+                relationship.StartingRelation = min(100, relationship.StartingRelation + 1)
+            }
+        case data.TreatyAlliance:
+            if rand.N(3) == 0 {
+                relationship.StartingRelation = min(100, relationship.StartingRelation + 1)
+            }
+        case data.TreatyWar:
+            if rand.N(4) == 0 {
+                relationship.StartingRelation = max(-100, relationship.StartingRelation - 1)
+            }
+    }
+
     relationship.TreatyInterest = relationship.Increment(relationship.TreatyInterest)
     relationship.TradeInterest = relationship.Increment(relationship.TradeInterest)
     relationship.PeaceInterest = relationship.Increment(relationship.PeaceInterest)

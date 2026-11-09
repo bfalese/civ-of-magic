@@ -23,6 +23,7 @@ func (model *GameModel) StartPlayerTurn(player *playerlib.Player, castSpell func
     }
     // a spell trade offered last turn isn't on the table any more
     delete(model.PendingTrades, player)
+    model.expireProposals(player)
 
     if player.Skip {
         return false

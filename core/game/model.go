@@ -36,6 +36,10 @@ type GameModel struct {
     PendingItems map[*playerlib.Player][]*artifact.Artifact
     // the spell trade a wizard offered each player, waiting for answer-trade
     PendingTrades map[*playerlib.Player]*GameEventTradeOffer
+    // a treaty an AI wizard proposed to the human (answer-proposal)
+    PendingProposals map[*playerlib.Player]*TreatyProposal
+    // the AI diplomacy's dice (rand.N when nil; tests set it)
+    DiplomacyRoll func(n int) int
     // ids of overland units for command frontends (unitids.go)
     unitIds unitIdRegistry
     // the artifact power table, set by the frontend (LBX) or headless game (gamedata); needed to
@@ -1897,7 +1901,7 @@ func (model *GameModel) DoAiMoveUnit(handlers MovementHandler, player *playerlib
                     City: city,
                 }
 
-                // state := game.doCombat(yield, player, stack, enemy, enemyStack, zone)
+                model.BreakTreatyOnAttack(player, enemy)
                 state := handlers.DoCombat(player, stack, enemy, enemyStack, zone)
 
                 if state == combat.CombatStateAttackerFlee {

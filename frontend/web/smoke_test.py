@@ -15,7 +15,7 @@ inspects and disbands units in the stack panel. Last, the orders scenario: settl
 starts a road (with its path shown while picking), travels through a tower and patrols, and
 checks the minimap, the tile info and the city and army lists. Then
 saving: the autosave, a save, a downloaded file, loading each back, and Continue on the start
-screen.
+screen. Last, an AI wizard proposing a pact at the end of the turn.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -120,6 +120,7 @@ def main():
             items(smoke, url)
             orders(smoke, url)
             saves(smoke, url)
+            proposal(smoke, url)
         finally:
             browser.close()
 
@@ -787,6 +788,26 @@ def saves(smoke, url):
     chooser.value.set_files(path)
     smoke.wait(f"window.civGame.view.date === {json.dumps(date)}", "the game from the file")
     check(True, "Load a save file loads the downloaded save")
+    smoke.no_errors()
+
+
+
+def proposal(smoke, url):
+    """The proposal scenario: a rival who likes you proposes a pact during the AI turns."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=proposal")
+    rival = state("s.view.diplomacy[0].wizard.wizard")
+    page.keyboard.press("Enter")
+    # answer what comes first (research) until the proposal shows
+    for _ in range(5):
+        smoke.visible("#modal.open", "a question after the turn")
+        if "proposes" in page.inner_text("#modalText"):
+            break
+        page.click("#modalChoices button >> nth=0")
+    text = page.inner_text("#modalText")
+    check(rival in text and "wizard's pact" in text, f"{rival} proposes a pact: {text}")
+    page.click("#modalChoices button:has-text('Accept')")
+    check(state("s.view.diplomacy[0].treaty") == "pact" and "agreed" in page.inner_text("#log"), "accepting makes the pact")
     smoke.no_errors()
 
 

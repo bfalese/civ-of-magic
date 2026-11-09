@@ -336,6 +336,9 @@ func (host *GameHost) concernsHuman(event GameEvent) bool {
         case *GameEventChooseEncounter: return event.Player == human
         case *GameEventChooseRaze: return event.Player == human
         case *GameEventChooseSpellTarget: return event.Player == human
+        case *GameEventTreatyProposal: return event.Player == human
+        // a war the human declared or started by attacking is news to the human too
+        case *GameEventWarDeclared: return event.Player == human || event.Wizard == human
         case *GameEventBattle: return event.Attacker == human || event.Defender == human
         case *GameEventShowRandomEvent:
             if event.Event == nil {

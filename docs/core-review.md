@@ -24,6 +24,14 @@ if needed).
 
 ### The other wizard always accepts treaties
 
+- **Update (AI diplomacy PR)**: AI wizards now propose treaties and declare war themselves, and
+  answer each other's proposals with `Player.WillAcceptTreaty` (relation and interest
+  thresholds). Treaties also matter now: the AI doesn't attack treaty partners, peace runs out
+  after 50 turns, attacking a partner means war, pacts and alliances slowly improve relations and
+  wars worsen them, every battle between wizards costs a little relation. Still open: the
+  **human's** proposals are always accepted (`ProposeTreaty`); `WillAcceptTreaty` could answer
+  them too once checked against the original.
+
 - **Now**: `Player.ProposeTreaty` (`core/player/diplomacy.go`) sets a pact or alliance on both
   sides, or 50 turns of peace, with no check: the other wizard always agrees. The core already
   tracks how interested each wizard is in treaties, `Relationship.TreatyInterest` and

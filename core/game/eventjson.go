@@ -314,6 +314,22 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
                 City *CityRef `json:"city"`
             }{MakePlayerRef(choose.Player), MakeCityRef(choose.City)}, true
 
+        case *GameEventTreatyProposal:
+            proposal := event.(*GameEventTreatyProposal)
+            return "treaty-proposal", struct {
+                Player *PlayerRef `json:"player"`
+                Wizard *PlayerRef `json:"wizard"`
+                Treaty string `json:"treaty"`
+            }{MakePlayerRef(proposal.Player), MakePlayerRef(proposal.Wizard), proposal.Treaty}, true
+
+        case *GameEventWarDeclared:
+            war := event.(*GameEventWarDeclared)
+            return "war-declared", struct {
+                Player *PlayerRef `json:"player"`
+                Wizard *PlayerRef `json:"wizard"`
+                Attacked bool `json:"attacked,omitempty"`
+            }{MakePlayerRef(war.Player), MakePlayerRef(war.Wizard), war.Attacked}, true
+
         case *GameEventChooseSpellTarget:
             choose := event.(*GameEventChooseSpellTarget)
             return "choose-spell-target", struct {

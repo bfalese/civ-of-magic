@@ -128,6 +128,7 @@ func (model *GameModel) MoveSelectedStack(handlers PlayerMovementHandler, player
 
                     defenderPlayer := model.GetStackOwner(otherStack)
 
+                    model.BreakTreatyOnAttack(player, defenderPlayer)
                     // note: doCombat will already call defeatCity if the attacker wins the battle
                     state := handlers.DoCombat(player, stack, defenderPlayer, otherStack, zone)
                     if state == combat.CombatStateAttackerFlee {

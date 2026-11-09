@@ -28,6 +28,8 @@ import (
 //           (waiting to be placed), and mana to teleport items
 //   siege:  an AI wizard's capital with city walls, a wall of fire and a wall of darkness, and a
 //           human army next to it: one move-stack starts a battle at the walls
+//   proposal: a known rival who likes the human and is keen on a pact, with the AI diplomacy's
+//           dice loaded: the first end-turn brings a treaty-proposal
 //   orders: map orders for the stack panel: engineers next to the capital, settlers on a tile
 //           where an outpost can go, and swordsmen on an open tower (planar travel)
 func applyScenario(host *GameHost, name string) error {
@@ -44,6 +46,8 @@ func applyScenario(host *GameHost, name string) error {
             return scenarioItems(host)
         case "orders":
             return scenarioOrders(host)
+        case "proposal":
+            return scenarioProposal(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
 }
@@ -173,6 +177,23 @@ func scenarioSpellbook(host *GameHost) error {
         }
     }
     return fmt.Errorf("spellbook scenario: no AI wizard")
+}
+
+func scenarioProposal(host *GameHost) error {
+    human := host.Human
+    for _, player := range host.Model.Players {
+        if player != human && player.AIBehavior != nil && !player.IsNeutral() {
+            human.AwarePlayer(player)
+            player.AwarePlayer(human)
+            relationship, _ := player.GetDiplomaticRelation(human)
+            relationship.VisibleRelation = 30
+            relationship.StartingRelation = 30
+            relationship.TreatyInterest = 100
+            host.Model.DiplomacyRoll = func(int) int { return 0 }
+            return nil
+        }
+    }
+    return fmt.Errorf("proposal scenario: no AI wizard")
 }
 
 func scenarioOrders(host *GameHost) error {

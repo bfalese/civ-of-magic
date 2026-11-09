@@ -132,6 +132,10 @@ export class DiplomacyScreen {
                     <button class="small" data-tribute-spell${spells ? "" : " disabled"}>give</button>
                     <button class="small" data-trade${spells && wizard["can-teach"] ? "" : " disabled"} title="${wizard["can-teach"] ? "offer it for a spell of theirs" : "they know no spell you don't"}">trade</button>
                 </div>
+                ${wizard.proposal ? `<div class="actions offer proposal">
+                    <span>${escape(name)} proposes <b>${escape({ pact: "a wizard's pact", alliance: "an alliance", peace: "peace" }[wizard.proposal] || wizard.proposal)}</b></span>
+                    <button class="small" data-proposal="yes">accept</button><button class="small" data-proposal="no">decline</button>
+                </div>` : ""}
                 ${wizard["trade-offer"] ? `<div class="actions offer">
                     <span>offer: your <b>${escape(wizard["trade-offer"].give)}</b> for their <b>${escape(wizard["trade-offer"].receive)}</b></span>
                     <button class="small" data-answer="yes">accept</button><button class="small" data-answer="no">decline</button>
@@ -151,6 +155,10 @@ export class DiplomacyScreen {
                 const offered = spell();
                 this.command("trade-spells", { wizard: banner, spell: offered }, `You offer ${offered} to ${name}.`);
             };
+            for (const button of card.querySelectorAll("[data-proposal]")) {
+                const accept = button.dataset.proposal === "yes";
+                button.onclick = () => this.command("answer-proposal", { accept }, accept ? `You agreed to ${wizard.proposal} with ${name}.` : "You declined.");
+            }
             for (const button of card.querySelectorAll("[data-answer]")) {
                 const offer = wizard["trade-offer"];
                 const accept = button.dataset.answer === "yes";

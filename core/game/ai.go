@@ -137,6 +137,8 @@ func (model *GameModel) DoAiTurn(handlers MovementHandler, player *playerlib.Pla
         return
     }
 
+    model.DoAiDiplomacy(player)
+
     decisions := player.AIBehavior.Update(player, model)
     model.ApplyAiDecisions(player, decisions, suggestCityName)
     model.MoveAiStacks(handlers, player)
