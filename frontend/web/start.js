@@ -1,7 +1,8 @@
 // The start screen: pick a premade wizard, the race of your first city, a banner colour, the
 // number of opponents, difficulty, magic strength and land size, from the core's start options
 // (core StartOptions). Resolves to the settings for newGame. The last choices are remembered in
-// this browser when storage works.
+// this browser when storage works. Saved games come first: Continue resolves to {saveSlot}, a
+// save file to {saveText}.
 
 const realmColors = {
     Life: "#f4f0d8", Death: "#b07ae0", Chaos: "#ff7a50", Nature: "#7ed06a", Sorcery: "#6ab4ff",
@@ -29,7 +30,9 @@ function remember(settings) {
     }
 }
 
-export function chooseStart(root, options, assets) {
+import { pickSaveFile, describeSave, slotNames } from "./saves.js";
+
+export function chooseStart(root, options, assets, saves = []) {
     const last = remembered();
     const choice = {
         wizard: options.wizards.some((wizard) => wizard.name === last.wizard) ? last.wizard : options.wizards[0].name,
@@ -57,6 +60,10 @@ export function chooseStart(root, options, assets) {
 
             root.innerHTML = `
                 <div class="panel">
+                    <div class="start-continue">
+                        ${saves.map((save) => `<button data-continue="${escape(save.slot)}"><b>Continue</b> <span class="dim">${escape(slotNames[save.slot])}: ${escape(describeSave(save))}</span></button>`).join("")}
+                        <button data-load-file>Load a save file…</button>
+                    </div>
                     <h2>New game</h2>
                     <h3>Wizard</h3>
                     <div class="start-wizards">${options.wizards.map((candidate) => `
@@ -85,6 +92,18 @@ export function chooseStart(root, options, assets) {
                     <div class="row"><span class="dim">${wizard.myrran ? "Myrran retort: a Myrror race starts on Myrror" : ""}</span><button data-start>Start</button></div>
                 </div>`;
 
+            const finish = (result) => {
+                root.innerHTML = "";
+                root.hidden = true;
+                resolve(result);
+            };
+            for (const button of root.querySelectorAll("[data-continue]")) {
+                button.onclick = () => finish({ saveSlot: button.dataset.continue });
+            }
+            root.querySelector("[data-load-file]").onclick = async () => {
+                const text = await pickSaveFile();
+                if (text) finish({ saveText: text });
+            };
             for (const button of root.querySelectorAll("[data-wizard]")) {
                 button.onclick = () => { choice.wizard = button.dataset.wizard; render(); };
             }
@@ -110,9 +129,7 @@ export function chooseStart(root, options, assets) {
                 if (choice.banner) settings.banner = choice.banner;
                 if (choice.wizardName.trim()) settings.wizardName = choice.wizardName.trim();
                 remember({ ...choice, wizardName: undefined });
-                root.innerHTML = "";
-                root.hidden = true;
-                resolve(settings);
+                finish(settings);
             };
         };
         root.hidden = false;

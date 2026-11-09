@@ -19,10 +19,10 @@
     #map { position: fixed; inset: 0; }
     #map canvas { display: block; image-rendering: pixelated; }
     .panel { position: fixed; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; }
-    #top { top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+    #top { top: 8px; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
     #top .spacer { flex: 1; }
-    #top button { padding: 3px 7px; }
-    #top .research { min-width: 0; max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #top button { padding: 3px 6px; }
+    #top .research { min-width: 0; max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #top b { color: var(--accent); font-weight: normal; }
     #side { top: 56px; right: 8px; width: 260px; max-height: calc(100% - 230px); overflow: auto; }
     #side:empty { display: none; }
@@ -146,6 +146,14 @@
     #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 8px; }
     #start > .panel { position: static; width: min(760px, 100%); max-height: 100%; overflow: auto; padding: 12px 14px; }
     #start h2 { margin: 0 0 8px; color: var(--accent); font-weight: normal; }
+    #start .start-continue { display: flex; flex-direction: column; align-items: stretch; gap: 4px; margin-bottom: 12px; }
+    #start .start-continue button { text-align: left; }
+    #game { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.5); z-index: 20; }
+    #game.open { display: flex; }
+    #game > .panel { position: static; width: min(420px, calc(100% - 32px)); padding: 12px 14px; }
+    #game .game-actions { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+    #game .game-actions button { text-align: left; }
+    #game .message { min-height: 1.2em; margin-top: 6px; color: var(--accent); }
     #start .start-wizards { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 4px; margin: 4px 0 10px; }
     #start .start-wizard { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; padding: 3px 7px; }
     #start .chosen { border-color: var(--accent); background: #5a4326; }
@@ -168,6 +176,7 @@
 <div id="loading">loading…</div>
 <div id="start" hidden></div>
 <div id="top" class="panel" hidden>
+    <button id="gameButton" title="game: save, load, new (G)">☰</button>
     <span id="date"></span>
     <span>gold <b id="gold"></b></span>
     <span>mana <b id="mana"></b></span>
@@ -184,7 +193,8 @@
 </div>
 <div id="side" class="panel"></div>
 <div id="log" class="panel" hidden></div>
-<div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a city: city screen · click a stack, then a tile: move · N: next unit · M: magic · I: items · W: wizards · Enter: end turn</div>
+<div id="hint" class="panel" hidden>drag: pan · wheel/+−: zoom · click a city: city screen · click a stack, then a tile: move · N: next unit · M: magic · I: items · W: wizards · G: save/load · Enter: end turn</div>
+<div id="game"></div>
 <div id="city"></div>
 <div id="magic"></div>
 <div id="vault"></div>

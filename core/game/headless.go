@@ -93,6 +93,11 @@ func makeHeadlessModel(gameData *gamedata.GameData, settings HeadlessSettings) *
 
     events := make(chan GameEvent, 1000)
     model := MakeGameModel(gamedata.TerrainData(), newGameSettings, data.PlaneArcanus, events, gameData.HeroNames, gameData.Spells, gameData.ArtifactCatalog(), gameData.Buildings)
+    return wrapHeadlessModel(model, gameData)
+}
+
+// the headless side of a model made elsewhere (a new game, or one loaded from a save)
+func wrapHeadlessModel(model *GameModel, gameData *gamedata.GameData) *HeadlessGame {
     model.IsAggressiveAI = func() bool {
         return false
     }

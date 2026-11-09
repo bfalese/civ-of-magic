@@ -288,9 +288,19 @@ next turn has started. Until then only battle commands are accepted.
 | `civ.execute(commandJSON)` | status |
 | `civ.events()` | JSON array of events since the last call |
 | `civ.view()`, `civ.map("Arcanus" \| "Myrror")`, `civ.battle()` | the view as JSON (`{"error": ...}` on failure) |
+| `civ.save(name)` | the game as JSON (a `HostSave`, below), or `{"error"}` while a battle / encounter / captured city waits for an answer |
+| `civ.load(gamedataJSON, saveJSON)` | status; the saved game replaces the current one (fetch the views again; unit ids are new) |
 | `civ.roadPath(queryJSON)` | the road `build-road` would make: `{stack, to}` (locations) → a list of locations from the stack's tile, or `{"error"}` |
 | `civ.setLogging(bool)` | the Go log on the console (off by default) |
 | `civ.startOptions()` | the choices for a new game: `{wizards: [{name, books: {realm: count}, retort?, myrran?}], races: [{name, myrran?}], banners, difficulties, magic, land-sizes, min-opponents, max-opponents}` |
+
+Saves (`core/game/hostsave.go`): `{version, game, human, pending-spell?, pending-items?}`. `game`
+is the model as the desktop saves it (`SerializeModel`); `human` the human's banner; a finished
+spell still waiting for its target and the new items not yet placed come along (on load the spell
+is announced again with `choose-spell-target`, and `choose-research` when nothing is being
+researched). Open offers and trades are not kept. The web page gzips saves into `localStorage`
+(an autosave at the start of every turn and one save slot; a large map is ~2 MB as JSON), and
+downloads / loads them as files; `?load=autosave` or `?load=save` continues one.
 
 Settings for `newGame`: `opponents` (1-4), `difficulty`, `magic` (weak/normal/powerful),
 `landSize` (0-2), `raiders`, `wizardName`, and a premade `wizard` by name with `race` and
