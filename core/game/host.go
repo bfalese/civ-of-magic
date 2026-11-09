@@ -6,6 +6,7 @@ import (
     "fmt"
     "strings"
 
+    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/gamedata"
     playerlib "github.com/bfalese/civ-of-magic/core/player"
@@ -20,8 +21,9 @@ import (
 // Events for the frontend collect in an outbox (TakeEvents). They are all the model's events,
 // including the AI players' (offers to them, their battles); the frontend shows what concerns it.
 //
-// Battles started by an AI wizard against the human are fought automatically for now (the AI
-// turns aren't paused for the human's orders).
+// The other players' turns run inside the session's coroutine (end-turn is a command like any
+// other), so a battle an AI player starts against the human pauses them: WaitingFor says
+// "battle" and the battle commands answer it, as for the human's own attacks.
 type GameHost struct {
     Model *GameModel
     Human *playerlib.Player
@@ -31,8 +33,24 @@ type GameHost struct {
 
     // the AI side of the game: their turns, battles, spell targets and offers
     ai *HeadlessGame
+    // the AI players' moves: battles against the human go to the session
+    aiHandlers *hostAiHandlers
     outbox [][]byte
-    endTurnRequested bool
+}
+
+// MovementHandler for the AI players' moves: battles involving the human are fought through the
+// session (they pause for the human's orders), the others automatically
+type hostAiHandlers struct {
+    *HeadlessGame
+    host *GameHost
+}
+
+func (handlers *hostAiHandlers) DoCombat(attacker *playerlib.Player, attackerStack *playerlib.UnitStack, defender *playerlib.Player, defenderStack *playerlib.UnitStack, zone combat.ZoneType) combat.CombatState {
+    human := handlers.host.Human
+    if attacker == human || defender == human {
+        return handlers.host.Session.DoCombat(attacker, attackerStack, defender, defenderStack, zone)
+    }
+    return handlers.HeadlessGame.DoCombat(attacker, attackerStack, defender, defenderStack, zone)
 }
 
 type HostSettings struct {
@@ -124,11 +142,11 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
         ai: ai,
     }
 
+    host.aiHandlers = &hostAiHandlers{HeadlessGame: ai, host: host}
     host.Session = MakeCommandSession(ai.Model, human)
     host.Session.SuggestCityName = ai.suggestCityName
-    host.Session.EndTurn = func() {
-        host.endTurnRequested = true
-    }
+    // runs inside the session's coroutine, so the AI turns can pause for a battle
+    host.Session.EndTurn = host.playOthers
 
     ai.Model.CurrentPlayer = 0
     host.startPlayerTurn(human)
@@ -138,20 +156,15 @@ func MakeGameHost(gameData *gamedata.GameData, settings HostSettings) (*GameHost
 }
 
 // run a command (or answer what the paused command waits for). An end-turn plays the other
-// players' turns before returning.
+// players' turns before returning, unless one of them attacks the human: then it returns waiting
+// for the battle, and the AI turns go on once the battle is over.
 func (host *GameHost) Execute(command Command) error {
-    if host.GameOver() != "" {
+    if host.GameOver() != "" && host.Session.WaitingFor() == WaitingNothing {
         return errors.New("the game is over")
     }
 
     err := host.Session.Execute(command)
     host.drainEvents()
-
-    if host.endTurnRequested && host.Session.WaitingFor() == WaitingNothing {
-        host.endTurnRequested = false
-        host.playOthers()
-    }
-
     return err
 }
 
@@ -219,7 +232,7 @@ func (host *GameHost) playOthers() {
             return
         }
 
-        model.DoAiTurn(host.ai, player, host.ai.suggestCityName)
+        model.DoAiTurn(host.aiHandlers, player, host.ai.suggestCityName)
         host.drainEvents()
         host.ai.DiscoverWizards()
         host.drainEvents()

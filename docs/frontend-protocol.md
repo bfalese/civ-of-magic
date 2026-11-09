@@ -53,7 +53,7 @@ command isn't legal (not your city, not enough gold, no path...).
 | `sell-building` | `city`, `building` | one sale per city per turn |
 | `build-action` | `stack` | settle an outpost / meld a node / purify |
 | `build-road` | `stack`, `to` | engineers build a road over the next turns |
-| `end-turn` | | the frontend's turn loop moves on |
+| `end-turn` | | the frontend's turn loop moves on (with `GameHost`: the AI turns; may wait for a battle an AI starts against you) |
 | `cast-spell` | `spell`, `target?` | cast now if mana and casting skill allow (spells that need a target must then come with one), otherwise start casting it over the next turns |
 | `cast-spell-target` | `target` | the target for a finished spell announced by `choose-spell-target` |
 | `answer-offer` | `accept` | accept or decline the open `hire-hero` / `hire-mercenaries` / `merchant` offer (a bought item then comes as a `vault` event) |
@@ -220,7 +220,11 @@ Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (defa
 `difficulty` (`intro` … `impossible`, default `average`), `magic` (`weak`, `normal`, `powerful`),
 `wizardName`.
 
-Battles an AI wizard starts against the human are fought automatically for now.
+When an AI player (a wizard or raiders) attacks the human during `end-turn`, the AI turns pause:
+`end-turn` returns with `WaitingFor()` = `battle` (and a `battle-started` event with the human as
+`defender`). Answer with battle commands as for your own attacks (`battle-auto` lets the AI fight
+it for you). The AI turns go on after the battle, so the command that ends it returns once the human's
+next turn has started. Until then only battle commands are accepted.
 
 `frontend/wasm` exposes a host to JavaScript as `globalThis.civ` (core only, no Ebitengine):
 

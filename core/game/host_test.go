@@ -7,6 +7,7 @@ import (
     "os"
     "testing"
 
+    "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/core/data"
     "github.com/bfalese/civ-of-magic/core/gamedata"
 )
@@ -81,6 +82,7 @@ func TestGameHost(test *testing.T) {
 
     events := len(host.TakeEvents())
     start := host.Model.TurnNumber
+    attacked := 0
     for range 30 {
         if host.GameOver() != "" {
             break
@@ -92,6 +94,13 @@ func TestGameHost(test *testing.T) {
         if err := host.ExecuteJSON([]byte(`{"type": "end-turn", "command": {}}`)); err != nil {
             test.Fatalf("end turn at %v: %v", host.Model.TurnNumber, err)
         }
+        // an AI player attacked: the AI turns wait for the battle
+        for host.WaitingFor() == WaitingBattle {
+            attacked += 1
+            if err := host.Execute(&BattleAutoCommand{}); err != nil {
+                test.Fatalf("auto battle: %v", err)
+            }
+        }
         if host.GameOver() == "" && host.Model.CurrentPlayer != 0 {
             test.Fatalf("after end-turn it should be the human's turn again, not player %v", host.Model.CurrentPlayer)
         }
@@ -101,12 +110,76 @@ func TestGameHost(test *testing.T) {
     if host.Model.TurnNumber < start + 30 && host.GameOver() == "" {
         test.Errorf("expected 30 turns, played %v", host.Model.TurnNumber - start)
     }
-    test.Logf("turn %v, %v events, game over %q, human cities %v", host.Model.TurnNumber, events, host.GameOver(), len(host.Human.Cities))
+    test.Logf("turn %v, %v events, game over %q, human cities %v, attacked %v times", host.Model.TurnNumber, events, host.GameOver(), len(host.Human.Cities), attacked)
 
     for _, err := range host.EventErrors {
         test.Errorf("event: %v", err)
     }
     if events == 0 {
         test.Errorf("expected some events")
+    }
+}
+
+// an AI player's attack on the human during end-turn pauses the AI turns for the battle; the rest
+// of the turn runs once the battle is over
+func TestHostAiBattle(test *testing.T) {
+    model, human, enemy := makeSessionTestModel()
+    host := &GameHost{Model: model, Human: human, ai: &HeadlessGame{Model: model}}
+    host.aiHandlers = &hostAiHandlers{HeadlessGame: host.ai, host: host}
+    host.Session = MakeCommandSession(model, human)
+
+    // the end of the turn: the enemy's spearmen attack the human's drakes, then the turn goes on
+    finished := false
+    var result combat.CombatState
+    host.Session.EndTurn = func() {
+        attackers := enemy.FindStack(4, 3, data.PlaneArcanus)
+        defenders := human.FindStack(3, 3, data.PlaneArcanus)
+        result = host.aiHandlers.DoCombat(enemy, attackers, human, defenders, combat.ZoneType{})
+        finished = true
+    }
+
+    if err := host.Execute(&EndTurnCommand{}); err != nil {
+        test.Fatalf("end turn: %v", err)
+    }
+    if host.WaitingFor() != WaitingBattle || finished {
+        test.Fatalf("the attack should wait for the human's orders, waiting for %q", host.WaitingFor())
+    }
+    encoded, err := host.BattleView()
+    if err != nil {
+        test.Fatalf("battle view: %v", err)
+    }
+    var view BattleView
+    if err := json.Unmarshal(encoded, &view); err != nil {
+        test.Fatalf("battle view JSON: %v", err)
+    }
+    if view.YouAttack {
+        test.Errorf("the human defends")
+    }
+    if err := host.Execute(&EndTurnCommand{}); err == nil {
+        test.Errorf("other commands should wait for the battle")
+    }
+
+    // a few orders by hand, then the AI fights it out for the human
+    for range 3 {
+        if host.WaitingFor() != WaitingBattle {
+            break
+        }
+        if err := host.Execute(&BattleDoneCommand{}); err != nil {
+            test.Fatalf("done: %v", err)
+        }
+    }
+    if host.WaitingFor() == WaitingBattle {
+        if err := host.Execute(&BattleAutoCommand{}); err != nil {
+            test.Fatalf("auto: %v", err)
+        }
+    }
+    if host.WaitingFor() != WaitingNothing || !finished {
+        test.Fatalf("after the battle the turn should finish, waiting for %q", host.WaitingFor())
+    }
+    if result != combat.CombatStateDefenderWin {
+        test.Errorf("four great drakes should hold against spearmen, got %v", battleStateName(result))
+    }
+    if len(enemy.Stacks) != 0 || len(human.Stacks) == 0 {
+        test.Errorf("the attackers should be gone, the drakes still there")
     }
 }
