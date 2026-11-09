@@ -4,6 +4,10 @@ import (
     "fmt"
     "image"
 
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
+    citylib "github.com/bfalese/civ-of-magic/core/city"
+    "github.com/bfalese/civ-of-magic/core/data"
+    playerlib "github.com/bfalese/civ-of-magic/core/player"
     "github.com/bfalese/civ-of-magic/core/maplib"
     "github.com/bfalese/civ-of-magic/core/units"
     "github.com/bfalese/civ-of-magic/lib/set"
@@ -15,14 +19,60 @@ import (
 //   battle: a lair guarded by skeletons next to the human's capital (the only encounter next to
 //           it), and a wizard who knows
 //           Fire Bolt with mana and casting skill to spare: one move-stack starts a battle
+//   siege:  an AI wizard's capital with city walls, a wall of fire and a wall of darkness, and a
+//           human army next to it: one move-stack starts a battle at the walls
 func applyScenario(host *GameHost, name string) error {
     switch name {
         case "":
             return nil
         case "battle":
             return scenarioBattle(host)
+        case "siege":
+            return scenarioSiege(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
+}
+
+// siege: an AI wizard's capital (with its fortress) gets city walls, a wall of fire and a wall
+//        of darkness, and a human army of swordsmen stands next to it: one move-stack starts a
+//        battle at the walls
+func scenarioSiege(host *GameHost) error {
+    model := host.Model
+    human := host.Human
+    var capital *citylib.City
+    var enemy *playerlib.Player
+    for _, player := range model.Players {
+        if player != human && player.AIBehavior != nil && !player.IsNeutral() {
+            if city := player.FindFortressCity(); city != nil {
+                capital, enemy = city, player
+                break
+            }
+        }
+    }
+    if capital == nil {
+        return fmt.Errorf("siege scenario: no AI wizard with a capital")
+    }
+
+    capital.Buildings.Insert(buildinglib.BuildingCityWalls)
+    capital.AddEnchantment(data.CityEnchantmentWallOfFire, enemy.GetBanner())
+    capital.AddEnchantment(data.CityEnchantmentWallOfDarkness, enemy.GetBanner())
+    // someone to fight at the walls
+    enemy.AddUnit(units.MakeOverworldUnitFromUnit(units.HighMenSpearmen, capital.X, capital.Y, capital.Plane, enemy.Wizard.Banner, enemy.MakeExperienceInfo(), enemy.MakeUnitEnchantmentProvider()))
+
+    mapUse := model.GetMap(capital.Plane)
+    point, ok := scenarioFreeNeighbour(host, mapUse, capital.X, capital.Y)
+    if !ok {
+        return fmt.Errorf("siege scenario: no free land next to the enemy capital")
+    }
+    for range 4 {
+        human.AddUnit(units.MakeOverworldUnitFromUnit(units.HighMenSwordsmen, point.X, point.Y, capital.Plane, human.Wizard.Banner, human.MakeExperienceInfo(), human.MakeUnitEnchantmentProvider()))
+    }
+    stack := human.FindStack(point.X, point.Y, capital.Plane)
+    for _, unit := range stack.Units() {
+        stack.SetActive(unit, true)
+    }
+    human.LiftFogSquare(point.X, point.Y, 3, capital.Plane)
+    return nil
 }
 
 func scenarioBattle(host *GameHost) error {

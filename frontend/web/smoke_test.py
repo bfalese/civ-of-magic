@@ -4,7 +4,9 @@ Plays the first turn through the page the way a person would: opens the capital'
 changes production, moves a farmer, sells a building, selects the garrison, moves it, ends the
 turn and answers the research question. Then starts the battle scenario (a guarded lair next to
 the capital, Fire Bolt known; see core/game/scenario.go), enters the lair, casts the spell, moves
-a unit, checks the replay and unit details, and lets auto finish the battle.
+a unit, checks the replay and unit details, and lets auto finish the battle. Last, the siege
+scenario: attacks an AI capital with city walls, a wall of fire and darkness, checks they are
+on the field, and flees.
 
 It fails fast: at the first page error, and after a few seconds when the page doesn't do what a
 step expects (the page answers in well under a second). On a failure it saves a screenshot.
@@ -100,6 +102,7 @@ def main():
         try:
             first_turn(smoke, url)
             battle(smoke, url)
+            siege(smoke, url)
         finally:
             browser.close()
 
@@ -288,6 +291,44 @@ def battle(smoke, url):
     check(True, "auto finished the battle and the screen closed")
     log = page.inner_text("#log")
     check("the battle at" in log, f"the log reports it: {next((line for line in log.splitlines() if 'battle at' in line), '')}")
+
+
+# the siege scenario's army: a stack of yours next to an enemy city
+FIND_SIEGE = """(() => {
+    const s = window.civGame;
+    for (const army of s.view.stacks.filter((stack) => stack.units.length)) {
+        // the map wraps east-west
+        const width = s.core.map(army.location.plane).width;
+        const near = (city) => {
+            const dx = Math.abs(city.location.x - army.location.x);
+            return Math.min(dx, width - dx) <= 1 && Math.abs(city.location.y - army.location.y) <= 1;
+        };
+        const city = s.view['foreign-cities'].find((city) => city.location.plane === army.location.plane && near(city));
+        if (city) return { from: army.location, to: city.location, name: city.name };
+    }
+    return null;
+})()"""
+
+
+def siege(smoke, url):
+    page, check = smoke.page, smoke.check
+    smoke.load(url + "?opponents=1&scenario=siege")
+    target = page.evaluate(FIND_SIEGE)
+    check(target is not None, f"the siege scenario put an army next to {target and target['name']}")
+
+    status = page.evaluate(f"window.civGame.execute('move-stack', {json.dumps({'from': target['from'], 'to': target['to']})})")
+    check(status.get("waiting") == "battle", "attacking the city starts a battle")
+    smoke.visible("#battle.open", "the battle screen")
+    view = battle_view(page)
+    walls = [wall for row in view["tiles"] for tile in row for wall in tile.get("walls", [])]
+    stone = sum(1 for wall in walls if not wall.get("animated"))
+    check(stone > 0 and len(walls) > stone and view.get("fortress"), f"the field has {stone} wall pieces, {len(walls) - stone} of fire and darkness, and the fortress")
+    smoke.wait("window.civGame.battle.replay === null", "the AI's opening moves to replay", BATTLE_TIMEOUT)
+    smoke.shot("8-siege")
+
+    page.click("#battle button[data-command='battle-flee']")
+    smoke.wait("!window.civGame.battle.open", "the battle to end after fleeing", BATTLE_TIMEOUT)
+    check(True, "fled: the battle screen closed")
 
 
 if __name__ == "__main__":

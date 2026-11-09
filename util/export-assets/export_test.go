@@ -108,6 +108,9 @@ func TestExport(test *testing.T) {
     check(assets.BattleTile("chriver.lbx", 12))
     check(assets.BattleTop("cmbtcity.lbx", 19))
     check(assets.BattleMud)
+    check(assets.BattleWall(0))
+    check(assets.BattleWall(63))
+    check(assets.BattleTop("cmbtcity.lbx", 17))
     check(assets.BattleRoad)
     if len(manifest.BannerMarker) != 4 || len(manifest.BannerColors) != len(Banners) || len(manifest.BannerColors["red"]) != 4 {
         test.Errorf("banner colours: %v %v", manifest.BannerMarker, manifest.BannerColors)
