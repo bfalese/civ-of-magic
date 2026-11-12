@@ -225,8 +225,9 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   a gold tribute gives now), proposal? (the treaty they proposed to you), spells (yours they lack: for offer-tribute and trade-spells),
   can-teach, trade-offer? {give, receive}, global-enchantments, fame, cities}`), `cities` (full detail: citizens, production, buy cost,
   buildings, `enchantments` `{name, upkeep, owner, yours}`; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
-  `set-city-production` accepts, as `{name, unit?, cost}`, buildings in the game's order then units;
-  `sell-values`, gold per sellable building), `stacks` (units with id, health and moves, `active` (moves with the stack, see
+  `set-city-production` accepts, as `{name, unit?, cost, upkeep?, allows?}` (buildings: gold per turn
+  and the buildings and units they let the city build), buildings in the game's order then units;
+  `sell-values`, gold per sellable building; `building-costs`, `{cost, upkeep}` per building built), `stacks` (units with id, health and moves, `active` (moves with the stack, see
   `set-unit-active`), `busy` (a standing order: `patrolling`, `building road`, `purifying land`, `stasis`), `details` {melee, ranged, ranged-type?, defense, resistance, hit-points,
   figures, moves, level?, upkeep-gold/food/mana?, abilities, enchantments}; remaining path; `build`, what
   `build-action` does for the active units now: `settle`, `meld`, `purify` or `road`; `road` when
@@ -335,7 +336,8 @@ then starts on Myrror); `scenario` for tests.
 Status is `{"error"?, "waiting", "gameOver"?}`. Every function returns a JSON string. The page
 calls `window.onCivReady` (if defined) once the API is there. The page loads the user's own
 `gamedata.json`; it is never shipped. Its `spell-descriptions` (spell name → the spellbook's
-description) are for the page alone; files exported before them lack it.
+description) and `building-descriptions` (building name → the build screen's description) are for
+the page alone; files exported before them lack them.
 
 ```sh
 make core-wasm                                     # frontend/wasm/core.wasm + wasm_exec.js

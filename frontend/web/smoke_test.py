@@ -172,6 +172,11 @@ def start_screen(smoke, url):
     smoke.shot("0-start")
     page.click("#start [data-start]")
     smoke.wait("window.civGame && window.civGame.view", "the game to load", LOAD_TIMEOUT)
+    smoke.visible("#modalInput", "the first city's name")
+    suggested = page.input_value("#modalInput")
+    page.fill("#modalInput", "Smokeville")
+    page.press("#modalInput", "Enter")
+    check(state("s.view.cities[0].name") == "Smokeville", f"the new game asks to name the first city ({suggested} suggested): Smokeville")
     you = state("s.view.you")
     capital = state("s.view.cities[0]")
     check(you["player"]["wizard"] == "Smoky" and you["player"]["banner"] == "purple" and capital["race"] == "Klackon"
@@ -206,6 +211,16 @@ def first_turn(smoke, url):
     options = state("s.view.cities[0]['can-build'].map(o => o.name)")
     producing = state("s.view.cities[0].producing")
     choice = next(name for name in options if name != producing and name not in ("Trade Goods", "Housing"))
+    page.hover(f"#city button.option[data-name='{choice}']")
+    info = page.inner_text("#buildingInfo")
+    check(info.startswith(choice) and "maintenance" in info and len(info.splitlines()) >= 3,
+          f"hovering {choice} shows what it does (re-export gamedata if not): {' / '.join(info.splitlines())}")
+    built = state("s.view.cities[0].buildings[0]")
+    page.click(f"#city .row.building[data-building='{built}']", button="right")
+    smoke.visible("#modal.open", "the building popup")
+    popup = page.inner_text("#modalText")
+    check(popup.startswith(built) and "cost" in popup, f"right-clicking {built} tells what it does and costs: {' / '.join(popup.splitlines())}")
+    page.click("#modalChoices button:has-text('OK')")
     page.click(f"#city button.option[data-name='{choice}']")
     check(state("s.view.cities[0].producing") == choice, f"production changed to {choice}")
 

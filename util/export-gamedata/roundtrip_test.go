@@ -44,6 +44,9 @@ func TestRoundTrip(test *testing.T) {
     if len(loaded.SpellDescriptions) < len(spells.Spells) * 9 / 10 {
         test.Errorf("only %v descriptions for %v spells", len(loaded.SpellDescriptions), len(spells.Spells))
     }
+    if loaded.BuildingDescriptions["Granary"] == "" || loaded.BuildingDescriptions["City Walls"] == "" {
+        test.Errorf("building descriptions missing: %v", len(loaded.BuildingDescriptions))
+    }
     if !reflect.DeepEqual(buildings, loaded.Buildings) {
         test.Errorf("buildings differ")
     }

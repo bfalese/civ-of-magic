@@ -13,6 +13,7 @@ import (
     "log"
     "os"
 
+    buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/core/gamedata"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
     "github.com/bfalese/civ-of-magic/lib/lbx"
@@ -45,6 +46,17 @@ func run(dataPath string, outPath string) error {
         return fmt.Errorf("buildings: %v", err)
     }
 
+    buildDescriptions := lbxdata.MakeBuildDescriptions(cache)
+    if buildDescriptions == nil {
+        return fmt.Errorf("building descriptions: buildesc.lbx not found")
+    }
+    buildingDescriptions := make(map[string]string)
+    for building := buildinglib.BuildingNone + 1; building < buildinglib.BuildingLast; building++ {
+        if description := buildDescriptions.Get(building); description != "" {
+            buildingDescriptions[buildings.Name(building)] = description
+        }
+    }
+
     cityNames, err := lbxdata.ReadCityNames(cache)
     if err != nil {
         return fmt.Errorf("city names: %v", err)
@@ -69,6 +81,7 @@ func run(dataPath string, outPath string) error {
         PowerCosts: powerCosts,
         PowerCompatibilities: powerCompatibilities,
         SpellDescriptions: spellDescriptions,
+        BuildingDescriptions: buildingDescriptions,
     }
 
     if err := gameData.Save(outPath); err != nil {

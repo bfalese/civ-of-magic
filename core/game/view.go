@@ -144,6 +144,8 @@ type CityView struct {
     // gold each building sells for (only buildings that can be sold)
     SellValues map[string]int `json:"sell-values"`
     Buildings []string `json:"buildings"`
+    // each building's production cost and gold per turn (the description is in gamedata.json)
+    BuildingCosts map[string]BuildingCostView `json:"building-costs"`
     // with who cast them; yours can be cancelled (cancel-enchantment)
     Enchantments []EnchantmentView `json:"enchantments"`
 }
@@ -249,8 +251,11 @@ func (model *GameModel) makeCityView(city *citylib.City) CityView {
         view.ProductionCost = model.BuildingInfo.ProductionCost(city.ProducingBuilding)
     }
 
+    view.BuildingCosts = make(map[string]BuildingCostView)
     for _, building := range sortedBuildings(city) {
-        view.Buildings = append(view.Buildings, model.BuildingInfo.Name(building))
+        name := model.BuildingInfo.Name(building)
+        view.Buildings = append(view.Buildings, name)
+        view.BuildingCosts[name] = BuildingCostView{Cost: model.BuildingInfo.ProductionCost(building), Upkeep: model.BuildingInfo.UpkeepCost(building)}
     }
 
     if owner := model.GetPlayerByBanner(city.GetBanner()); owner != nil {
@@ -597,12 +602,21 @@ func tileOverlays(mapUse *maplib.Map, x int, y int, zones map[image.Point]data.B
 }
 
 // something a city can produce
+type BuildingCostView struct {
+    Cost int `json:"cost"`
+    Upkeep int `json:"upkeep"`
+}
+
 type ProductionOption struct {
     Name string `json:"name"`
     // a unit (otherwise a building)
     Unit bool `json:"unit,omitempty"`
     // production cost (0 for Trade Goods and Housing)
     Cost int `json:"cost"`
+    // buildings: gold per turn once built, and the buildings and units it lets this city build
+    // (the build screen's Maintenance and Allows); the description is in gamedata.json
+    Upkeep int `json:"upkeep,omitempty"`
+    Allows []string `json:"allows,omitempty"`
 }
 
 // the buildings a city may start now, in the game's building order (as the build screen)
@@ -616,7 +630,14 @@ func possibleBuildings(city *citylib.City) []buildinglib.Building {
 func (model *GameModel) productionOptions(city *citylib.City) []ProductionOption {
     out := []ProductionOption{}
     for _, building := range possibleBuildings(city) {
-        out = append(out, ProductionOption{Name: model.BuildingInfo.Name(building), Cost: model.BuildingInfo.ProductionCost(building)})
+        option := ProductionOption{Name: model.BuildingInfo.Name(building), Cost: model.BuildingInfo.ProductionCost(building), Upkeep: model.BuildingInfo.UpkeepCost(building)}
+        for _, allowed := range city.AllowedBuildings(building) {
+            option.Allows = append(option.Allows, model.BuildingInfo.Name(allowed))
+        }
+        for _, allowed := range city.AllowedUnits(building) {
+            option.Allows = append(option.Allows, allowed.Name)
+        }
+        out = append(out, option)
     }
     possibleUnits := city.ComputePossibleUnits()
     slices.SortFunc(possibleUnits, func(a, b units.Unit) int {

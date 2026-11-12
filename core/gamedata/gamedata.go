@@ -37,6 +37,8 @@ type GameData struct {
     PowerCompatibilities map[artifact.Power]set.Set[artifact.ArtifactType]
     // spell name -> the spellbook's description (for frontends; the model doesn't use it)
     SpellDescriptions map[string]string
+    // building name -> the build screen's description (for frontends)
+    BuildingDescriptions map[string]string
 }
 
 // all of a spell's fields (spellbook.Spell marshals as its name only, which save games rely on)
@@ -58,6 +60,7 @@ type serializedGameData struct {
     Powers []serializedPowerEntry `json:"powers"`
     // missing in files exported before the descriptions were
     SpellDescriptions map[string]string `json:"spell-descriptions,omitempty"`
+    BuildingDescriptions map[string]string `json:"building-descriptions,omitempty"`
 }
 
 const currentVersion = 1
@@ -93,6 +96,7 @@ func (gameData *GameData) serialize() serializedGameData {
         HeroNames: gameData.HeroNames,
         CityNames: gameData.CityNames,
         SpellDescriptions: gameData.SpellDescriptions,
+        BuildingDescriptions: gameData.BuildingDescriptions,
     }
 
     for _, spell := range gameData.Spells.Spells {
@@ -134,6 +138,7 @@ func deserialize(serialized serializedGameData) (*GameData, error) {
         HeroNames: serialized.HeroNames,
         CityNames: serialized.CityNames,
         SpellDescriptions: serialized.SpellDescriptions,
+        BuildingDescriptions: serialized.BuildingDescriptions,
         PowerCosts: make(map[artifact.Power]int),
         PowerCompatibilities: make(map[artifact.Power]set.Set[artifact.ArtifactType]),
     }

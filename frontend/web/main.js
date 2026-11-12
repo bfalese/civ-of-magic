@@ -44,6 +44,7 @@ const state = {
     // the data tables' text, for loading a save
     gamedata: null,
     spellDescriptions: {},
+    buildingDescriptions: {},
     // autosave at the start of every turn (not in test scenarios)
     autosave: true,
     // the date of the last autosave
@@ -168,8 +169,9 @@ function battleReport(body) {
 
 // choices: [label, action] or [label, action, { html, group, data }]: html replaces the label in
 // the button, group puts a heading over the buttons that share it; wide widens the dialog
-function ask(text, choices, { wide = false } = {}) {
-    state.questions.push({ text, choices, wide });
+// input: a text field with this starting value; the actions get what it holds
+function ask(text, choices, { wide = false, input = null } = {}) {
+    state.questions.push({ text, choices, wide, input });
     showNextQuestion();
 }
 
@@ -207,10 +209,18 @@ function showNextQuestion() {
     if (state.modalOpen || state.questions.length === 0) {
         return;
     }
-    const { text, choices, wide } = state.questions.shift();
+    const { text, choices, wide, input } = state.questions.shift();
     state.modalOpen = true;
     element("modal").classList.toggle("wide", wide);
     element("modalText").textContent = text;
+    let field = null;
+    if (input !== null) {
+        field = document.createElement("input");
+        field.id = "modalInput";
+        field.maxLength = 20;
+        field.value = input;
+        element("modalText").appendChild(field);
+    }
     const box = element("modalChoices");
     box.innerHTML = "";
     let group = null;
@@ -232,12 +242,21 @@ function showNextQuestion() {
         button.onclick = () => {
             element("modal").classList.remove("open");
             state.modalOpen = false;
-            action();
+            action(field ? field.value.trim() : undefined);
             showNextQuestion();
         };
         box.appendChild(button);
     }
     element("modal").classList.add("open");
+    if (field) {
+        field.focus();
+        field.select();
+        // Enter takes the first choice
+        field.onkeydown = (event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") box.querySelector("button").click();
+        };
+    }
 }
 
 // ---- talking to the core
@@ -942,6 +961,20 @@ function cityCommand(type, command) {
     renderCityScreen();
 }
 
+// what a building does and costs (the build screen's text), as lines: name, cost and
+// maintenance, what it allows, the description
+function buildingLines(name, { cost, upkeep, allows, unit } = {}) {
+    const lines = [name];
+    const costs = [];
+    if (cost) costs.push(`cost ${cost}`);
+    if (!unit) costs.push(`maintenance ${upkeep ? `${upkeep} gold` : "none"}`);
+    lines.push(costs.join(" · "));
+    if (allows && allows.length) lines.push(`Allows: ${allows.join(", ")}`);
+    const description = unit ? "" : state.buildingDescriptions[name];
+    if (description) lines.push(description);
+    return lines;
+}
+
 function renderCityScreen() {
     const screen = element("city");
     const city = state.cityOpen && state.view ? state.view.cities.find((city) => sameTile(city.location, state.cityOpen)) : null;
@@ -961,13 +994,13 @@ function renderCityScreen() {
     const options = city["can-build"].map((option) => {
         const current = option.name === city.producing;
         const kind = option.unit ? "unit" : "building";
-        return `<button class="option${current ? " current" : ""}" data-kind="${kind}" data-name="${escapeHtml(option.name)}">${escapeHtml(option.name)}<span class="dim">${option.cost || ""}</span></button>`;
+        return `<button class="option${current ? " current" : ""}" data-kind="${kind}" data-name="${escapeHtml(option.name)}" title="right-click: what it does">${escapeHtml(option.name)}<span class="dim">${option.cost || ""}</span></button>`;
     }).join("");
 
     const buildings = city.buildings.map((name) => {
         const value = city["sell-values"][name];
         const sell = value === undefined ? "" : `<button class="small" data-sell="${escapeHtml(name)}" ${city["sold-building-this-turn"] ? "disabled" : ""}>sell ${value}</button>`;
-        return `<div class="row"><span>${escapeHtml(name)}</span>${sell}</div>`;
+        return `<div class="row building" data-building="${escapeHtml(name)}" title="right-click: what it does"><span>${escapeHtml(name)}</span>${sell}</div>`;
     }).join("") || `<div class="dim">no buildings yet</div>`;
 
     const title = state.cityRenaming
@@ -1000,6 +1033,7 @@ function renderCityScreen() {
             <div>
                 <h3>Change production</h3>
                 <div class="options">${options}</div>
+                <div class="building-info dim" id="buildingInfo"></div>
                 <h3 class="gap">Buildings</h3>
                 ${buildings}
                 <h3 class="gap">Enchantments</h3>
@@ -1046,6 +1080,24 @@ function renderCityScreen() {
     element("fewerFarmers").onclick = () => cityCommand("set-city-farmers", { farmers: city.farmers - 1 });
     element("moreFarmers").onclick = () => cityCommand("set-city-farmers", { farmers: city.farmers + 1 });
     element("buy").onclick = () => cityCommand("buy-production", {});
+    // what a building or unit is: hovering shows it under the options, right-click in a popup
+    const optionDetails = (name) => {
+        const option = city["can-build"].find((candidate) => candidate.name === name);
+        return option ? buildingLines(name, option) : buildingLines(name, city["building-costs"][name] || {});
+    };
+    const info = element("buildingInfo");
+    const showInfo = (name) => {
+        info.innerHTML = name ? optionDetails(name).map((line, index) => index === 0 ? `<b>${escapeHtml(line)}</b>` : `<div>${escapeHtml(line)}</div>`).join("") : "";
+    };
+    showInfo(city.producing || null);
+    for (const target of screen.querySelectorAll("button.option, .row.building")) {
+        const name = target.dataset.name || target.dataset.building;
+        target.onmouseenter = () => showInfo(name);
+        target.oncontextmenu = (event) => {
+            event.preventDefault();
+            ask(optionDetails(name).join("\n"), [["OK", () => {}]]);
+        };
+    }
     for (const button of screen.querySelectorAll("button.option")) {
         button.onclick = () => cityCommand("set-city-production", { [button.dataset.kind]: button.dataset.name });
     }
@@ -1270,16 +1322,21 @@ async function main() {
         state.gamedata = gamedata;
         // the spellbook's descriptions (missing in data exported before them: re-export)
         try {
-            state.spellDescriptions = JSON.parse(gamedata)["spell-descriptions"] || {};
+            const parsed = JSON.parse(gamedata);
+            state.spellDescriptions = parsed["spell-descriptions"] || {};
+            state.buildingDescriptions = parsed["building-descriptions"] || {};
         } catch (error) {
             state.spellDescriptions = {};
+            state.buildingDescriptions = {};
         }
         let settings;
         let saveText = null;
+        let fromParameters = false;
         if (params.has("load")) {
             // ?load=autosave or ?load=save: continue a game kept in this browser
             saveText = await readSave(params.get("load"));
         } else if (["opponents", "difficulty", "wizard", "scenario"].some((name) => params.has(name))) {
+            fromParameters = true;
             settings = { opponents: parseInt(params.get("opponents") || "3", 10), raiders: true, difficulty: params.get("difficulty") || "average" };
             for (const name of ["scenario", "wizard", "race", "banner", "magic"]) {
                 if (params.has(name)) settings[name] = params.get(name);
@@ -1336,6 +1393,15 @@ async function main() {
         bindControls();
 
         log(saveText ? `Welcome back, ${core.view().you.player.wizard}.` : `Welcome, ${core.view().you.player.wizard}.`);
+        // a new game from the start screen: name your first city (before the first research)
+        if (!saveText && !fromParameters) {
+            const capital = core.view().cities[0];
+            if (capital) {
+                ask("Name your first city:", [["OK", (name) => {
+                    if (name && name !== capital.name) execute("rename-city", { city: capital.location, name });
+                }]], { input: capital.name });
+            }
+        }
         afterCommand(status);
         centerOnHome();
         state.map.start();
