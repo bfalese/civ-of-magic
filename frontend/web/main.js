@@ -1338,6 +1338,9 @@ function bindControls() {
         if (event.key === "g" || event.key === "G") openGameMenu();
         // the 3D map: flatten the ground or give it back its height
         if ((event.key === "h" || event.key === "H") && state.map.toggleHeight) state.map.toggleHeight();
+        // the 3D map: turn the view a quarter turn
+        if ((event.key === "q" || event.key === "Q") && state.map.rotateView) state.map.rotateView(1);
+        if ((event.key === "e" || event.key === "E") && state.map.rotateView) state.map.rotateView(-1);
         // the 3D map: the tile art or the simple coloured ground
         if ((event.key === "v" || event.key === "V") && state.map.toggleTerrainLook) state.map.toggleTerrainLook();
         if (event.key === "c" || event.key === "C") openList("cities");

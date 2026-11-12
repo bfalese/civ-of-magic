@@ -17,19 +17,21 @@ import { MapRenderer, isStanding } from "./map.js";
 import { SimpleGround, hash } from "./terrain-simple.js";
 import { Vegetation } from "./vegetation.js";
 
-// true isometric: the camera looks down 35.26° from the horizon, turned 45° (north-east is up)
-const cameraOffset = new THREE.Vector3(-1, 1, 1).normalize().multiplyScalar(200);
-const pitch = Math.asin(cameraOffset.y / cameraOffset.length());
+// true isometric: the camera looks down 35.26° from the horizon, turned 45° (north-east is up);
+// the view turns around the vertical axis in quarter turns (rotateView), these being for turn 0
+const baseCameraOffset = new THREE.Vector3(-1, 1, 1).normalize().multiplyScalar(200);
+const pitch = Math.asin(baseCameraOffset.y / baseCameraOffset.length());
 // on the ground: the screen's right and up directions
-const groundRight = new THREE.Vector3(1, 0, 1).normalize();
-const groundUp = new THREE.Vector3(1, 0, -1).normalize();
+const baseGroundRight = new THREE.Vector3(1, 0, 1).normalize();
+const baseGroundUp = new THREE.Vector3(1, 0, -1).normalize();
+const verticalAxis = new THREE.Vector3(0, 1, 0);
+// how long a quarter turn of the view takes, in milliseconds
+const turnMilliseconds = 250;
 // how dark billboards on explored land the player doesn't see now are drawn
 const dimColor = 0.55;
 // billboards' size against the ground: a sprite's pixels at this fraction of the terrain's (a
 // 20-pixel stack is 0.65 tile wide, well inside its tile's diamond)
 const billboardScale = 0.65;
-// where a mineral stands on a tile with a city or lair: aside, to the right on screen
-const mineralAside = { x: groundRight.x * 0.3, z: groundRight.z * 0.3 };
 // how long a moving stack takes per tile, in milliseconds
 const stepMilliseconds = 220;
 // how far below the tile's centre (on screen) a billboard's foot stands, as a fraction of its
@@ -81,7 +83,54 @@ export class MapRenderer3D extends MapRenderer {
         this.simpleGround = null;
         // trees and shrubs on the simple ground
         this.vegetation = null;
+        // the view's turn around the vertical axis, in radians: where it is and where it's going
+        // (quarter turns: rotateView)
+        this.rotation = 0;
+        this.targetRotation = 0;
+        this.turnTime = null;
         this.updateCamera();
+    }
+
+    // the camera's offset from its focus and the screen's right and up on the ground, for the
+    // view's turn
+    get cameraOffset() {
+        return baseCameraOffset.clone().applyAxisAngle(verticalAxis, this.rotation || 0);
+    }
+
+    get groundRight() {
+        return baseGroundRight.clone().applyAxisAngle(verticalAxis, this.rotation || 0);
+    }
+
+    get groundUp() {
+        return baseGroundUp.clone().applyAxisAngle(verticalAxis, this.rotation || 0);
+    }
+
+    // where a mineral stands on a tile with a city or lair: aside, to the right on screen
+    get mineralAside() {
+        const right = this.groundRight;
+        return { x: right.x * 0.3, z: right.z * 0.3 };
+    }
+
+    // turn the view a quarter turn around the point it looks at: direction 1 or -1 (the Q and E
+    // keys); it turns smoothly (beforeRender)
+    rotateView(direction) {
+        this.targetRotation += direction * Math.PI / 2;
+    }
+
+    // the turn done: billboards stand towards the camera again, and the simple ground's ledges
+    // follow them
+    finishTurn() {
+        // keep the angle within one full turn (the same view)
+        const turns = Math.round(this.targetRotation / (Math.PI / 2));
+        this.targetRotation = (((turns % 4) + 4) % 4) * Math.PI / 2;
+        this.rotation = this.targetRotation;
+        if (this.mapView) {
+            if (this.simple) {
+                this.terrainKey = null;
+                this.updateHeights();
+            }
+            this.buildBillboards();
+        }
     }
 
     // the point on the ground the camera looks at
@@ -159,13 +208,13 @@ export class MapRenderer3D extends MapRenderer {
             const toward = this.footToward(this.stillTexture(id));
             const key = `${x}/${y}`;
             if (!sites.has(key)) sites.set(key, []);
-            sites.get(key).push({ x: 0.5 - groundUp.x * toward + offset.x, z: 0.5 - groundUp.z * toward + offset.z });
+            sites.get(key).push({ x: 0.5 - this.groundUp.x * toward + offset.x, z: 0.5 - this.groundUp.z * toward + offset.z });
         };
         this.mapView.tiles.forEach((row, y) => {
             row.forEach((tile, x) => {
                 for (const overlay of (tile && tile.overlays) || []) {
                     if (isStanding(overlay)) add(overlay, x, y, { x: 0, z: 0 });
-                    else if (this.standsUp(overlay)) add(overlay, x, y, settled.has(`${x}/${y}`) ? mineralAside : { x: 0, z: 0 });
+                    else if (this.standsUp(overlay)) add(overlay, x, y, settled.has(`${x}/${y}`) ? this.mineralAside : { x: 0, z: 0 });
                 }
             });
         });
@@ -466,8 +515,8 @@ export class MapRenderer3D extends MapRenderer {
     // any other billboard's foot on the tile (at most 0.6), and a little up (nearer still)
     footAt(texture, x, y, inFront = false) {
         const toward = inFront ? 0.68 : this.footToward(texture);
-        const worldX = x + 0.5 - groundUp.x * toward;
-        const worldZ = y + 0.5 - groundUp.z * toward;
+        const worldX = x + 0.5 - this.groundUp.x * toward;
+        const worldZ = y + 0.5 - this.groundUp.z * toward;
         return new THREE.Vector3(worldX, this.heightAt(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
     }
 
@@ -507,6 +556,20 @@ export class MapRenderer3D extends MapRenderer {
     }
 
     beforeRender(now) {
+        // the view turning
+        if (this.rotation !== this.targetRotation) {
+            const elapsed = this.turnTime === null ? 0 : now - this.turnTime;
+            const step = (Math.PI / 2) * elapsed / turnMilliseconds;
+            const left = this.targetRotation - this.rotation;
+            this.turnTime = now;
+            if (Math.abs(left) <= step) {
+                this.turnTime = null;
+                this.finishTurn();
+            } else {
+                this.rotation += Math.sign(left) * step;
+            }
+            this.clampCamera();
+        }
         if (!this.walk && this.walks.length && this.copies.length) {
             const walk = this.walks.shift();
             walk.start = now;
@@ -612,7 +675,7 @@ export class MapRenderer3D extends MapRenderer {
         // a mineral sharing its tile with a city or lair stands aside, to the right (not for
         // stacks: they come and go, and the simple ground's ledge under the mineral stays put)
         const crowded = this.settledTiles();
-        const aside = mineralAside;
+        const aside = this.mineralAside;
         this.billboards = this.copies.map((copy) => {
             const group = new THREE.Group();
             for (const thing of things) {
@@ -637,7 +700,7 @@ export class MapRenderer3D extends MapRenderer {
                 const offset = thing.bonus && crowded.has(key) ? aside : { x: 0, z: 0 };
                 const toward = thing.inCity ? 0.68 : this.footToward(thing.texture[0]);
                 if (!feet.has(key)) feet.set(key, []);
-                feet.get(key).push({ x: 0.5 - groundUp.x * toward + offset.x, z: 0.5 - groundUp.z * toward + offset.z });
+                feet.get(key).push({ x: 0.5 - this.groundUp.x * toward + offset.x, z: 0.5 - this.groundUp.z * toward + offset.z });
             }
             this.vegetation.update(this.simpleGround, this.mapView, this.copies, feet);
         } else if (this.vegetation) {
@@ -678,7 +741,7 @@ export class MapRenderer3D extends MapRenderer {
             focus.x = ((focus.x % width) + width) % width;
             focus.z = Math.min(this.mapView.height, Math.max(0, focus.z));
         }
-        this.camera.position.copy(focus).add(cameraOffset);
+        this.camera.position.copy(focus).add(this.cameraOffset);
         this.camera.lookAt(focus);
         this.camera.updateMatrixWorld();
     }
@@ -691,8 +754,8 @@ export class MapRenderer3D extends MapRenderer {
     panBy(dx, dy) {
         // screen pixels to world units; going up the screen covers more ground (the tilt)
         const perPixel = 1 / (this.tileWidth * this.zoom);
-        this.focus.addScaledVector(groundRight, -dx * perPixel);
-        this.focus.addScaledVector(groundUp, dy * perPixel / Math.sin(pitch));
+        this.focus.addScaledVector(this.groundRight, -dx * perPixel);
+        this.focus.addScaledVector(this.groundUp, dy * perPixel / Math.sin(pitch));
         this.clampCamera();
     }
 

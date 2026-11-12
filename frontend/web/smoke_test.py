@@ -195,6 +195,11 @@ def simple_terrain(smoke, url):
           "minerals stand up as billboards on the simple ground")
     check(state("s.map.vegetation && s.map.vegetation.meshes.length > 0"), "trees and shrubs grow on the simple ground")
     smoke.shot("1-simple-terrain")
+    page.keyboard.press("q")
+    smoke.wait("Math.abs(window.civGame.map.rotation - Math.PI / 2) < 1e-6", "a quarter turn of the view (Q)")
+    page.keyboard.press("e")
+    smoke.wait("window.civGame.map.rotation === 0", "the view to turn back (E)")
+    check(True, "Q and E turn the 3D view a quarter turn and back")
     page.keyboard.press("v")
     check(state("!s.map.simple && s.map.ground !== null"), "V switches back to the tile art")
 
