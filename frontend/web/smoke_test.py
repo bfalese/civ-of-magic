@@ -24,7 +24,12 @@ step expects (the page answers in well under a second). On a failure it saves a 
 
     pip install --user playwright && python3 -m playwright install chromium
     go run ./util/serve-web &           # needs the exported gamedata and assets
-    python3 frontend/web/smoke_test.py [http://localhost:8080] [--shots DIR]
+    python3 frontend/web/smoke_test.py [http://localhost:8080] [--shots DIR] [--gpu]
+
+WebGL runs on SwiftShader (Chrome's software renderer) by default: headless Chromium has no GPU
+otherwise, CI has none, and it renders the same everywhere. --gpu uses this machine's GPU instead
+(ANGLE on OpenGL; --gpu=vulkan for Vulkan): faster locally, and frame rates mean something. The
+renderer in use is printed first.
 """
 
 import json
@@ -101,17 +106,38 @@ class Smoke:
             self.page.click("#modalChoices button >> nth=0")
 
 
+def webgl_renderer(page):
+    """The WebGL renderer the browser gives the page (GPU, or SwiftShader)."""
+    page.goto("about:blank")
+    return page.evaluate("""(() => {
+        const gl = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
+        if (!gl) return 'no WebGL';
+        const info = gl.getExtension('WEBGL_debug_renderer_info');
+        return info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    })()""")
+
+
 def main():
     arguments = [argument for index, argument in enumerate(sys.argv[1:], 1)
                  if not argument.startswith("--") and sys.argv[index - 1] != "--shots"]
     url = (arguments[0] if arguments else "http://localhost:8080").split("?")[0]
     shots = sys.argv[sys.argv.index("--shots") + 1] if "--shots" in sys.argv else None
+    gpu = next((argument for argument in sys.argv[1:] if argument == "--gpu" or argument.startswith("--gpu=")), None)
     began = time.monotonic()
 
+    if gpu:
+        backend = gpu.split("=", 1)[1] if "=" in gpu else "gl"
+        browser_args = ["--enable-gpu", f"--use-angle={backend}", "--ignore-gpu-blocklist"]
+    else:
+        browser_args = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"]
+
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
+        browser = playwright.chromium.launch(args=browser_args)
         page = browser.new_page(viewport={"width": 1200, "height": 800})
         page.set_default_timeout(STEP_TIMEOUT)
+        print(f"renderer: {webgl_renderer(page)}")
+        if gpu and "SwiftShader" in webgl_renderer(page):
+            print("warning: --gpu asked for, but Chromium fell back to SwiftShader")
         smoke = Smoke(page, shots)
         try:
             start_screen(smoke, url)
