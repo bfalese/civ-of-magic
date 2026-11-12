@@ -113,6 +113,17 @@ type GameEventChooseSpellTarget struct {
     LocationType LocationType
 }
 
+// a stack took one step on the overworld (frontends animate it): the human's stacks, and other
+// players' where the human sees either end of the step
+type GameEventStackMoved struct {
+    Player *playerlib.Player
+    From Location
+    To Location
+    // the leader's sprite and the banner square behind it, as the map draws the stack
+    Asset string
+    Background string
+}
+
 // a battle involving the session's player started (Started) or ended (State, with what the
 // end screen shows: once the outcome is applied to the overworld)
 type GameEventBattle struct {

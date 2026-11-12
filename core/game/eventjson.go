@@ -286,6 +286,16 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
                 Items []TreasureItemJSON `json:"items"`
             }{MakePlayerRef(treasure.Player), Location{Plane: treasure.Treasure.Point.Plane, X: treasure.Treasure.Point.X, Y: treasure.Treasure.Point.Y}, items}, true
 
+        case *GameEventStackMoved:
+            moved := event.(*GameEventStackMoved)
+            return "stack-moved", struct {
+                Player *PlayerRef `json:"player"`
+                From Location `json:"from"`
+                To Location `json:"to"`
+                Asset string `json:"asset"`
+                Background string `json:"background"`
+            }{MakePlayerRef(moved.Player), moved.From, moved.To, moved.Asset, moved.Background}, true
+
         case *GameEventBattle:
             battle := event.(*GameEventBattle)
             eventType := "battle-ended"

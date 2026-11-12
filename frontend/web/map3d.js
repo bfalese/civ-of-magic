@@ -22,6 +22,8 @@ const dimColor = 0.55;
 // billboards' size against the ground: a sprite's pixels at this fraction of the terrain's (a
 // 20-pixel stack is 0.65 tile wide, well inside its tile's diamond)
 const billboardScale = 0.65;
+// how long a moving stack takes per tile, in milliseconds
+const stepMilliseconds = 220;
 // how far below the tile's centre (on screen) a billboard's foot stands, as a fraction of its
 // height: its middle then sits over the tile, not on the corner behind it
 const billboardFoot = 0.55;
@@ -67,6 +69,10 @@ export class MapRenderer3D extends MapRenderer {
         // the selected stack's billboards (they blink), and the animated ones
         this.selectedSprites = [];
         this.animatedSprites = [];
+        // stacks walking: the walk being played (its sprites, one per copy of the map) and those
+        // waiting; their destinations' billboards stay hidden until they arrive
+        this.walk = null;
+        this.walks = [];
         // the tile grid, painted on the ground (it scales with the zoom like the terrain)
         this.showGrid = true;
         this.updateCamera();
@@ -324,23 +330,88 @@ export class MapRenderer3D extends MapRenderer {
             sprite.userData.frames = materials;
             this.animatedSprites.push(sprite);
         }
-        const { width, height, top, bottom } = texture.userData;
+        const { width, height, bottom } = texture.userData;
         // the foot is the lowest row with pixels
         sprite.center.set(0.5, (height - 1 - bottom) / height);
         const scale = billboardScale / this.tileWidth;
         sprite.scale.set(width * scale, height * scale, 1);
-        // the foot moves towards the camera (down the screen) from the tile's centre, by a part
-        // of the drawn height; going down the screen by d covers d / sin(pitch) of ground. It
-        // stays inside the tile's diamond (its front corner is 0.71 away).
-        const drawn = (bottom - top + 1) * scale;
-        // in front: nearer the camera than any other billboard's foot on the tile (at most 0.6),
-        // and a little up (nearer still)
-        const toward = inFront ? 0.68 : Math.min(0.6, drawn * billboardFoot / Math.sin(pitch));
-        const worldX = location.x + 0.5 - groundUp.x * toward;
-        const worldZ = location.y + 0.5 - groundUp.z * toward;
-        sprite.position.set(worldX, this.heightAt(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
+        sprite.position.copy(this.footAt(texture, location.x, location.y, inFront));
         sprite.userData.tile = { plane: this.plane, x: location.x, y: location.y };
         return sprite;
+    }
+
+    // where a billboard of this texture stands on tile (x, y) (fractions for a stack between two
+    // tiles): its foot moves towards the camera (down the screen) from the tile's centre, by a part
+    // of the drawn height; going down the screen by d covers d / sin(pitch) of ground. It stays
+    // inside the tile's diamond (its front corner is 0.71 away). In front: nearer the camera than
+    // any other billboard's foot on the tile (at most 0.6), and a little up (nearer still)
+    footAt(texture, x, y, inFront = false) {
+        const { top, bottom } = texture.userData;
+        const drawn = (bottom - top + 1) * billboardScale / this.tileWidth;
+        const toward = inFront ? 0.68 : Math.min(0.6, drawn * billboardFoot / Math.sin(pitch));
+        const worldX = x + 0.5 - groundUp.x * toward;
+        const worldZ = y + 0.5 - groundUp.z * toward;
+        return new THREE.Vector3(worldX, this.heightAt(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
+    }
+
+    // a stack's texture: its banner square with the leader on it
+    stackTextures(background, unit) {
+        return [this.spriteTexture(`stack/${background}/${unit}`, (context) => {
+            if (!context) return this.assets.size(background);
+            this.assets.draw(context, background, 0, 0);
+            this.assets.draw(context, unit, 1, 1);
+        })];
+    }
+
+    // walks to play: [{plane, asset, background, steps: [{from, to}]}], one after the other
+    playMoves(walks) {
+        const shown = walks.filter((walk) => walk.plane === this.plane && walk.steps.length && this.assets.has(walk.background));
+        if (shown.length === 0) return;
+        this.walks.push(...shown);
+        this.buildBillboards();
+    }
+
+    // the tiles whose stacks are still walking there (hidden until they arrive)
+    get walkingTo() {
+        const tiles = new Set();
+        for (const walk of [this.walk, ...this.walks]) {
+            if (!walk) continue;
+            const last = walk.steps[walk.steps.length - 1].to;
+            tiles.add(`${last.x}/${last.y}`);
+        }
+        return tiles;
+    }
+
+    beforeRender(now) {
+        if (!this.walk && this.walks.length && this.copies.length) {
+            const walk = this.walks.shift();
+            walk.start = now;
+            walk.texture = this.stackTextures(walk.background, walk.asset)[0];
+            walk.sprites = this.copies.map((copy) => {
+                const sprite = this.billboard([walk.texture], walk.steps[0].from, false);
+                copy.add(sprite);
+                return sprite;
+            });
+            this.walk = walk;
+        }
+        const walk = this.walk;
+        if (!walk) return;
+        const progress = (now - walk.start) / stepMilliseconds;
+        const index = Math.floor(progress);
+        if (index >= walk.steps.length) {
+            for (const sprite of walk.sprites) sprite.parent.remove(sprite);
+            this.walk = null;
+            this.buildBillboards();
+            return;
+        }
+        // a step across the map's east-west edge goes the short way
+        const { from, to } = walk.steps[index];
+        let toX = to.x;
+        if (toX - from.x > this.mapWidth / 2) toX -= this.mapWidth;
+        if (from.x - toX > this.mapWidth / 2) toX += this.mapWidth;
+        const fraction = progress - index;
+        const position = this.footAt(walk.texture, from.x + (toX - from.x) * fraction, from.y + (to.y - from.y) * fraction);
+        for (const sprite of walk.sprites) sprite.position.copy(position);
     }
 
     // what stands on the map: nodes, encounters, cities and stacks (as the 2D map shows them)
@@ -390,19 +461,17 @@ export class MapRenderer3D extends MapRenderer {
                     things.push({ texture: plain(city.asset), location: city.location, dimmed: !visible(city.location) });
                 }
             }
-            const stackTexture = (background, unit) => [this.spriteTexture(`stack/${background}/${unit}`, (context) => {
-                if (!context) return assets.size(background);
-                assets.draw(context, background, 0, 0);
-                assets.draw(context, unit, 1, 1);
-            })];
+            const stackTexture = (background, unit) => this.stackTextures(background, unit);
+            // stacks still walking to their tile show up when they get there
+            const walkingTo = this.walkingTo;
             for (const stack of view["foreign-stacks"]) {
-                if (onPlane(stack.location) && !cityTiles.has(`${stack.location.x}/${stack.location.y}`)) {
+                if (onPlane(stack.location) && !cityTiles.has(`${stack.location.x}/${stack.location.y}`) && !walkingTo.has(`${stack.location.x}/${stack.location.y}`)) {
                     things.push({ texture: stackTexture(stack.background, stack.asset), location: stack.location, dimmed: !visible(stack.location) });
                 }
             }
             const selected = this.selected;
             for (const stack of view.stacks) {
-                if (!onPlane(stack.location) || stack.units.length === 0) continue;
+                if (!onPlane(stack.location) || stack.units.length === 0 || walkingTo.has(`${stack.location.x}/${stack.location.y}`)) continue;
                 const isSelected = selected && selected.plane === stack.location.plane && selected.x === stack.location.x && selected.y === stack.location.y;
                 if (!isSelected && cityTiles.has(`${stack.location.x}/${stack.location.y}`)) continue;
                 // the selected stack stands in front of its city

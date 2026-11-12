@@ -706,6 +706,28 @@ def map_point(page, location):
     }})()""")
 
 
+def walking_stack(smoke):
+    """A move glides the stack from tile to tile on the 3D map (stack-moved events)."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    moved = page.evaluate("""(() => {
+        const s = window.civGame;
+        const stack = s.view.stacks.find(stack => stack.units.some(unit => unit['moves-left'] >= 1) && !stack.build && !stack.road);
+        if (!stack) return null;
+        const from = stack.location;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) {
+            const to = { plane: from.plane, x: from.x + dx, y: from.y + dy };
+            if (!s.execute('move-stack', { from, to }).error && (s.map.walk || s.map.walks.length)) return to;
+        }
+        return null;
+    })()""")
+    check(moved is not None, f"a move queues a walk on the map (to {moved})")
+    smoke.wait("!!window.civGame.map.walk", "the walk to start")
+    first = state("s.map.walk.sprites[0].position.x + s.map.walk.sprites[0].position.z")
+    smoke.wait(f"!window.civGame.map.walk || window.civGame.map.walk.sprites[0].position.x + window.civGame.map.walk.sprites[0].position.z !== {first}", "the stack to glide")
+    smoke.wait("!window.civGame.map.walk && window.civGame.map.walks.length === 0", "the walk to end")
+    check(True, "the stack glides to its tile and the walk ends")
+
+
 def orders(smoke, url):
     """The orders scenario: settlers where an outpost can go, engineers next to the capital, and
     swordsmen on an open tower."""
@@ -720,6 +742,7 @@ def orders(smoke, url):
         return stack
 
     overview(smoke)
+    walking_stack(smoke)
     settlers = select("stack.build === 'settle'", "settlers")
     check(page.locator("#side button[data-order='build']").inner_text() == "Settle (B)", "the stack panel offers Settle (B)")
     cities = state("s.view.cities.length")

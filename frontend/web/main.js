@@ -293,8 +293,28 @@ function afterCommand(status) {
     }
 }
 
+// stack-moved steps as walks for the map: a stack's steps one after the other
+function walksFrom(steps) {
+    const walks = [];
+    for (const step of steps) {
+        const last = walks[walks.length - 1];
+        const lastStep = last && last.steps[last.steps.length - 1];
+        if (last && last.asset === step.asset && last.background === step.background && sameTile(lastStep.to, step.from)) {
+            last.steps.push({ from: step.from, to: step.to });
+        } else {
+            walks.push({ plane: step.from.plane, asset: step.asset, background: step.background, steps: [{ from: step.from, to: step.to }] });
+        }
+    }
+    return walks;
+}
+
 function handleEvents() {
+    const steps = [];
     for (const event of state.core.events()) {
+        if (event.type === "stack-moved") {
+            steps.push(event.event);
+            continue;
+        }
         const text = describe(event);
         if (text) {
             log(text);
@@ -372,6 +392,9 @@ function handleEvents() {
                 }
                 break;
         }
+    }
+    if (steps.length) {
+        state.map.playMoves(walksFrom(steps));
     }
 }
 

@@ -267,6 +267,12 @@ export class MapRenderer {
     // after each repaint (the 3D view blinks the selected stack's billboard here)
     afterDraw() {}
 
+    // every animation frame, before rendering (the 3D map glides moving stacks here)
+    beforeRender(now) {}
+
+    // stacks walking (stack-moved events): only the 3D map animates them
+    playMoves(walks) {}
+
     // move the view as if the map were dragged by dx, dy screen pixels
     panBy(dx, dy) {
         this.camera.position.x -= dx / this.zoom;
@@ -488,6 +494,7 @@ export class MapRenderer {
                 this.frame += 1;
                 this.draw();
             }
+            this.beforeRender(now);
             this.renderer.render(this.scene, this.camera);
             this.onFrame();
             requestAnimationFrame(loop);

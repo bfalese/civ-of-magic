@@ -1101,6 +1101,15 @@ func TestHostContinuesMoves(test *testing.T) {
     if err := host.Execute(&MoveStackCommand{From: from, To: target}); err != nil {
         test.Fatalf("move: %v", err)
     }
+    steps := 0
+    for _, encoded := range host.TakeEvents() {
+        if strings.Contains(string(encoded), `"stack-moved"`) {
+            steps += 1
+        }
+    }
+    if steps == 0 {
+        test.Errorf("the move should send stack-moved events for the page to animate")
+    }
     walking := human.FindStackByUnit(unit)
     left := len(walking.CurrentPath)
     if left == 0 {

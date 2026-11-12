@@ -47,6 +47,17 @@ type hostAiHandlers struct {
     host *GameHost
 }
 
+// an AI stack's step, for the page to animate where the human sees it
+func (handlers *hostAiHandlers) ShowMovement(x int, y int, stack *playerlib.UnitStack, center bool) {
+    human := handlers.host.Human
+    if human.IsVisible(x, y, stack.Plane()) || human.IsVisible(stack.X(), stack.Y(), stack.Plane()) {
+        select {
+            case handlers.host.Model.Events <- makeStackMoved(handlers.host.Model.GetStackOwner(stack), x, y, stack):
+            default:
+        }
+    }
+}
+
 func (handlers *hostAiHandlers) DoCombat(attacker *playerlib.Player, attackerStack *playerlib.UnitStack, defender *playerlib.Player, defenderStack *playerlib.UnitStack, zone combat.ZoneType) combat.CombatState {
     human := handlers.host.Human
     if attacker == human || defender == human {
@@ -362,6 +373,7 @@ func (host *GameHost) startPlayerTurn(player *playerlib.Player) {
 func (host *GameHost) concernsHuman(event GameEvent) bool {
     human := host.Human
     switch event := event.(type) {
+        case *GameEventStackMoved: return true
         case *GameEventVault: return event.Player == human
         case *GameEventDiplomacy: return event.Player == human
         case *GameEventHireMercenaries: return event.Player == human

@@ -181,6 +181,7 @@ attacking such a wizard breaks the treaty. Your own proposals are still always a
 | `vault` | `player`, `artifact` | an item went to the vault |
 | `hero-level-up` | `hero` | |
 | `banish` | `attacker`, `defender` | a wizard's fortress city fell |
+| `stack-moved` | `player`, `from`, `to`, `asset`, `background` | one step of a walking stack (yours, or another player's where you see either end), in order: frontends animate it; `asset` and `background` draw the stack as the map does |
 | `battle-started` | `attacker`, `defender`, `location` | a battle with you started: send battle commands |
 | `battle-ended` | `attacker`, `defender`, `location`, `result`, `attacker-losses`, `defender-losses`, `died-while-fleeing`, `attacker-fame`, `defender-fame`, `population-lost`, `buildings-lost`, `undead-raised`, `hero-died` | `result`: `attacker-won`, `defender-won`, `attacker-fled`, `defender-fled`. Sent once the outcome is applied (after a `choose-raze`), with what the end screen shows: units each side lost (`died-while-fleeing` of them while fleeing), fame gained or lost (negative) per side, citizens and buildings a fought-over city lost, units the winner raised as undead, and whether one of your heroes died (its items went to the vault) |
 | `choose-encounter` | `player`, `encounter`, `guards` | enter? answer with `confirm-encounter` |

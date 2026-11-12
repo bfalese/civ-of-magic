@@ -87,6 +87,10 @@ func TestEncodeEvents(test *testing.T) {
     if _, hasResult := body["result"]; eventType != "battle-started" || hasResult {
         test.Errorf("battle-started: %v %v", eventType, body)
     }
+    eventType, body = decodeTestEvent(test, model, &GameEventStackMoved{Player: player, From: Location{X: 4, Y: 3}, To: Location{X: 5, Y: 3}, Asset: "unit/x", Background: "unit-background/red"})
+    if eventType != "stack-moved" || body["to"].(map[string]any)["x"] != float64(5) || body["asset"] != "unit/x" {
+        test.Errorf("stack-moved: %v %v", eventType, body)
+    }
     eventType, body = decodeTestEvent(test, model, &GameEventChooseRaze{Player: player, City: city})
     if eventType != "choose-raze" || body["city"].(map[string]any)["name"] != "Testville" {
         test.Errorf("choose-raze: %v %v", eventType, body)

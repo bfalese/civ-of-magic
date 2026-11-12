@@ -5,6 +5,7 @@ import (
     "fmt"
 
     "github.com/bfalese/civ-of-magic/core/artifact"
+    "github.com/bfalese/civ-of-magic/core/assets"
     citylib "github.com/bfalese/civ-of-magic/core/city"
     "github.com/bfalese/civ-of-magic/core/combat"
     "github.com/bfalese/civ-of-magic/core/data"
@@ -140,6 +141,21 @@ func (session *CommandSession) announce(event GameEvent) {
 // PlayerMovementHandler: the steps of a walking stack
 
 func (session *CommandSession) ShowMovement(x int, y int, stack *playerlib.UnitStack, center bool) {
+    session.announce(makeStackMoved(session.Player, x, y, stack))
+}
+
+// a step from (x, y) to where the stack stands now
+func makeStackMoved(player *playerlib.Player, x int, y int, stack *playerlib.UnitStack) *GameEventStackMoved {
+    event := &GameEventStackMoved{
+        Player: player,
+        From: Location{Plane: stack.Plane(), X: x, Y: y},
+        To: Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()},
+    }
+    if leader := stack.Leader(); leader != nil {
+        event.Asset = unitAsset(leader)
+        event.Background = assets.UnitBackground(leader.GetBanner())
+    }
+    return event
 }
 
 func (session *CommandSession) SteppedStack() {
