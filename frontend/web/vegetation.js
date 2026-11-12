@@ -8,7 +8,7 @@
 // Trees on explored land the player doesn't see now are dimmed like the billboards.
 
 import * as THREE from "three";
-import { hash } from "./terrain-simple.js";
+import { hash, lightBands } from "./terrain-simple.js";
 
 // per terrain: how many of each kind a tile may get, tried at jittered spots (a tile gets
 // `tries` spots; each picks a kind by these weights, or nothing)
@@ -133,9 +133,13 @@ uniform vec3 lightDirection;
 uniform float ambient;
 varying vec3 worldPosition;
 varying vec3 surfaceColour;
+${lightBands}
 void main() {
     vec3 normal = normalize(cross(dFdx(worldPosition), dFdy(worldPosition)));
     float light = min(1.25, ambient + (1.0 - ambient) * max(0.0, dot(normal, lightDirection)) / lightDirection.y);
+#ifdef STYLIZED
+    light = lightBand(light);
+#endif
     gl_FragColor = vec4(surfaceColour * light, 1.0);
     #include <colorspace_fragment>
 }
@@ -150,12 +154,15 @@ export class Vegetation {
             fragmentShader,
             vertexColors: true,
         });
+        this.ambient = ambient;
+        this.stylized = false;
         // per tile: its plants and the ground patch they were placed on
         this.placements = new Map();
         this.meshes = [];
     }
 
-    // the plants of a tile: [{kind, x, y, z, scale, turn, shade}] (world position on the ground)
+    // the plants of a tile: [{kind, x, y, z, shownX, shownZ, scale, turn, shade}] (position on the
+    // ground; shown: where the mesh shows it)
     plantsOf(ground, terrain, tx, tz) {
         const planting = plantings[terrain];
         if (!planting) return [];
@@ -179,16 +186,18 @@ export class Vegetation {
             const cellZ = Math.floor(index / side);
             const x = tx + 0.03 + (cellX + hash(tx * 5 + index, tz * 3 + 11)) / side * 0.94;
             const z = tz + 0.03 + (cellZ + hash(tx * 7 + 19, tz * 11 + index)) / side * 0.94;
-            const y = ground.heightAt(x, z);
+            const y = ground.groundHeight(x, z);
             if (y < lowestGround * Math.max(ground.scale, 0.05)) continue;
-            const slope = Math.hypot(ground.heightAt(x + 0.04, z) - ground.heightAt(x - 0.04, z), ground.heightAt(x, z + 0.04) - ground.heightAt(x, z - 0.04)) / 0.08;
+            const slope = Math.hypot(ground.groundHeight(x + 0.04, z) - ground.groundHeight(x - 0.04, z), ground.groundHeight(x, z + 0.04) - ground.groundHeight(x, z - 0.04)) / 0.08;
             if (slope > steepest) continue;
             const canopyShades = planeShades[ground.plane] || planeShades.Arcanus;
             let palette = canopyShades[kind];
             if (terrain === "Swamp" && kind === "shrub") palette = canopyShades.swampShrub;
             if (terrain === "Tundra" && kind === "conifer") palette = canopyShades.tundraConifer;
+            // where the mesh shows it (the polygon look bends the ground sideways)
+            const shown = ground.warp(x, z, { x: 0, z: 0 });
             plants.push({
-                kind, x, y, z,
+                kind, x, y, z, shownX: shown.x, shownZ: shown.z,
                 scale: 0.8 + hash(tx * 3 + index * 17, tz * 13 + 5) * 0.5,
                 turn: hash(tx * 23 + index, tz * 29 + index * 3) * Math.PI * 2,
                 shade: palette[Math.floor(hash(tx * 41 + index * 5, tz * 43 + 1) * palette.length)],
@@ -232,7 +241,7 @@ export class Vegetation {
             const colours = new Float32Array(entries.length * 3);
             entries.forEach(({ plant, dimmed }, index) => {
                 rotation.setFromAxisAngle(up, plant.turn);
-                position.set(plant.x, plant.y - 0.005, plant.z);
+                position.set(plant.shownX, plant.y - 0.005, plant.shownZ);
                 size.setScalar(plant.scale);
                 matrix.compose(position, rotation, size).toArray(matrices, index * 16);
                 shade.set(plant.shade);
@@ -250,6 +259,15 @@ export class Vegetation {
                 this.meshes.push(mesh);
             }
         }
+    }
+
+    // the polygon look: light in bands, a darker shadow side (as SimpleGround.setStylized)
+    setStylized(stylized, ambient) {
+        if (stylized === this.stylized) return;
+        this.stylized = stylized;
+        if (stylized) this.material.defines.STYLIZED = ""; else delete this.material.defines.STYLIZED;
+        this.material.needsUpdate = true;
+        this.material.uniforms.ambient.value = stylized ? ambient : this.ambient;
     }
 
     // take the plants off the map (another look, or before rebuilding)

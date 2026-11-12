@@ -8,13 +8,15 @@
 // World units are tiles: tile (x, y) covers world x [x, x+1] and z [y, y+1] on the ground (y up).
 // The map wraps east-west: three copies of the ground and its billboards sit side by side.
 //
-// Two looks for the ground (setTerrainLook, ?terrain=simple, the V key): "textured", the original's
-// tile art draped over the heights; "simple", plain colours per terrain with shapes and a water
-// plane (terrain-simple.js), minerals standing up as billboards.
+// Three looks for the ground (setTerrainLook, ?terrain=simple|polygon, the V key cycles):
+// "textured", the original's tile art draped over the heights; "simple", plain colours per terrain
+// with shapes and a water plane (terrain-simple.js), minerals standing up as billboards; "polygon",
+// the simple ground styled as flat-filled polygons (one colour per face from a small palette,
+// light in a few tones, a sky behind the map).
 
 import * as THREE from "three";
 import { MapRenderer, isStanding } from "./map.js";
-import { SimpleGround, hash } from "./terrain-simple.js";
+import { SimpleGround, hash, stylizedAmbient } from "./terrain-simple.js";
 import { Vegetation } from "./vegetation.js";
 import { NodeEffects } from "./nodes3d.js";
 
@@ -83,6 +85,10 @@ export class MapRenderer3D extends MapRenderer {
         this.showGrid = true;
         // the simple ground (plain colours, a water plane) instead of the tile art: setTerrainLook
         this.simple = false;
+        // the polygon look (on the simple ground) and its sky
+        this.stylized = false;
+        this.backdrop = null;
+        this.backdropKey = null;
         this.simpleGround = null;
         // trees and shrubs on the simple ground
         this.vegetation = null;
@@ -247,6 +253,7 @@ export class MapRenderer3D extends MapRenderer {
             this.simpleGround = new SimpleGround(lightDirection, shadeAmbient);
         }
         this.simpleGround.setOverlay(this.texture);
+        this.simpleGround.setStylized(this.stylized);
         this.ground = null;
         this.copies = [-1, 0, 1].map((offset) => {
             const copy = new THREE.Group();
@@ -263,18 +270,53 @@ export class MapRenderer3D extends MapRenderer {
 
     // switch the ground's look: "textured" (the tile art) or "simple" (plain colours, terrain-simple.js)
     setTerrainLook(look) {
-        this.simple = look === "simple";
+        this.simple = look === "simple" || look === "polygon";
+        this.stylized = look === "polygon";
         this.drawsTerrain = !this.simple;
         if (this.mapView) {
             this.buildPlanes();
+            if (this.simpleGround) this.simpleGround.setStylized(this.stylized);
             this.updateHeights();
             this.draw();
             this.buildBillboards();
         }
+        this.updateBackdrop();
     }
 
+    get terrainLook() {
+        return this.stylized ? "polygon" : this.simple ? "simple" : "textured";
+    }
+
+    // the V key: textured, simple, polygon, and round again
     toggleTerrainLook() {
-        this.setTerrainLook(this.simple ? "textured" : "simple");
+        const looks = ["textured", "simple", "polygon"];
+        this.setTerrainLook(looks[(looks.indexOf(this.terrainLook) + 1) % looks.length]);
+    }
+
+    // behind the map: a sky in the polygon look (dusky blue over Arcanus, violet over Myrror),
+    // black otherwise
+    updateBackdrop() {
+        if (!this.stylized) {
+            this.scene.background = null;
+            return;
+        }
+        const key = this.plane;
+        if (this.backdropKey === key) return;
+        this.backdropKey = key;
+        const [top, bottom] = key === "Myrror" ? ["#140c22", "#3a2448"] : ["#0e1a30", "#34506a"];
+        const canvas = document.createElement("canvas");
+        canvas.width = 2;
+        canvas.height = 256;
+        const context = canvas.getContext("2d");
+        const gradient = context.createLinearGradient(0, 0, 0, 256);
+        gradient.addColorStop(0, top);
+        gradient.addColorStop(1, bottom);
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, 2, 256);
+        if (this.backdrop) this.backdrop.dispose();
+        this.backdrop = new THREE.CanvasTexture(canvas);
+        this.backdrop.colorSpace = THREE.SRGBColorSpace;
+        this.scene.background = this.backdrop;
     }
 
     // minerals and other bonuses stand up on the simple ground (its colours have no art to show them)
@@ -438,6 +480,7 @@ export class MapRenderer3D extends MapRenderer {
 
     setData(mapView, playerView) {
         super.setData(mapView, playerView);
+        this.updateBackdrop();
         this.updateHeights();
         this.buildBillboards();
     }
@@ -520,8 +563,12 @@ export class MapRenderer3D extends MapRenderer {
     // any other billboard's foot on the tile (at most 0.6), and a little up (nearer still)
     footAt(texture, x, y, inFront = false) {
         const toward = inFront ? 0.68 : this.footToward(texture);
-        const worldX = x + 0.5 - this.groundUp.x * toward;
-        const worldZ = y + 0.5 - this.groundUp.z * toward;
+        let worldX = x + 0.5 - this.groundUp.x * toward;
+        let worldZ = y + 0.5 - this.groundUp.z * toward;
+        // where the polygon look's bent mesh shows that point of the ground
+        if (this.simple && this.simpleGround) {
+            ({ x: worldX, z: worldZ } = this.simpleGround.warp(worldX, worldZ, { x: 0, z: 0 }));
+        }
         return new THREE.Vector3(worldX, this.standingHeight(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
     }
 
@@ -712,6 +759,7 @@ export class MapRenderer3D extends MapRenderer {
         // trees and shrubs on the simple ground, out of the way of what stands on a tile
         if (this.simple && this.simpleGround && this.simpleGround.terrains) {
             if (!this.vegetation) this.vegetation = new Vegetation(lightDirection, shadeAmbient);
+            this.vegetation.setStylized(this.stylized, stylizedAmbient);
             const feet = new Map();
             for (const thing of things) {
                 const key = `${thing.location.x}/${thing.location.y}`;
@@ -844,9 +892,11 @@ export class MapRenderer3D extends MapRenderer {
         let ground = null;
         if (point) {
             const width = this.mapView.width;
-            const y = Math.floor(point.z);
+            // the point of the ground under the polygon look's bent mesh
+            const onGround = this.simple && this.simpleGround ? this.simpleGround.unwarp(point.x, point.z, { x: 0, z: 0 }) : point;
+            const y = Math.floor(onGround.z);
             if (y >= 0 && y < this.mapView.height) {
-                ground = { plane: this.plane, x: ((Math.floor(point.x) % width) + width) % width, y };
+                ground = { plane: this.plane, x: ((Math.floor(onGround.x) % width) + width) % width, y };
             }
         }
         // a tile with something standing on it wins when the pointer is on its ground, over a

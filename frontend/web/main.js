@@ -1440,7 +1440,7 @@ async function main() {
         // the 3D map's keys in the hint bar only with the 3D map
         element("hint").querySelector(".keys3d").hidden = Renderer !== MapRenderer3D;
         // ?terrain=simple: the 3D map's plain coloured ground instead of the tile art (V switches)
-        if (params.get("terrain") === "simple" && state.map.setTerrainLook) state.map.setTerrainLook("simple");
+        if (["simple", "polygon"].includes(params.get("terrain")) && state.map.setTerrainLook) state.map.setTerrainLook(params.get("terrain"));
         state.minimap = new Minimap(element("minimap").querySelector("canvas"), state.map, assets);
         state.magic = new MagicScreen(element("magic"), assets, {
             confirm: (text, yes) => ask(text, [["Yes", yes], ["No", () => {}]]),

@@ -52,8 +52,31 @@ plane-shift order). `?scenario=reveal` explores the whole map on both planes, to
   brown-purple ground, ashen rock with lavender snow, dark violet water and dark purple woods;
   nodes keep their colours. Nodes glow brighter (a wider pulsing halo) for now.
 
+## The polygon look (towards the new visual style)
+
+The visual target moved from the retro look to *Another World*-style flat polygons (CLAUDE.md).
+A third look, `?terrain=polygon` (V cycles textured, simple, polygon), built on the simple ground:
+
+- `STYLIZED` define in the ground/water shader: each face one colour (`faceted`: the average of
+  its corners', or sand if it reaches below `beachHeight`), snapped to the plane's palette
+  (`paletteColours`, 64 colours) in the shader; light in four flat tones (`lightBands`, shared
+  with the trees) over a darker ambient (`stylizedAmbient`); water depth in three bands whose
+  borders wobble.
+- Coarser flat land (2 per edge instead of 4), finer by the water (4: a ring of beach faces);
+  inner vertices jittered (`jitter`); diagonals fan around a patch's middle.
+- The mesh is bent sideways by smooth noise (`warp`, `warpAmount`), so borders between tiles
+  wander; heights come from the unbent point. `unwarp` maps back: `heightAt` and picking use it;
+  billboards (`footAt`) and trees (`shownX/Z`) are placed through `warp`.
+- A gradient sky behind the map (`updateBackdrop`), per plane.
+- Faces cached per patch (`patchFaces`); a rebuild with nothing changed costs about as much as the
+  simple look's.
+
 ## Next / open
 
+- Fog, roads and the grid (the 2D canvas) still follow the straight tile grid.
+- GLB pipeline for models (ComfyUI, then headless Blender to normalise); check the Anima and
+  Hunyuan3D licences before shipping generated models.
+
 - The smoke test's pact check failed once (passed on rerun): maybe flaky.
-- Decide which look is the default.
+- Decide which look is the default (polygon is the direction).
 - 045's model registry: low-poly models for encounters and cities.

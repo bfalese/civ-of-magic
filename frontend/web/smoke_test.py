@@ -201,7 +201,9 @@ def simple_terrain(smoke, url):
     smoke.wait("window.civGame.map.rotation === 0", "the view to turn back (E)")
     check(True, "Q and E turn the 3D view a quarter turn and back")
     page.keyboard.press("v")
-    check(state("!s.map.simple && s.map.ground !== null"), "V switches back to the tile art")
+    check(state("s.map.terrainLook === 'polygon' && s.map.scene.background !== null"), "V switches to the polygon look (with a sky)")
+    page.keyboard.press("v")
+    check(state("!s.map.simple && s.map.ground !== null && s.map.scene.background === null"), "V switches back to the tile art")
 
 
 def first_turn(smoke, url):

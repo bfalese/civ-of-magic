@@ -11,8 +11,10 @@ The goal is to keep MoM's retro feel while growing it into a Civ-like game with 
 Long-term direction:
 - **Decouple** game logic (pure Go "core") from rendering (swappable frontends).
 - **Drop LBX assets** — move to standard formats (PNG atlases + YAML data).
-- **Visual style:** MoM retro look over 3D (low-res render, ~32-color palette, Bayer dither,
-  depth outlines, sprite units), eventually via a Three.js frontend talking to the Go core over wasm.
+- **Visual style:** flat-polygon 3D in the spirit of *Another World* (faceted geometry, one colour per
+  face from a small per-plane palette, light in a few flat tones, strong silhouettes), in the Three.js
+  frontend talking to the Go core over wasm. 3D models come from a ComfyUI text/image-to-GLB
+  workflow, normalised to match (decimated, flat colours).
 
 The current work plan lives in `docs/handoff/` (latest handoff first). Read it before starting.
 
@@ -62,7 +64,7 @@ make wasm                           # GOOS=js GOARCH=wasm build
 - `frontend/` — web frontends over the wasm core: `frontend/wasm` (the `GOOS=js` entry point exposing
   `civ.*`, plus a bare protocol test page), `frontend/web` (the game in the browser: Three.js map,
   isometric 3D by default (`map3d.js`: the terrain on a ground plane with height by terrain type, cities, stacks and lairs as
-  billboards; Q/E turn the view a quarter turn; `?terrain=simple` or the V key for plain colours per terrain with shaped hills and mountains, carved rivers, a water plane (`terrain-simple.js`) instanced trees (`vegetation.js`) and animated node crystals (`nodes3d.js`); `?view=2d` for the flat `map.js`), sprites from util/export-assets). Run with `go run ./util/serve-web` (builds the core, serves the
+  billboards; Q/E turn the view a quarter turn; `?terrain=simple|polygon` or the V key (cycles textured, simple, polygon) for plain colours per terrain with shaped hills and mountains, carved rivers, a water plane (`terrain-simple.js`) instanced trees (`vegetation.js`) and animated node crystals (`nodes3d.js`); `?view=2d` for the flat `map.js`), sprites from util/export-assets). Run with `go run ./util/serve-web` (builds the core, serves the
   page and the user's exported data) and open http://localhost:8080. Browser smoke test (Playwright):
   `python3 frontend/web/smoke_test.py` against a running serve-web.
 - `test/` — small standalone test programs.

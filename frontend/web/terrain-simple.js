@@ -257,6 +257,24 @@ function makeLooks(palette) {
         seabed: palette.seabed,
     };
 }
+// the polygon look's palette for a plane: its terrain shades and the nodes' (linear colours, as a
+// flat array of paletteSize vec3s)
+function paletteColours(plane) {
+    const palette = palettes[plane] || palettes.Arcanus;
+    const hexes = [];
+    for (const [name, value] of Object.entries(palette)) {
+        if (name === "water" || name === "deepWater") continue;
+        hexes.push(...(Array.isArray(value) ? value : [value]));
+    }
+    hexes.push(0x2a8034, 0x3a9a40, 0x5cc25a, 0x7ad070, 0x3f8a98, 0x4f9aa8, 0x7cc0c8, 0x9ad0d4, 0x5a3028, 0x6a3a30, 0x7a4a3a, 0x8a5a4a, 0xd04a20, 0xb8401c, 0x101010);
+    const values = new Float32Array(paletteSize * 3);
+    for (let index = 0; index < paletteSize; index++) {
+        const value = new THREE.Color(hexes[index < hexes.length ? index : 0]);
+        values.set([value.r, value.g, value.b], index * 3);
+    }
+    return values;
+}
+
 const planeLooks = { Arcanus: makeLooks(palettes.Arcanus), Myrror: makeLooks(palettes.Myrror) };
 // the plane being built (SimpleGround.update sets it; one ground at a time)
 let terrainLooks = planeLooks.Arcanus;
@@ -268,9 +286,24 @@ function lookOf(terrain) {
     return terrainLooks[terrain] || terrainLooks["Grasslands"];
 }
 
+// the polygon look builds coarser flat land (2 vertices per edge, not 4): bigger, bolder faces
+// (SimpleGround.update sets it, with terrainLooks)
+let coarseFlat = false;
+
 function subdivisionsOf(terrain) {
-    return terrain === null ? 2 : lookOf(terrain).subdivisions;
+    if (terrain === null) return 2;
+    const subdivisions = lookOf(terrain).subdivisions;
+    return coarseFlat && subdivisions === 4 ? 2 : subdivisions;
 }
+
+// how far the polygon look moves a patch's inner vertices, in cells: irregular faces instead of a
+// grid (the patch's border stays, so neighbours still meet)
+const jitter = 0.32;
+// the polygon look bends the whole mesh sideways (smooth noise, the same for a vertex shared by
+// neighbours): borders between tiles wander instead of following the grid. Up to warpAmount
+// tiles, over waves of 1/warpFrequency tiles
+const warpAmount = 0.16;
+const warpFrequency = 1.25;
 
 // how much of tile centre at distance `distance` (on one axis) a point takes: 1 well inside, 0 well
 // outside, blending over the band at the edge; the two sides of an edge add up to 1
@@ -278,12 +311,30 @@ function ramp(distance) {
     return 1 - smoothstep(0.5 - blendBand, 0.5 + blendBand, distance);
 }
 
+// the polygon look's shading: four flat tones instead of a smooth gradient (shared with
+// vegetation.js)
+export const lightBands = `
+#ifdef STYLIZED
+float lightBand(float light) {
+    return light < 0.62 ? 0.5 : light < 0.88 ? 0.74 : light < 1.06 ? 1.0 : 1.14;
+}
+#endif
+`;
+// how many colours the polygon look's palette holds (shorter palettes repeat their first)
+const paletteSize = 64;
+// the ambient light of the polygon look: a darker shadow side
+export const stylizedAmbient = 0.4;
+
 const vertexShader = `
 uniform vec2 mapSize;
 varying vec2 overlayUv;
 varying vec2 tileUv;
 varying vec3 worldPosition;
+#ifdef STYLIZED
+flat varying vec3 groundColour;
+#else
 varying vec3 groundColour;
+#endif
 void main() {
     overlayUv = vec2(position.x / mapSize.x, 1.0 - position.z / mapSize.y);
     tileUv = vec2(position.x / mapSize.x, position.z / mapSize.y);
@@ -298,8 +349,9 @@ void main() {
 }
 `;
 
-const fragmentShader = `
+const fragmentShader = /* glsl */ `
 uniform sampler2D overlay;
+uniform vec2 mapSize;
 uniform vec3 tint;
 uniform vec3 lightDirection;
 uniform float ambient;
@@ -308,19 +360,58 @@ uniform vec3 deepTint;
 varying vec2 overlayUv;
 varying vec2 tileUv;
 varying vec3 worldPosition;
+#ifdef STYLIZED
+flat varying vec3 groundColour;
+uniform vec3 palette[PALETTE_SIZE];
+// the nearest colour of the plane's palette (compared in a roughly perceptual space)
+vec3 snapToPalette(vec3 colour) {
+    vec3 best = palette[0];
+    float bestDistance = 1e9;
+    vec3 target = sqrt(colour);
+    for (int index = 0; index < PALETTE_SIZE; index++) {
+        vec3 difference = sqrt(palette[index]) - target;
+        float distance = dot(difference, difference);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = palette[index];
+        }
+    }
+    return best;
+}
+#else
 varying vec3 groundColour;
+#endif
+${lightBands}
 void main() {
     // the facet's normal (flat shading)
     vec3 normal = normalize(cross(dFdx(worldPosition), dFdy(worldPosition)));
     if (normal.y < 0.0) normal = -normal;
     // flat ground at full brightness, as the textured map's baked shading
     float light = min(1.25, ambient + (1.0 - ambient) * max(0.0, dot(normal, lightDirection)) / lightDirection.y);
+#ifdef STYLIZED
+    light = lightBand(light);
+#endif
     vec4 painted = texture2D(overlay, overlayUv);
 #ifdef WATER
-    // darker away from the coast (the distance per tile, smoothed between tile centres)
-    vec3 surface = mix(tint, deepTint, texture2D(depthMap, tileUv).r);
+    // darker away from the coast (the distance per tile, smoothed between tile centres; in
+    // clean bands when stylized)
+#ifdef STYLIZED
+    // the bands' borders wander like the land's (waves that repeat across the map's width, so
+    // they join at its east-west edge)
+    vec2 local = tileUv * mapSize;
+    float waves = floor(mapSize.x * 1.3 / 6.2832 + 0.5) * 6.2832 / mapSize.x;
+    vec2 wobble = vec2(sin(local.y * 2.1 + sin(local.x * waves) * 1.5), cos(local.x * waves * 2.0 + sin(local.y * 1.7) * 1.5)) * 0.3;
+    float depth = texture2D(depthMap, tileUv + wobble / mapSize).r;
+    depth = floor(depth * 2.999) / 2.0;
+#else
+    float depth = texture2D(depthMap, tileUv).r;
+#endif
+    vec3 surface = mix(tint, deepTint, depth);
 #else
     vec3 surface = groundColour * tint;
+#ifdef STYLIZED
+    surface = snapToPalette(surface);
+#endif
 #endif
     gl_FragColor = vec4(mix(surface, painted.rgb, painted.a) * light, 1.0);
     #include <colorspace_fragment>
@@ -338,7 +429,10 @@ export class SimpleGround {
             ambient: { value: ambient },
             depthMap: { value: new THREE.DataTexture(new Uint8Array(4), 1, 1) },
             deepTint: { value: new THREE.Color(palettes.Arcanus.deepWater) },
+            palette: { value: paletteColours("Arcanus") },
         };
+        this.ambient = ambient;
+        this.stylized = false;
         const material = (tint, vertexColors, defines) => new THREE.ShaderMaterial({
             uniforms: { ...this.uniforms, tint: { value: new THREE.Color(tint) } },
             vertexShader,
@@ -356,6 +450,25 @@ export class SimpleGround {
         this.width = 0;
         this.height = 0;
         this.scale = 1;
+    }
+
+    // the polygon look: flat faces in the plane's palette, light in bands, a darker shadow side
+    setStylized(stylized) {
+        if (stylized === this.stylized) return;
+        this.stylized = stylized;
+        // other patches: coarser, irregular, a colour per face
+        this.patches.clear();
+        for (const material of [this.groundMaterial, this.waterMaterial]) {
+            if (stylized) {
+                material.defines.STYLIZED = "";
+                material.defines.PALETTE_SIZE = paletteSize;
+            } else {
+                delete material.defines.STYLIZED;
+                delete material.defines.PALETTE_SIZE;
+            }
+            material.needsUpdate = true;
+        }
+        this.uniforms.ambient.value = stylized ? stylizedAmbient : this.ambient;
     }
 
     setOverlay(texture) {
@@ -377,6 +490,18 @@ export class SimpleGround {
         return { ground, water };
     }
 
+    // whether a tile has water in its 3x3
+    byWater(x, y) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (y + dy < 0 || y + dy >= this.height) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+                const terrain = this.terrainAt(x + dx, y + dy);
+                if (terrain !== null && waterTerrains.has(terrain)) return true;
+            }
+        }
+        return false;
+    }
+
     siteAt(x, y) {
         if (!this.siteList || y < 0 || y >= this.height) return null;
         return this.siteList[y * this.width + ((x % this.width) + this.width) % this.width];
@@ -395,11 +520,13 @@ export class SimpleGround {
         // the plane's colours (another plane: every patch anew)
         const plane = palettes[mapView.plane] ? mapView.plane : "Arcanus";
         terrainLooks = planeLooks[plane];
+        coarseFlat = this.stylized;
         this.waterMaterial.uniforms.tint.value.set(palettes[plane].water);
         this.uniforms.deepTint.value.set(palettes[plane].deepWater);
         if (plane !== this.plane) {
             this.patches.clear();
             this.plane = plane;
+            this.uniforms.palette.value = paletteColours(plane);
         }
         if (scale !== this.scale || mapView.width !== this.width || mapView.height !== this.height) {
             this.patches.clear();
@@ -440,6 +567,15 @@ export class SimpleGround {
         this.width = mapView.width;
         this.height = mapView.height;
         this.scale = scale;
+        this.patchSizes = new Uint8Array(this.width * this.height);
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                const terrain = terrains[y][x];
+                let size = subdivisionsOf(terrain);
+                if (coarseFlat && size === 2 && terrain !== null && !waterTerrains.has(terrain) && this.byWater(x, y)) size = 4;
+                this.patchSizes[y * this.width + x] = size;
+            }
+        }
 
         let vertexCount = 0;
         let indexCount = 0;
@@ -460,37 +596,7 @@ export class SimpleGround {
             }
         }
 
-        const positions = new Float32Array(vertexCount * 3);
-        const colours = new Float32Array(vertexCount * 3);
-        const indices = new Uint32Array(indexCount);
-        let vertexOffset = 0;
-        let indexOffset = 0;
-        for (const patch of patches) {
-            positions.set(patch.positions, vertexOffset * 3);
-            colours.set(patch.colours, vertexOffset * 3);
-            const size = patch.size;
-            const columns = size + 1;
-            for (let row = 0; row < size; row++) {
-                for (let column = 0; column < size; column++) {
-                    const a = vertexOffset + row * columns + column;
-                    const b = a + 1;
-                    const c = a + columns;
-                    const d = c + 1;
-                    indices[indexOffset++] = a;
-                    indices[indexOffset++] = c;
-                    indices[indexOffset++] = b;
-                    indices[indexOffset++] = b;
-                    indices[indexOffset++] = c;
-                    indices[indexOffset++] = d;
-                }
-            }
-            vertexOffset += columns * columns;
-        }
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute("color", new THREE.BufferAttribute(colours, 3));
-        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+        const geometry = this.stylized ? faceted(patches, indexCount) : smooth(patches, vertexCount, indexCount);
         geometry.computeBoundingSphere();
         geometry.computeBoundingBox();
         this.geometry.dispose();
@@ -577,10 +683,10 @@ export class SimpleGround {
     // a tile's grid of vertices; along an edge shared with a coarser tile, the vertices between
     // the coarser one's follow the straight line between them
     buildPatch(tx, tz) {
-        const size = subdivisionsOf(this.terrainAt(tx, tz));
+        const size = this.subdivisionsAt(tx, tz);
         const edgeSize = (dx, dz) => {
             if (tz + dz < 0 || tz + dz >= this.height) return size;
-            return Math.min(size, subdivisionsOf(this.terrainAt(tx + dx, tz + dz)));
+            return Math.min(size, this.subdivisionsAt(tx + dx, tz + dz));
         };
         const left = edgeSize(-1, 0);
         const right = edgeSize(1, 0);
@@ -589,13 +695,24 @@ export class SimpleGround {
         const columns = size + 1;
         const positions = new Float32Array(columns * columns * 3);
         const colours = new Float32Array(columns * columns * 3);
-        const sample = { height: 0, colour: [0, 0, 0] };
-        const other = { height: 0, colour: [0, 0, 0] };
+        // unscaled heights, and colours without the beach (the polygon look picks sand per face)
+        const heights = new Float32Array(columns * columns);
+        const lands = new Float32Array(columns * columns * 3);
+        const sample = { height: 0, colour: [0, 0, 0], land: [0, 0, 0] };
+        const other = { height: 0, colour: [0, 0, 0], land: [0, 0, 0] };
+        const shown = { x: 0, z: 0 };
+        const otherShown = { x: 0, z: 0 };
 
         for (let row = 0; row <= size; row++) {
             for (let column = 0; column <= size; column++) {
-                const wx = tx + column / size;
-                const wz = tz + row / size;
+                let wx = tx + column / size;
+                let wz = tz + row / size;
+                if (this.stylized && row > 0 && row < size && column > 0 && column < size) {
+                    const latticeX = tx * size + column;
+                    const latticeZ = tz * size + row;
+                    wx += (hash(latticeX, latticeZ + 7919) - 0.5) * 2 * jitter / size;
+                    wz += (hash(latticeX + 104729, latticeZ) - 0.5) * 2 * jitter / size;
+                }
                 // the coarser neighbour's step along this edge, if any
                 let step = 1;
                 let along = 0;
@@ -611,28 +728,72 @@ export class SimpleGround {
                 if (step > 1 && along % step !== 0) {
                     const start = along - (along % step);
                     const t = (along - start) / step;
-                    if (vertical) {
-                        this.sampleAt(wx, tz + start / size, sample);
-                        this.sampleAt(wx, tz + (start + step) / size, other);
-                    } else {
-                        this.sampleAt(tx + start / size, wz, sample);
-                        this.sampleAt(tx + (start + step) / size, wz, other);
-                    }
+                    const ax = vertical ? wx : tx + start / size;
+                    const az = vertical ? tz + start / size : wz;
+                    const bx = vertical ? wx : tx + (start + step) / size;
+                    const bz = vertical ? tz + (start + step) / size : wz;
+                    this.sampleAt(ax, az, sample);
+                    this.sampleAt(bx, bz, other);
                     sample.height += (other.height - sample.height) * t;
                     mixInto(sample.colour, sample.colour, other.colour, t);
+                    mixInto(sample.land, sample.land, other.land, t);
+                    // on the straight line between the coarser neighbour's (bent) vertices
+                    this.warp(ax, az, shown);
+                    this.warp(bx, bz, otherShown);
+                    shown.x += (otherShown.x - shown.x) * t;
+                    shown.z += (otherShown.z - shown.z) * t;
                 } else {
                     this.sampleAt(wx, wz, sample);
+                    this.warp(wx, wz, shown);
                 }
-                const index = (row * columns + column) * 3;
-                positions[index] = column / size + tx;
+                const vertex = row * columns + column;
+                const index = vertex * 3;
+                positions[index] = shown.x;
                 positions[index + 1] = this.scaled(sample.height);
-                positions[index + 2] = row / size + tz;
-                colours[index] = sample.colour[0];
-                colours[index + 1] = sample.colour[1];
-                colours[index + 2] = sample.colour[2];
+                positions[index + 2] = shown.z;
+                heights[vertex] = sample.height;
+                for (let axis = 0; axis < 3; axis++) {
+                    colours[index + axis] = sample.colour[axis];
+                    lands[index + axis] = sample.land[axis];
+                }
             }
         }
-        return { size, positions, colours };
+        return { size, positions, colours, heights, lands };
+    }
+
+    // a tile's vertices per edge: its terrain's, but in the polygon look land by the water is
+    // finer (a ring of faces for the beach)
+    subdivisionsAt(x, y) {
+        if (y < 0 || y >= this.height) return 2;
+        return this.patchSizes[y * this.width + ((x % this.width) + this.width) % this.width];
+    }
+
+    // where the mesh shows a point of the ground (the polygon look's bend; wraps east-west, fades
+    // out at the map's north and south edges)
+    warp(x, z, out) {
+        if (!this.stylized) {
+            out.x = x;
+            out.z = z;
+            return out;
+        }
+        const edge = Math.max(0, Math.min(1, z, this.height - z));
+        out.x = x + (valueNoise(x, z, warpFrequency, this.width, 31) - 0.5) * 2 * warpAmount;
+        out.z = z + (valueNoise(x, z, warpFrequency, this.width, 37) - 0.5) * 2 * warpAmount * edge;
+        return out;
+    }
+
+    // the point of the ground the mesh shows at (x, z): the bend undone (a few fixed-point steps;
+    // the bend is gentle enough to converge)
+    unwarp(x, z, out) {
+        out.x = x;
+        out.z = z;
+        if (!this.stylized) return out;
+        for (let step = 0; step < 5; step++) {
+            this.warp(out.x, out.z, unwarpScratch);
+            out.x = x - (unwarpScratch.x - out.x);
+            out.z = z - (unwarpScratch.z - out.z);
+        }
+        return out;
     }
 
     // a height by the H key's scale; flat (0), land stays just above the water and water's
@@ -706,6 +867,11 @@ export class SimpleGround {
             colourSum[0] += part[0] * weights[index];
             colourSum[1] += part[1] * weights[index];
             colourSum[2] += part[2] * weights[index];
+        }
+        if (out.land) {
+            out.land[0] = colourSum[0];
+            out.land[1] = colourSum[1];
+            out.land[2] = colourSum[2];
         }
         // sand along the water
         mixInto(colourSum, colourSum, colour(terrainLooks.sand), 1 - smoothstep(0, beachHeight, height));
@@ -806,13 +972,22 @@ export class SimpleGround {
     // the ground's height for things standing on it: at least the water's (ships float), by the
     // H key's scale
     heightAt(wx, wz) {
+        const point = this.unwarp(wx, wz, heightPoint);
+        return this.groundHeight(point.x, point.z);
+    }
+
+    // the same at a point of the ground before the polygon look's bend (where the mesh shows it:
+    // warp)
+    groundHeight(x, z) {
         if (!this.terrains) return 0;
-        const sample = this.sampleAt(wx, Math.max(0, Math.min(this.height - 0.001, wz)), heightSample);
+        const sample = this.sampleAt(x, Math.max(0, Math.min(this.height - 0.001, z)), heightSample);
         return Math.max(0, this.scaled(sample.height));
     }
 }
 
 const heightSample = { height: 0, colour: [0, 0, 0] };
+const heightPoint = { x: 0, z: 0 };
+const unwarpScratch = { x: 0, z: 0 };
 const neighbourCodes = new Uint16Array(25);
 // scratch space for sampleAt (no allocation per sample)
 const sampleTilesX = new Int32Array(4);
@@ -827,4 +1002,101 @@ function distanceToSegment(px, pz, ax, az, bx, bz) {
     const length = abx * abx + abz * abz;
     const t = length > 0 ? Math.max(0, Math.min(1, ((px - ax) * abx + (pz - az) * abz) / length)) : 0;
     return Math.hypot(px - (ax + abx * t), pz - (az + abz * t));
+}
+
+// the ground's mesh from its patches: shared vertices, colours blending across faces
+function smooth(patches, vertexCount, indexCount) {
+    const positions = new Float32Array(vertexCount * 3);
+    const colours = new Float32Array(vertexCount * 3);
+    const indices = new Uint32Array(indexCount);
+    let vertexOffset = 0;
+    let indexOffset = 0;
+    for (const patch of patches) {
+        positions.set(patch.positions, vertexOffset * 3);
+        colours.set(patch.colours, vertexOffset * 3);
+        const size = patch.size;
+        const columns = size + 1;
+        for (let row = 0; row < size; row++) {
+            for (let column = 0; column < size; column++) {
+                const a = vertexOffset + row * columns + column;
+                const b = a + 1;
+                const c = a + columns;
+                const d = c + 1;
+                indices[indexOffset++] = a;
+                indices[indexOffset++] = c;
+                indices[indexOffset++] = b;
+                indices[indexOffset++] = b;
+                indices[indexOffset++] = c;
+                indices[indexOffset++] = d;
+            }
+        }
+        vertexOffset += columns * columns;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(colours, 3));
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    return geometry;
+}
+
+// the polygon look's mesh: every face its own three vertices and one colour (the average of its
+// corners', so a border between colours runs along face edges instead of a sawtooth; sand if it
+// reaches down to the water), the
+// diagonals turning around the patch's middle (a fan, less of a grid)
+function faceted(patches, indexCount) {
+    const positions = new Float32Array(indexCount * 3);
+    const colours = new Float32Array(indexCount * 3);
+    let offset = 0;
+    for (const patch of patches) {
+        if (!patch.faces) patch.faces = patchFaces(patch);
+        positions.set(patch.faces.positions, offset);
+        colours.set(patch.faces.colours, offset);
+        offset += patch.faces.positions.length;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(colours, 3));
+    return geometry;
+}
+
+// one patch's faces for faceted (kept with the patch)
+function patchFaces(patch) {
+    const size = patch.size;
+    const positions = new Float32Array(size * size * 18);
+    const colours = new Float32Array(size * size * 18);
+    const source = patch.positions;
+    const tint = patch.lands;
+    const heights = patch.heights;
+    const sand = colour(terrainLooks.sand);
+    let offset = 0;
+    const face = (a, b, c) => {
+        // a face reaching down to the water is beach, all of it
+        const beach = Math.min(heights[a], heights[b], heights[c]) < beachHeight;
+        for (let axis = 0; axis < 3; axis++) {
+            const average = beach ? sand[axis] : (tint[a * 3 + axis] + tint[b * 3 + axis] + tint[c * 3 + axis]) / 3;
+            positions[offset + axis] = source[a * 3 + axis];
+            positions[offset + 3 + axis] = source[b * 3 + axis];
+            positions[offset + 6 + axis] = source[c * 3 + axis];
+            colours[offset + axis] = colours[offset + 3 + axis] = colours[offset + 6 + axis] = average;
+        }
+        offset += 9;
+    };
+    const columns = size + 1;
+    const half = size / 2;
+    for (let row = 0; row < size; row++) {
+        for (let column = 0; column < size; column++) {
+            const a = row * columns + column;
+            const b = a + 1;
+            const c = a + columns;
+            const d = c + 1;
+            if ((row < half) === (column < half)) {
+                face(a, c, d);
+                face(a, d, b);
+            } else {
+                face(a, c, b);
+                face(b, c, d);
+            }
+        }
+    }
+    return { positions, colours };
 }
