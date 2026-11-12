@@ -312,10 +312,11 @@ export class MapRenderer3D extends MapRenderer {
         return material;
     }
 
-    // a billboard standing on its tile (its middle over the tile's centre), smaller than the ground's
-// pixels (billboardScale); an
-    // animated sprite keeps a material per frame and steps through them (afterDraw)
-    billboard(textures, location, dimmed) {
+    // a billboard standing on its tile (its middle over the tile's centre), smaller than the
+    // ground's pixels (billboardScale); in front: before anything else on the tile (the selected
+    // stack in its city). An animated sprite keeps a material per frame and steps through them
+    // (afterDraw)
+    billboard(textures, location, dimmed, inFront = false) {
         const texture = textures[0];
         const materials = textures.map((frame) => this.spriteMaterial(frame, dimmed));
         const sprite = new THREE.Sprite(materials[this.frame % materials.length]);
@@ -332,10 +333,12 @@ export class MapRenderer3D extends MapRenderer {
         // of the drawn height; going down the screen by d covers d / sin(pitch) of ground. It
         // stays inside the tile's diamond (its front corner is 0.71 away).
         const drawn = (bottom - top + 1) * scale;
-        const toward = Math.min(0.6, drawn * billboardFoot / Math.sin(pitch));
+        // in front: nearer the camera than any other billboard's foot on the tile (at most 0.6),
+        // and a little up (nearer still)
+        const toward = inFront ? 0.68 : Math.min(0.6, drawn * billboardFoot / Math.sin(pitch));
         const worldX = location.x + 0.5 - groundUp.x * toward;
         const worldZ = location.y + 0.5 - groundUp.z * toward;
-        sprite.position.set(worldX, this.heightAt(worldX, worldZ), worldZ);
+        sprite.position.set(worldX, this.heightAt(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
         sprite.userData.tile = { plane: this.plane, x: location.x, y: location.y };
         return sprite;
     }
@@ -403,7 +406,7 @@ export class MapRenderer3D extends MapRenderer {
                 const isSelected = selected && selected.plane === stack.location.plane && selected.x === stack.location.x && selected.y === stack.location.y;
                 if (!isSelected && cityTiles.has(`${stack.location.x}/${stack.location.y}`)) continue;
                 // the selected stack stands in front of its city
-                things.push({ texture: stackTexture(stack.background, stack.units[0].asset), location: stack.location, dimmed: false, selected: isSelected });
+                things.push({ texture: stackTexture(stack.background, stack.units[0].asset), location: stack.location, dimmed: false, selected: isSelected, inCity: cityTiles.has(`${stack.location.x}/${stack.location.y}`) });
             }
         }
 
@@ -415,11 +418,9 @@ export class MapRenderer3D extends MapRenderer {
         this.billboards = this.copies.map((copy) => {
             const group = new THREE.Group();
             for (const thing of things) {
-                const sprite = this.billboard(thing.texture, thing.location, thing.dimmed);
+                // the selected stack stands in front of its city
+                const sprite = this.billboard(thing.texture, thing.location, thing.dimmed, !!thing.inCity);
                 if (thing.selected) {
-                    // in front of a city on the same tile
-                    sprite.position.x += 0.12;
-                    sprite.position.z += 0.12;
                     this.selectedSprites.push(sprite);
                 }
                 group.add(sprite);
