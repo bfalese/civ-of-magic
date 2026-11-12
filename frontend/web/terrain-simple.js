@@ -188,6 +188,8 @@ const palettes = {
         volcano: [0x4e423a, 0x443a36, 0x3a3434, 0x302c2c],
         sand: 0xd6c48a,
         seabed: 0xc8b07a,
+        road: 0x6e5838,
+        enchantedRoad: 0xd8b04a,
         water: 0x3a74b8,
         deepWater: 0x17336a,
     },
@@ -204,6 +206,8 @@ const palettes = {
         volcano: [0x3a3030, 0x342a2c, 0x2c2628, 0x241f22],
         sand: 0x9a8a7c,
         seabed: 0x6a5e58,
+        road: 0x584640,
+        enchantedRoad: 0xb8984a,
         water: 0x34467c,
         deepWater: 0x10152e,
     },
@@ -304,6 +308,18 @@ const jitter = 0.32;
 // tiles, over waves of 1/warpFrequency tiles
 const warpAmount = 0.16;
 const warpFrequency = 1.25;
+// roads in the polygon look: half their width, how far above the ground and the length of
+// their pieces, in tiles
+const roadHalfWidth = 0.055;
+const roadLift = 0.02;
+const roadStep = 0.06;
+// over mountains: the grid a road's way is found on (cells per tile edge) and how much climbing
+// costs against distance
+const routeCells = 10;
+const routeClimb = 8;
+const routeWet = 30;
+// the water plane's vertices per tile edge (its canvas follows the bend between them)
+const waterDetail = 4;
 
 // how much of tile centre at distance `distance` (on one axis) a point takes: 1 well inside, 0 well
 // outside, blending over the band at the edge; the two sides of an edge add up to 1
@@ -327,8 +343,12 @@ export const stylizedAmbient = 0.4;
 
 const vertexShader = `
 uniform vec2 mapSize;
+// the point of the ground a vertex shows (the polygon look bends the mesh sideways: the canvas's
+// fog, roads, grid and paths follow the bend)
+attribute vec2 lattice;
 varying vec2 overlayUv;
 varying vec2 tileUv;
+varying vec2 fogUv;
 varying vec3 worldPosition;
 #ifdef STYLIZED
 flat varying vec3 groundColour;
@@ -336,7 +356,8 @@ flat varying vec3 groundColour;
 varying vec3 groundColour;
 #endif
 void main() {
-    overlayUv = vec2(position.x / mapSize.x, 1.0 - position.z / mapSize.y);
+    overlayUv = vec2(lattice.x / mapSize.x, 1.0 - lattice.y / mapSize.y);
+    fogUv = lattice / mapSize;
     tileUv = vec2(position.x / mapSize.x, position.z / mapSize.y);
 #ifdef USE_COLOR
     groundColour = color;
@@ -357,8 +378,20 @@ uniform vec3 lightDirection;
 uniform float ambient;
 uniform sampler2D depthMap;
 uniform vec3 deepTint;
+uniform sampler2D fogMap;
+uniform float shadesFog;
+uniform float unexploredSky;
+// the backdrop's gradient (sRGB, as the canvas map3d.js draws it) and the screen's height in pixels
+uniform vec3 skyTop;
+uniform vec3 skyBottom;
+uniform float skyHeight;
+vec3 skyAt(float height) {
+    vec3 colour = mix(skyBottom, skyTop, clamp(height, 0.0, 1.0));
+    return mix(colour / 12.92, pow((colour + 0.055) / 1.055, vec3(2.4)), step(0.04045, colour));
+}
 varying vec2 overlayUv;
 varying vec2 tileUv;
+varying vec2 fogUv;
 varying vec3 worldPosition;
 #ifdef STYLIZED
 flat varying vec3 groundColour;
@@ -382,6 +415,18 @@ vec3 snapToPalette(vec3 colour) {
 varying vec3 groundColour;
 #endif
 ${lightBands}
+const vec3 fogTone = vec3(0.4, 0.44, 0.58);
+// the fog's edge: how sharply it turns between tile centres (1: over a whole tile), and the
+// dither's pixels per tile
+const float fogEdge = 2.2;
+const float ditherCells = 16.0;
+// a 4x4 ordered dither threshold in [0, 1) for a pixel
+float bayer2(vec2 cell) {
+    return fract(cell.x / 2.0 + cell.y * cell.y * 0.75);
+}
+float bayer4(vec2 cell) {
+    return bayer2(floor(cell * 0.5)) * 0.25 + bayer2(cell);
+}
 void main() {
     // the facet's normal (flat shading)
     vec3 normal = normalize(cross(dFdx(worldPosition), dFdy(worldPosition)));
@@ -413,7 +458,26 @@ void main() {
     surface = snapToPalette(surface);
 #endif
 #endif
-    gl_FragColor = vec4(mix(surface, painted.rgb, painted.a) * light, 1.0);
+    vec3 shown = mix(surface, painted.rgb, painted.a) * light;
+#ifdef STYLIZED
+    // the fog, per tile (its borders bent with the ground): unexplored gone, seen before but not
+    // now in a cold dusk tone; edges dithered in pixels stuck to the ground (ditherCells per tile), like the original's
+    // fog edges; unexplored shows the sky behind the map (or black: unexploredSky)
+    if (shadesFog > 0.5) {
+        vec2 fog = texture2D(fogMap, fogUv).rg;
+        float explored = clamp((fog.r - 0.5) * fogEdge + 0.5, 0.0, 1.0);
+        float seen = clamp((fog.g - 0.5) * fogEdge + 0.5, 0.0, 1.0);
+        float threshold = bayer4(floor(fogUv * mapSize * ditherCells));
+        if (explored <= threshold) {
+            // the sky's colour at this height on the screen (cutting the ground out would show the
+            // water plane under it)
+            shown = unexploredSky > 0.5 ? skyAt(gl_FragCoord.y / skyHeight) : vec3(0.0);
+        } else if (seen <= threshold) {
+            shown *= fogTone;
+        }
+    }
+#endif
+    gl_FragColor = vec4(shown, 1.0);
     #include <colorspace_fragment>
 }
 `;
@@ -430,6 +494,14 @@ export class SimpleGround {
             depthMap: { value: new THREE.DataTexture(new Uint8Array(4), 1, 1) },
             deepTint: { value: new THREE.Color(palettes.Arcanus.deepWater) },
             palette: { value: paletteColours("Arcanus") },
+            // per tile: red whether explored, green whether seen now (updateFog); the polygon look
+            // shades it (shadesFog), the others leave it to the canvas
+            fogMap: { value: new THREE.DataTexture(new Uint8Array(4), 1, 1) },
+            shadesFog: { value: 0 },
+            unexploredSky: { value: 1 },
+            skyTop: { value: new THREE.Vector3() },
+            skyBottom: { value: new THREE.Vector3() },
+            skyHeight: { value: 1 },
         };
         this.ambient = ambient;
         this.stylized = false;
@@ -441,6 +513,12 @@ export class SimpleGround {
             defines,
         });
         this.groundMaterial = material(0xffffff, true, {});
+        // the polygon look's roads (roadGeometry): the ground's shading, drawn over it
+        this.roadMaterial = material(0xffffff, true, {});
+        this.roadMaterial.side = THREE.DoubleSide;
+        this.roadMaterial.polygonOffset = true;
+        this.roadMaterial.polygonOffsetFactor = -2;
+        this.roadMaterial.polygonOffsetUnits = -4;
         this.waterMaterial = material(palettes.Arcanus.water, false, { WATER: 1 });
         this.geometry = new THREE.BufferGeometry();
         this.waterGeometry = null;
@@ -458,7 +536,7 @@ export class SimpleGround {
         this.stylized = stylized;
         // other patches: coarser, irregular, a colour per face
         this.patches.clear();
-        for (const material of [this.groundMaterial, this.waterMaterial]) {
+        for (const material of [this.groundMaterial, this.waterMaterial, this.roadMaterial]) {
             if (stylized) {
                 material.defines.STYLIZED = "";
                 material.defines.PALETTE_SIZE = paletteSize;
@@ -469,6 +547,14 @@ export class SimpleGround {
             material.needsUpdate = true;
         }
         this.uniforms.ambient.value = stylized ? stylizedAmbient : this.ambient;
+        this.uniforms.shadesFog.value = stylized ? 1 : 0;
+    }
+
+    // the backdrop's gradient (CSS hex colours), for unexplored land in the polygon look
+    setSky(top, bottom) {
+        const rgb = (hex) => [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255);
+        this.uniforms.skyTop.value.fromArray(rgb(top));
+        this.uniforms.skyBottom.value.fromArray(rgb(bottom));
     }
 
     setOverlay(texture) {
@@ -479,10 +565,14 @@ export class SimpleGround {
     // by update (see copyGround)
     makeCopy(width, height) {
         if (!this.waterGeometry || this.waterSize !== `${width}x${height}`) {
-            this.waterGeometry = new THREE.PlaneGeometry(width, height);
+            // fine enough for its canvas to follow the polygon look's bend (updateWater)
+            this.waterGeometry = new THREE.PlaneGeometry(width, height, width * waterDetail, height * waterDetail);
             this.waterGeometry.rotateX(-Math.PI / 2);
             this.waterGeometry.translate(width / 2, 0, height / 2);
+            const count = this.waterGeometry.attributes.position.count;
+            this.waterGeometry.setAttribute("lattice", new THREE.BufferAttribute(new Float32Array(count * 2), 2));
             this.waterSize = `${width}x${height}`;
+            this.waterLattice = null;
         }
         this.uniforms.mapSize.value.set(width, height);
         const ground = new THREE.Mesh(this.geometry, this.groundMaterial);
@@ -602,7 +692,253 @@ export class SimpleGround {
         this.geometry.dispose();
         this.geometry = geometry;
         this.updateDepth();
+        this.updateWater();
         return geometry;
+    }
+
+    // what the player sees: a texel per tile (see the fogMap uniform)
+    updateFog(mapView) {
+        const { width, height } = mapView;
+        let texture = this.uniforms.fogMap.value;
+        if (texture.image.width !== width || texture.image.height !== height) {
+            texture.dispose();
+            texture = new THREE.DataTexture(new Uint8Array(width * height * 4), width, height);
+            // blending between tile centres: the shader dithers across that
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearFilter;
+            texture.wrapS = THREE.RepeatWrapping;
+            this.uniforms.fogMap.value = texture;
+        }
+        const data = texture.image.data;
+        mapView.tiles.forEach((row, y) => row.forEach((tile, x) => {
+            data[(y * width + x) * 4] = tile ? 255 : 0;
+            data[(y * width + x) * 4 + 1] = tile && tile.visible ? 255 : 0;
+        }));
+        texture.needsUpdate = true;
+    }
+
+    // the polygon look's roads: a flat strip from each road tile's middle to each neighbour it
+    // joins (overlays "road/<direction>", "road-enchanted/<direction>"), a cap in the middle,
+    // laid on the (bent) ground and over river channels; null when there are none
+    roadGeometry(mapView) {
+        const positions = [];
+        const colours = [];
+        const lattice = [];
+        const shown = { x: 0, z: 0 };
+        const vertex = (x, z, tint) => {
+            this.warp(x, z, shown);
+            const ground = Math.max(this.groundHeight(x, z), this.scaled(beachHeight));
+            positions.push(shown.x, ground + this.scaled(roadLift), shown.z);
+            colours.push(tint[0], tint[1], tint[2]);
+            lattice.push(x, z);
+        };
+        const plane = palettes[mapView.plane] || palettes.Arcanus;
+        // a strip along a line of points (lattice), cut into short pieces to follow the ground
+        const strip = (points, tint) => {
+            for (let index = 0; index + 1 < points.length; index++) {
+                const [sx, sz] = points[index];
+                const [ex, ez] = points[index + 1];
+                const length = Math.hypot(ex - sx, ez - sz);
+                if (length === 0) continue;
+                const nx = (-(ez - sz) / length) * roadHalfWidth;
+                const nz = ((ex - sx) / length) * roadHalfWidth;
+                const steps = Math.ceil(length / roadStep);
+                for (let step = 0; step < steps; step++) {
+                    const ax = sx + ((ex - sx) * step) / steps, az = sz + ((ez - sz) * step) / steps;
+                    const bx = sx + ((ex - sx) * (step + 1)) / steps, bz = sz + ((ez - sz) * (step + 1)) / steps;
+                    vertex(ax + nx, az + nz, tint);
+                    vertex(ax - nx, az - nz, tint);
+                    vertex(bx + nx, bz + nz, tint);
+                    vertex(bx + nx, bz + nz, tint);
+                    vertex(ax - nx, az - nz, tint);
+                    vertex(bx - nx, bz - nz, tint);
+                }
+                // a round joint at each bend
+                if (index > 0) cap(sx, sz, roadHalfWidth, tint);
+            }
+        };
+        const cap = (cx, cz, radius, tint) => {
+            for (let side = 0; side < 8; side++) {
+                const a = (side / 8) * Math.PI * 2;
+                const b = ((side + 1) / 8) * Math.PI * 2;
+                vertex(cx, cz, tint);
+                vertex(cx + Math.cos(b) * radius, cz + Math.sin(b) * radius, tint);
+                vertex(cx + Math.cos(a) * radius, cz + Math.sin(a) * radius, tint);
+            }
+        };
+        mapView.tiles.forEach((row, y) => row.forEach((tile, x) => {
+            if (!tile) return;
+            const pieces = roadPieces(tile);
+            if (pieces.length === 0) return;
+            const tint = colour(pieces.some((piece) => piece.enchanted) ? plane.enchantedRoad : plane.road);
+            const [hubX, hubZ] = this.roadHub(x, y);
+            // round a mountain's peak, along a river's banks (crossing it the short way)
+            const routed = this.mountainous(x, y) || this.terrainAt(x, y) === "River";
+            let alone = true;
+            for (const { dx, dz } of pieces) {
+                if (dx === 0 && dz === 0) continue;
+                alone = false;
+                const [endX, endZ] = this.roadExit(x, y, dx, dz);
+                strip(routed ? this.roadRoute(x, y, hubX, hubZ, endX, endZ) : [[hubX, hubZ], [endX, endZ]], tint);
+            }
+            // the middle: a cap over the strips' joins (an unjoined road: a small plaza)
+            cap(hubX, hubZ, alone ? roadHalfWidth * 1.8 : roadHalfWidth, tint);
+        }));
+        if (positions.length === 0) return null;
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+        geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colours), 3));
+        geometry.setAttribute("lattice", new THREE.BufferAttribute(new Float32Array(lattice), 2));
+        geometry.computeBoundingSphere();
+        return geometry;
+    }
+
+    // whether a tile is a mountain (roads go round its peak)
+    mountainous(x, y) {
+        const terrain = this.terrainAt(x, y);
+        return terrain !== null && rangeKinds[terrain] === "mountain";
+    }
+
+    // where a tile's roads meet: its middle, or on a mountain the lowest ground around it
+    roadHub(x, y) {
+        const cx = x + 0.5;
+        const cz = y + 0.5;
+        const mountain = this.mountainous(x, y);
+        if (!mountain && this.terrainAt(x, y) !== "River") return [cx, cz];
+        let best = [cx, cz];
+        let lowest = Infinity;
+        for (let row = 1; row < routeCells; row++) {
+            for (let column = 1; column < routeCells; column++) {
+                const px = x + column / routeCells;
+                const pz = y + row / routeCells;
+                const distance = Math.hypot(px - cx, pz - cz);
+                if (distance > 0.36) continue;
+                // dry ground; on a mountain the lowest, else the nearest the middle
+                const score = (this.wet(px, pz) ? 1000 : 0) + (mountain ? this.groundHeight(px, pz) : distance);
+                if (score < lowest) {
+                    lowest = score;
+                    best = [px, pz];
+                }
+            }
+        }
+        return best;
+    }
+
+    // whether a point of the ground is in the water or a river's channel (or on a beach)
+    wet(x, z) {
+        return this.groundHeight(x, z) / Math.max(this.scale, 1e-3) < beachHeight;
+    }
+
+    // where a road leaves a tile toward (dx, dz): the edge's middle (a corner, diagonally); next
+    // to a mountain the lowest point along the edge, next to a river a dry one (both tiles find
+    // the same one)
+    roadExit(x, y, dx, dz) {
+        const mx = x + 0.5 + dx * 0.5;
+        const mz = y + 0.5 + dz * 0.5;
+        const mountain = this.mountainous(x, y) || this.mountainous(x + dx, y + dz);
+        const river = this.terrainAt(x, y) === "River" || this.terrainAt(x + dx, y + dz) === "River";
+        if ((dx !== 0 && dz !== 0) || (!mountain && !river)) return [mx, mz];
+        let best = [mx, mz];
+        let lowest = Infinity;
+        for (let step = -5; step <= 5; step++) {
+            const along = step * 0.07;
+            const px = mx + (dx === 0 ? along : 0);
+            const pz = mz + (dz === 0 ? along : 0);
+            // ties (flat ground) go to the middle
+            const height = (this.wet(px, pz) ? 1000 : 0) + (mountain ? this.groundHeight(px, pz) : 0) + Math.abs(step) * 1e-5;
+            if (height < lowest) {
+                lowest = height;
+                best = [px, pz];
+            }
+        }
+        return best;
+    }
+
+    // a road over a mountain or river tile from (ax, az) to (bx, bz): the cheapest way over a
+    // grid of points (climbing a mountain costs, and much more being in the water), smoothed;
+    // [[x, z]]
+    roadRoute(x, y, ax, az, bx, bz) {
+        const mountain = this.mountainous(x, y);
+        const side = routeCells + 1;
+        const heights = new Float64Array(side * side);
+        const scale = Math.max(this.scale, 1e-3);
+        for (let row = 0; row < side; row++) {
+            for (let column = 0; column < side; column++) {
+                heights[row * side + column] = this.groundHeight(x + column / routeCells, y + row / routeCells) / scale;
+            }
+        }
+        const node = (px, pz) => {
+            const column = Math.max(0, Math.min(routeCells, Math.round((px - x) * routeCells)));
+            const row = Math.max(0, Math.min(routeCells, Math.round((pz - y) * routeCells)));
+            return row * side + column;
+        };
+        const start = node(ax, az);
+        const goal = node(bx, bz);
+        const cost = new Float64Array(side * side).fill(Infinity);
+        const from = new Int32Array(side * side).fill(-1);
+        const done = new Uint8Array(side * side);
+        cost[start] = 0;
+        // Dijkstra over 121 points: a plain scan for the next one is quick enough
+        for (;;) {
+            let current = -1;
+            for (let index = 0; index < cost.length; index++) {
+                if (!done[index] && cost[index] < Infinity && (current < 0 || cost[index] < cost[current])) current = index;
+            }
+            if (current < 0 || current === goal) break;
+            done[current] = 1;
+            const row = Math.floor(current / side);
+            const column = current % side;
+            for (let dz = -1; dz <= 1; dz++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const nextRow = row + dz;
+                    const nextColumn = column + dx;
+                    if ((dx === 0 && dz === 0) || nextRow < 0 || nextRow > routeCells || nextColumn < 0 || nextColumn > routeCells) continue;
+                    const next = nextRow * side + nextColumn;
+                    const high = Math.max(heights[current], heights[next]);
+                    const wet = Math.min(heights[current], heights[next]) < beachHeight ? routeWet : 0;
+                    const step = Math.hypot(dx, dz) * (1 + (mountain ? routeClimb * high : 0) + wet);
+                    if (cost[current] + step < cost[next]) {
+                        cost[next] = cost[current] + step;
+                        from[next] = current;
+                    }
+                }
+            }
+        }
+        const nodes = [];
+        for (let index = goal; index >= 0; index = from[index]) {
+            nodes.push([x + (index % side) / routeCells, y + Math.floor(index / side) / routeCells]);
+            if (index === start) break;
+        }
+        nodes.reverse();
+        let points = [[ax, az], ...nodes.slice(1, -1), [bx, bz]];
+        // rounder: corner cutting, the ends kept
+        for (let pass = 0; pass < 2; pass++) {
+            const smoother = [points[0]];
+            for (let index = 0; index + 1 < points.length; index++) {
+                const [px, pz] = points[index];
+                const [qx, qz] = points[index + 1];
+                if (index > 0) smoother.push([px * 0.75 + qx * 0.25, pz * 0.75 + qz * 0.25]);
+                if (index + 2 < points.length) smoother.push([px * 0.25 + qx * 0.75, pz * 0.25 + qz * 0.75]);
+            }
+            smoother.push(points[points.length - 1]);
+            points = smoother;
+        }
+        return points;
+    }
+
+    // the water plane's points of the ground (its vertices unbent), for the canvas laid over it
+    updateWater() {
+        const key = `${this.stylized}/${this.width}x${this.height}`;
+        if (!this.waterGeometry || this.waterLattice === key) return;
+        this.waterLattice = key;
+        const positions = this.waterGeometry.attributes.position;
+        const attribute = this.waterGeometry.attributes.lattice;
+        const point = { x: 0, z: 0 };
+        for (let index = 0; index < positions.count; index++) {
+            this.unwarp(positions.getX(index), positions.getZ(index), point);
+            attribute.setXY(index, point.x, point.z);
+        }
+        attribute.needsUpdate = true;
     }
 
     // how deep each water tile is: its distance (8 neighbours, wrapping east-west) from the
@@ -697,6 +1033,7 @@ export class SimpleGround {
         const colours = new Float32Array(columns * columns * 3);
         // unscaled heights, and colours without the beach (the polygon look picks sand per face)
         const heights = new Float32Array(columns * columns);
+        const lattice = new Float32Array(columns * columns * 2);
         const lands = new Float32Array(columns * columns * 3);
         const sample = { height: 0, colour: [0, 0, 0], land: [0, 0, 0] };
         const other = { height: 0, colour: [0, 0, 0], land: [0, 0, 0] };
@@ -752,13 +1089,15 @@ export class SimpleGround {
                 positions[index + 1] = this.scaled(sample.height);
                 positions[index + 2] = shown.z;
                 heights[vertex] = sample.height;
+                lattice[vertex * 2] = wx;
+                lattice[vertex * 2 + 1] = wz;
                 for (let axis = 0; axis < 3; axis++) {
                     colours[index + axis] = sample.colour[axis];
                     lands[index + axis] = sample.land[axis];
                 }
             }
         }
-        return { size, positions, colours, heights, lands };
+        return { size, positions, colours, heights, lands, lattice };
     }
 
     // a tile's vertices per edge: its terrain's, but in the polygon look land by the water is
@@ -985,6 +1324,20 @@ export class SimpleGround {
     }
 }
 
+// a road tile's pieces: [{dx, dz, enchanted}] toward the neighbours it joins ({0, 0}: the
+// unjoined middle), from its overlays
+const roadDirections = { center: [0, 0], n: [0, -1], ne: [1, -1], e: [1, 0], se: [1, 1], s: [0, 1], sw: [-1, 1], w: [-1, 0], nw: [-1, -1] };
+export function roadPieces(tile) {
+    const pieces = [];
+    for (const overlay of tile.overlays || []) {
+        const [kind, direction] = overlay.split("/");
+        if ((kind !== "road" && kind !== "road-enchanted") || !roadDirections[direction]) continue;
+        const [dx, dz] = roadDirections[direction];
+        pieces.push({ dx, dz, enchanted: kind === "road-enchanted" });
+    }
+    return pieces;
+}
+
 const heightSample = { height: 0, colour: [0, 0, 0] };
 const heightPoint = { x: 0, z: 0 };
 const unwarpScratch = { x: 0, z: 0 };
@@ -1009,11 +1362,13 @@ function smooth(patches, vertexCount, indexCount) {
     const positions = new Float32Array(vertexCount * 3);
     const colours = new Float32Array(vertexCount * 3);
     const indices = new Uint32Array(indexCount);
+    const lattice = new Float32Array(vertexCount * 2);
     let vertexOffset = 0;
     let indexOffset = 0;
     for (const patch of patches) {
         positions.set(patch.positions, vertexOffset * 3);
         colours.set(patch.colours, vertexOffset * 3);
+        lattice.set(patch.lattice, vertexOffset * 2);
         const size = patch.size;
         const columns = size + 1;
         for (let row = 0; row < size; row++) {
@@ -1035,6 +1390,7 @@ function smooth(patches, vertexCount, indexCount) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colours, 3));
+    geometry.setAttribute("lattice", new THREE.BufferAttribute(lattice, 2));
     geometry.setIndex(new THREE.BufferAttribute(indices, 1));
     return geometry;
 }
@@ -1046,16 +1402,19 @@ function smooth(patches, vertexCount, indexCount) {
 function faceted(patches, indexCount) {
     const positions = new Float32Array(indexCount * 3);
     const colours = new Float32Array(indexCount * 3);
+    const lattice = new Float32Array(indexCount * 2);
     let offset = 0;
     for (const patch of patches) {
         if (!patch.faces) patch.faces = patchFaces(patch);
         positions.set(patch.faces.positions, offset);
         colours.set(patch.faces.colours, offset);
+        lattice.set(patch.faces.lattice, offset / 3 * 2);
         offset += patch.faces.positions.length;
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("color", new THREE.BufferAttribute(colours, 3));
+    geometry.setAttribute("lattice", new THREE.BufferAttribute(lattice, 2));
     return geometry;
 }
 
@@ -1064,6 +1423,9 @@ function patchFaces(patch) {
     const size = patch.size;
     const positions = new Float32Array(size * size * 18);
     const colours = new Float32Array(size * size * 18);
+    const lattice = new Float32Array(size * size * 12);
+    const points = patch.lattice;
+    let latticeOffset = 0;
     const source = patch.positions;
     const tint = patch.lands;
     const heights = patch.heights;
@@ -1078,6 +1440,10 @@ function patchFaces(patch) {
             positions[offset + 3 + axis] = source[b * 3 + axis];
             positions[offset + 6 + axis] = source[c * 3 + axis];
             colours[offset + axis] = colours[offset + 3 + axis] = colours[offset + 6 + axis] = average;
+        }
+        for (const vertex of [a, b, c]) {
+            lattice[latticeOffset++] = points[vertex * 2];
+            lattice[latticeOffset++] = points[vertex * 2 + 1];
         }
         offset += 9;
     };
@@ -1098,5 +1464,5 @@ function patchFaces(patch) {
             }
         }
     }
-    return { positions, colours };
+    return { positions, colours, lattice };
 }

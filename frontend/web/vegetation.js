@@ -8,7 +8,7 @@
 // Trees on explored land the player doesn't see now are dimmed like the billboards.
 
 import * as THREE from "three";
-import { hash, lightBands } from "./terrain-simple.js";
+import { hash, lightBands, roadPieces } from "./terrain-simple.js";
 
 // per terrain: how many of each kind a tile may get, tried at jittered spots (a tile gets
 // `tries` spots; each picks a kind by these weights, or nothing)
@@ -51,6 +51,16 @@ const dimColour = 0.55;
 // plants stay this far (tiles) from a billboard's foot, off ground lower than this (water, the
 // river channels, the beach) and off ground steeper than this
 const clearRadius = 0.26;
+// how far plants keep from a road strip's middle line, in tiles
+const roadClear = 0.11;
+
+// whether a point (from the tile's middle) is near the road piece toward (dx, dz)
+function nearRoad(px, pz, dx, dz) {
+    const length = dx * dx + dz * dz;
+    if (length === 0) return Math.hypot(px, pz) < roadClear * 1.5;
+    const t = Math.max(0, Math.min(0.5, (px * dx + pz * dz) / length));
+    return Math.hypot(px - dx * t, pz - dz * t) < roadClear;
+}
 const lowestGround = 0.035;
 const steepest = 0.9;
 
@@ -222,8 +232,11 @@ export class Vegetation {
                     this.placements.set(key, placed);
                 }
                 const tileFeet = feet.get(`${tx}/${tz}`) || [];
+                // the polygon look's road strips (from the middle towards each joined neighbour)
+                const roads = ground.stylized ? roadPieces(tile) : [];
                 for (const plant of placed.plants) {
                     if (tileFeet.some((foot) => Math.hypot(plant.x - tx - foot.x, plant.z - tz - foot.z) < clearRadius)) continue;
+                    if (roads.some(({ dx, dz }) => nearRoad(plant.x - tx - 0.5, plant.z - tz - 0.5, dx, dz))) continue;
                     byKind[plant.kind].push({ plant, dimmed: !tile.visible });
                 }
             });

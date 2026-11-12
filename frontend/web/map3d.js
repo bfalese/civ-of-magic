@@ -273,6 +273,8 @@ export class MapRenderer3D extends MapRenderer {
         this.simple = look === "simple" || look === "polygon";
         this.stylized = look === "polygon";
         this.drawsTerrain = !this.simple;
+        this.drawsFog = !this.stylized;
+        this.drawsRoads = !this.stylized;
         if (this.mapView) {
             this.buildPlanes();
             if (this.simpleGround) this.simpleGround.setStylized(this.stylized);
@@ -301,9 +303,12 @@ export class MapRenderer3D extends MapRenderer {
             return;
         }
         const key = this.plane;
-        if (this.backdropKey === key) return;
+        if (this.backdropKey === key && this.backdropGround === this.simpleGround) return;
+        this.backdropGround = this.simpleGround;
         this.backdropKey = key;
         const [top, bottom] = key === "Myrror" ? ["#140c22", "#3a2448"] : ["#0e1a30", "#34506a"];
+        // unexplored land is painted in it
+        if (this.simpleGround) this.simpleGround.setSky(top, bottom);
         const canvas = document.createElement("canvas");
         canvas.width = 2;
         canvas.height = 256;
@@ -363,12 +368,42 @@ export class MapRenderer3D extends MapRenderer {
 
     // the vertex heights from the explored terrain (smoothed, with noise on land) and the slope
     // shading; only when the terrain changed (exploring, Change Terrain...)
+    // the ground's shape, and the polygon look's roads on it
     updateHeights() {
+        this.updateGround();
+        this.updateRoads();
+    }
+
+    // the polygon look's road strips on each copy of the map (the canvas paints roads otherwise)
+    updateRoads() {
+        const wanted = this.simple && this.stylized && this.copies;
+        const key = wanted ? `${this.terrainKey}|${this.heightScale}|` + this.mapView.tiles.map((row) => row.map((tile) => (tile ? (tile.overlays || []).filter((overlay) => overlay.startsWith("road")).join("+") : "")).join(",")).join(";") : null;
+        if (key === this.roadKey && this.roadCopies === this.copies) return;
+        this.roadKey = key;
+        this.roadCopies = this.copies;
+        if (this.roadGeometry) this.roadGeometry.dispose();
+        this.roadGeometry = null;
+        for (const copy of this.copies || []) {
+            if (copy.userData.roads) copy.remove(copy.userData.roads);
+            copy.userData.roads = null;
+        }
+        if (!wanted) return;
+        this.roadGeometry = this.simpleGround.roadGeometry(this.mapView);
+        if (!this.roadGeometry) return;
+        for (const copy of this.copies) {
+            copy.userData.roads = new THREE.Mesh(this.roadGeometry, this.simpleGround.roadMaterial);
+            copy.add(copy.userData.roads);
+        }
+    }
+
+    updateGround() {
         const mapView = this.mapView;
         let key = mapView.tiles.map((row) => row.map((tile) => (tile ? tile.terrain : "")).join(",")).join(";");
         if (this.simple) {
             key += [...this.sites()].map(([tile, feet]) => `${tile}@${feet.map((foot) => `${foot.x},${foot.z}`).join("+")}`).join(";");
         }
+        // what's seen changes without the terrain changing
+        if (this.simple) this.simpleGround.updateFog(mapView);
         if (key === this.terrainKey) {
             return;
         }
@@ -618,6 +653,7 @@ export class MapRenderer3D extends MapRenderer {
     }
 
     beforeRender(now) {
+        if (this.simpleGround) this.simpleGround.uniforms.skyHeight.value = this.renderer.domElement.height;
         if (this.nodeEffects) {
             this.nodeEffects.animate(now / 1000, this.tileWidth * this.zoom * this.renderer.getPixelRatio());
         }

@@ -71,9 +71,24 @@ A third look, `?terrain=polygon` (V cycles textured, simple, polygon), built on 
 - Faces cached per patch (`patchFaces`); a rebuild with nothing changed costs about as much as the
   simple look's.
 
+### Overlays in the polygon look (same day)
+
+- The canvas (grid, paths) follows the bend: each vertex carries the point of the ground it shows
+  (`lattice` attribute); the water plane is a fine grid with its points unbent (`updateWater`).
+- Fog: shaded in the shader from a per-tile texture (`updateFog`: explored, seen now), not painted
+  on the canvas (`MapRenderer.drawsFog` off). Unexplored land shows the sky's gradient (painted,
+  not cut out, so the water plane doesn't show through; `setSky`, `unexploredSky`), seen-before
+  land a cold dusk tone (`fogTone`); edges in an ordered dither stuck to the ground
+  (`ditherCells`, `fogEdge`).
+- Roads: strips (`roadGeometry`, `roadMaterial`) instead of the canvas art (`drawsRoads` off), in
+  the plane's road colour or gold when enchanted; flat bridges over river channels. On mountain
+  and river tiles a road takes the cheapest way over a grid of points (`roadRoute`: climbing and
+  water cost), from a junction on low or dry ground (`roadHub`) to an exit both tiles agree on
+  (`roadExit`). Trees keep off them. `?scenario=roads` lays roads out from the capital.
+
 ## Next / open
 
-- Fog, roads and the grid (the 2D canvas) still follow the straight tile grid.
+- Bridges could get their own colour; roads along banks zigzag a little (the route grid).
 - GLB pipeline for models (ComfyUI, then headless Blender to normalise); check the Anima and
   Hunyuan3D licences before shipping generated models.
 

@@ -35,6 +35,8 @@ import (
 //   orders: map orders for the stack panel: engineers next to the capital, settlers on a tile
 //           where an outpost can go, and swordsmen on an open tower (planar travel)
 //   reveal: the whole map explored on both planes (to look at the map: the 3D terrain looks)
+//   roads: roads out from the human's capital (east, north-east, south and west, up to 5 tiles
+//          over land; the western one enchanted), the land around explored (to look at roads)
 func applyScenario(host *GameHost, name string) error {
     switch name {
         case "":
@@ -57,8 +59,35 @@ func applyScenario(host *GameHost, name string) error {
             host.Human.LiftFogAll(data.PlaneArcanus)
             host.Human.LiftFogAll(data.PlaneMyrror)
             return nil
+        case "roads":
+            return scenarioRoads(host)
     }
     return fmt.Errorf("unknown scenario %q", name)
+}
+
+// roads: roads out from the human's capital in four directions, over land
+func scenarioRoads(host *GameHost) error {
+    capital := host.Human.FindFortressCity()
+    if capital == nil {
+        return fmt.Errorf("roads scenario: the human has no capital")
+    }
+    mapUse := host.Model.GetMap(capital.Plane)
+    for _, direction := range []struct{ dx, dy int; enchanted bool }{{1, 0, false}, {1, -1, false}, {0, 1, false}, {-1, 0, true}} {
+        x, y := capital.X, capital.Y
+        for range 5 {
+            x, y = mapUse.WrapX(x + direction.dx), y + direction.dy
+            if y < 0 || y >= mapUse.Height() {
+                break
+            }
+            tile := mapUse.GetTile(x, y)
+            if !tile.Valid() || !tile.Tile.IsLand() {
+                break
+            }
+            mapUse.SetRoad(x, y, direction.enchanted)
+        }
+    }
+    host.Human.LiftFogSquare(capital.X, capital.Y, 6, capital.Plane)
+    return nil
 }
 
 // siege: an AI wizard's capital (with its fortress) gets city walls, a wall of fire and a wall

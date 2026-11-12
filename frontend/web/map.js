@@ -65,6 +65,11 @@ export class MapRenderer {
         // whether the terrain's art is painted (the 3D view's simple ground has its own colours
         // and shows only roads, fog, the grid and paths from this canvas, on a transparent one)
         this.drawsTerrain = true;
+        // whether the fog is painted: unexplored land black, the dimming, the soft edges (the 3D
+        // view's polygon look shades the fog itself)
+        this.drawsFog = true;
+        // whether roads are painted (the 3D view's polygon look lays them as strips instead)
+        this.drawsRoads = true;
         // a faint line along the tiles' edges (the 3D view's grid)
         this.showGrid = false;
         // a path being picked (a road): [{x, y}] on the shown plane, drawn over everything
@@ -156,7 +161,7 @@ export class MapRenderer {
             // unexplored land stays black
             context.clearRect(0, 0, this.canvas.width, this.canvas.height);
             context.fillStyle = "#000";
-            this.mapView.tiles.forEach((row, y) => {
+            if (this.drawsFog) this.mapView.tiles.forEach((row, y) => {
                 row.forEach((tile, x) => {
                     if (!tile) context.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
                 });
@@ -174,6 +179,7 @@ export class MapRenderer {
                 }
                 for (const overlay of tile.overlays || []) {
                     if (this.standsUp(overlay)) continue;
+                    if (!this.drawsRoads && overlay.startsWith("road")) continue;
                     assets.draw(context, overlay, x * tileWidth, y * tileHeight, frame);
                 }
             });
@@ -244,15 +250,17 @@ export class MapRenderer {
         }
 
         // what the player saw before but doesn't see now is dimmed
-        context.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
-        this.mapView.tiles.forEach((row, y) => {
-            row.forEach((tile, x) => {
-                if (tile && !tile.visible) {
-                    context.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
-                }
+        if (this.drawsFog) {
+            context.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
+            this.mapView.tiles.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    if (tile && !tile.visible) {
+                        context.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+                    }
+                });
             });
-        });
-        this.drawFogEdges(context);
+            this.drawFogEdges(context);
+        }
 
         // the path being picked: a yellow line through the tile centres, the end marked
         if (this.previewPath) {
