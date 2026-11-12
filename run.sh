@@ -4,7 +4,8 @@
 #   ./run.sh               the web game: builds the wasm core, serves it, opens the browser
 #   ./run.sh desktop       the Ebitengine desktop game (needs the original MoM data)
 #   ./run.sh export        (re)export gamedata.json and the sprites the web game needs
-#   ./run.sh smoke         run the browser smoke test against a running web game
+#   ./run.sh smoke         run the browser smoke test against a running web game (--gpu: on this
+#                          machine's GPU instead of the software renderer; --shots DIR)
 #
 # Paths (override with environment variables):
 #   MOM_DATA     the original Master of Magic install (LBX files)
@@ -81,14 +82,14 @@ desktop() {
 smoke() {
     local port
     port="${PORT:-$(port_in_use 8099 && echo 8099 || echo 8080)}"
-    exec python3 frontend/web/smoke_test.py "http://localhost:$port"
+    exec python3 frontend/web/smoke_test.py "http://localhost:$port" "$@"
 }
 
 case "${1:-web}" in
     web) web ;;
     desktop) shift; desktop "$@" ;;
     export) export_data ;;
-    smoke) smoke ;;
-    -h|--help|help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
+    smoke) shift; smoke "$@" ;;
+    -h|--help|help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
     *) echo "unknown mode: $1 (web, desktop, export, smoke)" >&2; exit 1 ;;
 esac
