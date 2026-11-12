@@ -169,9 +169,10 @@ function battleReport(body) {
 
 // choices: [label, action] or [label, action, { html, group, data }]: html replaces the label in
 // the button, group puts a heading over the buttons that share it; wide widens the dialog
-// input: a text field with this starting value; the actions get what it holds
-function ask(text, choices, { wide = false, input = null } = {}) {
-    state.questions.push({ text, choices, wide, input });
+// input: a text field with this starting value; the actions get what it holds. content: an
+// element shown under the text
+function ask(text, choices, { wide = false, input = null, content = null } = {}) {
+    state.questions.push({ text, choices, wide, input, content });
     showNextQuestion();
 }
 
@@ -209,10 +210,13 @@ function showNextQuestion() {
     if (state.modalOpen || state.questions.length === 0) {
         return;
     }
-    const { text, choices, wide, input } = state.questions.shift();
+    const { text, choices, wide, input, content } = state.questions.shift();
     state.modalOpen = true;
     element("modal").classList.toggle("wide", wide);
     element("modalText").textContent = text;
+    if (content) {
+        element("modalText").appendChild(content);
+    }
     let field = null;
     if (input !== null) {
         field = document.createElement("input");
@@ -758,7 +762,7 @@ function updateSide(extra) {
             add(`<div class="orders">${orders.map((order) => `<button class="small" data-order="${order.id}" title="${escape(order.title)}">${escape(order.label)}</button>`).join("")}</div>`);
         }
         for (const unit of stack.units) {
-            add(`<div class="unit${unit.active ? "" : " inactive"}">
+            add(`<div class="unit${unit.active ? "" : " inactive"}" data-unit="${unit.id}" title="right-click: the unit's numbers">
                 <label title="moves with the stack (unchecked: stays behind)"><input type="checkbox" data-active="${unit.id}"${unit.active ? " checked" : ""}> ${escape(unit.name)}</label>
                 <span class="dim">${unit.busy ? `<span class="busy">${escape(unit.busy)}</span> · ` : ""}${unit["moves-left"]} mv · ${unit.health}/${unit["max-health"]}
                     <button class="tiny" data-details="${unit.id}" title="details">i</button><button class="tiny" data-disband="${unit.id}" title="disband">✕</button></span>
@@ -773,6 +777,13 @@ function updateSide(extra) {
         }
         for (const box of side.querySelectorAll("input[data-active]")) {
             box.onchange = () => execute("set-unit-active", { unit: Number(box.dataset.active), active: box.checked });
+        }
+        for (const row of side.querySelectorAll(".unit[data-unit]")) {
+            row.oncontextmenu = (event) => {
+                event.preventDefault();
+                const unit = stack.units.find((unit) => unit.id === Number(row.dataset.unit));
+                if (unit) showUnitCard(unit);
+            };
         }
         for (const button of side.querySelectorAll("button[data-details]")) {
             button.onclick = () => {
@@ -924,6 +935,33 @@ function onTileHover(tile) {
     }
     const path = state.core.roadPath(state.roadPick.stack, tile);
     state.map.setPreviewPath(Array.isArray(path) ? [state.roadPick.stack, ...path] : null);
+}
+
+// a unit's card (right-click in the stack panel): its picture, name and level, then its numbers
+// as the desktop's unit view lists them
+function showUnitCard(unit) {
+    const details = unit.details;
+    const card = document.createElement("div");
+    card.className = "unit-card";
+    const upkeep = [["gold", details["upkeep-gold"]], ["food", details["upkeep-food"]], ["mana", details["upkeep-mana"]]]
+        .filter(([, amount]) => amount).map(([name, amount]) => `${amount} ${name}`).join(", ");
+    const rows = [
+        ["Melee", details.melee],
+        ["Ranged", details.ranged > 0 ? `${details.ranged}${details["ranged-type"] ? ` (${details["ranged-type"]})` : ""}` : "–"],
+        ["Defense", details.defense],
+        ["Resistance", details.resistance],
+        ["Hit points", `${details.figures} × ${details["hit-points"]} (${unit.health}/${unit["max-health"]} now)`],
+        ["Moves", `${details.moves} (${unit["moves-left"]} left)`],
+        ["Upkeep", upkeep || "none"],
+    ];
+    card.innerHTML = `<div class="unit-card-head"><span class="unit-card-picture"></span><div><b>${escapeHtml(unit.name)}</b>`
+        + `${details.level ? `<div class="dim">${escapeHtml(details.level)}</div>` : ""}${unit.busy ? `<div class="busy">${escapeHtml(unit.busy)}</div>` : ""}</div></div>`
+        + `<table>${rows.map(([name, value]) => `<tr><td class="dim">${name}</td><td>${escapeHtml(String(value))}</td></tr>`).join("")}</table>`
+        + (details.abilities.length ? `<div class="unit-card-list"><span class="dim">Abilities</span> ${details.abilities.map(escapeHtml).join(", ")}</div>` : "")
+        + (details.enchantments.length ? `<div class="unit-card-list enchanted"><span class="dim">Enchantments</span> ${details.enchantments.map(escapeHtml).join(", ")}</div>` : "");
+    const picture = unit.asset ? state.assets.picture(unit.asset, 3) : null;
+    if (picture) card.querySelector(".unit-card-picture").appendChild(picture);
+    ask("", [["OK", () => {}]], { content: card });
 }
 
 function unitDetails(unit, escape) {

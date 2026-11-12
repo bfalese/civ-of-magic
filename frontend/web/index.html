@@ -41,7 +41,7 @@
     .orders { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
     .orders button.small { padding: 1px 6px; }
     .busy { color: var(--accent); }
-    .unit-details .enchanted { color: var(--accent); }
+    .unit-details .enchanted, .unit-card .enchanted { color: var(--accent); }
     #vault { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
     #vault.open { display: flex; }
     #vault > .panel { position: static; width: min(720px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; padding: 10px 12px; }
@@ -120,6 +120,12 @@
     #modal.open { display: flex; }
     #modal .panel { position: static; max-width: min(420px, calc(100% - 32px)); padding: 12px 14px; }
     #modalText { white-space: pre-line; }
+    #modal .unit-card { white-space: normal; min-width: 240px; }
+    #modal .unit-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    #modal .unit-card-picture { line-height: 0; }
+    #modal .unit-card table { border-collapse: collapse; }
+    #modal .unit-card td { padding: 0 10px 0 0; }
+    #modal .unit-card-list { margin-top: 6px; }
     #modalInput { display: block; width: 100%; margin-top: 8px; font: inherit; color: var(--text); background: #1d160e; border: 1px solid var(--border); padding: 2px 6px; }
     #modal .choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     #modal.wide .panel { max-width: min(760px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; }
