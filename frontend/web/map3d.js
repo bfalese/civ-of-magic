@@ -19,6 +19,12 @@ const groundRight = new THREE.Vector3(1, 0, 1).normalize();
 const groundUp = new THREE.Vector3(1, 0, -1).normalize();
 // how dark billboards on explored land the player doesn't see now are drawn
 const dimColor = 0.55;
+// billboards' size against the ground: a sprite's pixels at this fraction of the terrain's (a
+// 20-pixel stack is 0.65 tile wide, well inside its tile's diamond)
+const billboardScale = 0.65;
+// how far below the tile's centre (on screen) a billboard's foot stands, as a fraction of its
+// height: its middle then sits over the tile, not on the corner behind it
+const billboardFoot = 0.55;
 
 // the ground's level per terrain, in tiles (unexplored land is flat at 0)
 const terrainHeights = {
@@ -276,7 +282,19 @@ export class MapRenderer3D extends MapRenderer {
             texture.minFilter = THREE.NearestFilter;
             texture.generateMipmaps = false;
             texture.colorSpace = THREE.SRGBColorSpace;
-            texture.userData = { width: canvas.width, height: canvas.height };
+            // the rows with pixels: sprites stand on their lowest one (city art has empty rows)
+            const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+            const rowFilled = (row) => {
+                for (let column = 0; column < canvas.width; column++) {
+                    if (pixels[(row * canvas.width + column) * 4 + 3] > 0) return true;
+                }
+                return false;
+            };
+            let top = 0;
+            while (top < canvas.height - 1 && !rowFilled(top)) top++;
+            let bottom = canvas.height - 1;
+            while (bottom > top && !rowFilled(bottom)) bottom--;
+            texture.userData = { width: canvas.width, height: canvas.height, top, bottom };
             this.spriteTextures.set(key, texture);
         }
         return texture;
@@ -294,7 +312,8 @@ export class MapRenderer3D extends MapRenderer {
         return material;
     }
 
-    // a billboard standing on the tile's centre, the sprite's pixels at the ground's scale; an
+    // a billboard standing on its tile (its middle over the tile's centre), smaller than the ground's
+// pixels (billboardScale); an
     // animated sprite keeps a material per frame and steps through them (afterDraw)
     billboard(textures, location, dimmed) {
         const texture = textures[0];
@@ -304,10 +323,19 @@ export class MapRenderer3D extends MapRenderer {
             sprite.userData.frames = materials;
             this.animatedSprites.push(sprite);
         }
-        sprite.center.set(0.5, 0);
-        const { width, height } = texture.userData;
-        sprite.scale.set(width / this.tileWidth, height / this.tileWidth, 1);
-        sprite.position.set(location.x + 0.5, this.heightAt(location.x + 0.5, location.y + 0.5), location.y + 0.5);
+        const { width, height, top, bottom } = texture.userData;
+        // the foot is the lowest row with pixels
+        sprite.center.set(0.5, (height - 1 - bottom) / height);
+        const scale = billboardScale / this.tileWidth;
+        sprite.scale.set(width * scale, height * scale, 1);
+        // the foot moves towards the camera (down the screen) from the tile's centre, by a part
+        // of the drawn height; going down the screen by d covers d / sin(pitch) of ground. It
+        // stays inside the tile's diamond (its front corner is 0.71 away).
+        const drawn = (bottom - top + 1) * scale;
+        const toward = Math.min(0.6, drawn * billboardFoot / Math.sin(pitch));
+        const worldX = location.x + 0.5 - groundUp.x * toward;
+        const worldZ = location.y + 0.5 - groundUp.z * toward;
+        sprite.position.set(worldX, this.heightAt(worldX, worldZ), worldZ);
         sprite.userData.tile = { plane: this.plane, x: location.x, y: location.y };
         return sprite;
     }
