@@ -34,6 +34,7 @@ import (
 //           dice loaded: the first end-turn brings a treaty-proposal
 //   orders: map orders for the stack panel: engineers next to the capital, settlers on a tile
 //           where an outpost can go, and swordsmen on an open tower (planar travel)
+//   reveal: the whole map explored on both planes (to look at the map: the 3D terrain looks)
 func applyScenario(host *GameHost, name string) error {
     switch name {
         case "":
@@ -52,6 +53,10 @@ func applyScenario(host *GameHost, name string) error {
             return scenarioMastery(host)
         case "proposal":
             return scenarioProposal(host)
+        case "reveal":
+            host.Human.LiftFogAll(data.PlaneArcanus)
+            host.Human.LiftFogAll(data.PlaneMyrror)
+            return nil
     }
     return fmt.Errorf("unknown scenario %q", name)
 }

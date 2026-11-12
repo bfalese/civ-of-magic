@@ -7,9 +7,15 @@
 //
 // World units are tiles: tile (x, y) covers world x [x, x+1] and z [y, y+1] on the ground (y up).
 // The map wraps east-west: three copies of the ground and its billboards sit side by side.
+//
+// Two looks for the ground (setTerrainLook, ?terrain=simple, the V key): "textured", the original's
+// tile art draped over the heights; "simple", plain colours per terrain with shapes and a water
+// plane (terrain-simple.js), minerals standing up as billboards.
 
 import * as THREE from "three";
 import { MapRenderer, isStanding } from "./map.js";
+import { SimpleGround, hash } from "./terrain-simple.js";
+import { Vegetation } from "./vegetation.js";
 
 // true isometric: the camera looks down 35.26° from the horizon, turned 45° (north-east is up)
 const cameraOffset = new THREE.Vector3(-1, 1, 1).normalize().multiplyScalar(200);
@@ -22,6 +28,8 @@ const dimColor = 0.55;
 // billboards' size against the ground: a sprite's pixels at this fraction of the terrain's (a
 // 20-pixel stack is 0.65 tile wide, well inside its tile's diamond)
 const billboardScale = 0.65;
+// where a mineral stands on a tile with a city or lair: aside, to the right on screen
+const mineralAside = { x: groundRight.x * 0.3, z: groundRight.z * 0.3 };
 // how long a moving stack takes per tile, in milliseconds
 const stepMilliseconds = 220;
 // how far below the tile's centre (on screen) a billboard's foot stands, as a fraction of its
@@ -44,13 +52,6 @@ const noiseAmount = 0.03;
 // shading is
 const lightDirection = new THREE.Vector3(0.15, 1, -0.75).normalize();
 const shadeAmbient = 0.55;
-
-// a fixed pseudo-random value in [0, 1) for a vertex
-function hash(x, y) {
-    let value = Math.imul(x, 374761393) + Math.imul(y, 668265263);
-    value = Math.imul(value ^ (value >>> 13), 1274126177);
-    return ((value ^ (value >>> 16)) >>> 0) / 4294967296;
-}
 
 export class MapRenderer3D extends MapRenderer {
     constructor(container, assets, callbacks) {
@@ -75,6 +76,11 @@ export class MapRenderer3D extends MapRenderer {
         this.walks = [];
         // the tile grid, painted on the ground (it scales with the zoom like the terrain)
         this.showGrid = true;
+        // the simple ground (plain colours, a water plane) instead of the tile art: setTerrainLook
+        this.simple = false;
+        this.simpleGround = null;
+        // trees and shrubs on the simple ground
+        this.vegetation = null;
         this.updateCamera();
     }
 
@@ -107,6 +113,10 @@ export class MapRenderer3D extends MapRenderer {
 
         const width = this.mapView.width;
         const height = this.mapView.height;
+        if (this.simple) {
+            this.buildSimplePlanes(width, height);
+            return;
+        }
         this.ground = this.makeGround(width, height);
         this.material.vertexColors = true;
         this.material.needsUpdate = true;
@@ -120,6 +130,102 @@ export class MapRenderer3D extends MapRenderer {
         });
         this.billboards = [];
         this.terrainKey = null;
+    }
+
+    // the tiles with a lair or city on them ("x/y"): things that don't move
+    settledTiles() {
+        const tiles = new Set();
+        this.mapView.tiles.forEach((row, y) => {
+            row.forEach((tile, x) => {
+                if (tile && (tile.overlays || []).some(isStanding)) tiles.add(`${x}/${y}`);
+            });
+        });
+        const view = this.playerView;
+        if (view) {
+            for (const city of [...view["foreign-cities"], ...view.cities]) {
+                if (city.location.plane === this.plane) tiles.add(`${city.location.x}/${city.location.y}`);
+            }
+        }
+        return tiles;
+    }
+
+    // where lairs, cities and minerals stand on the simple ground: "x/y" -> their billboards'
+    // feet from the tile's corner (hills and mountains flatten a ledge there)
+    sites() {
+        const sites = new Map();
+        const settled = this.settledTiles();
+        const add = (id, x, y, offset) => {
+            if (!this.assets.has(id)) return;
+            const toward = this.footToward(this.stillTexture(id));
+            const key = `${x}/${y}`;
+            if (!sites.has(key)) sites.set(key, []);
+            sites.get(key).push({ x: 0.5 - groundUp.x * toward + offset.x, z: 0.5 - groundUp.z * toward + offset.z });
+        };
+        this.mapView.tiles.forEach((row, y) => {
+            row.forEach((tile, x) => {
+                for (const overlay of (tile && tile.overlays) || []) {
+                    if (isStanding(overlay)) add(overlay, x, y, { x: 0, z: 0 });
+                    else if (this.standsUp(overlay)) add(overlay, x, y, settled.has(`${x}/${y}`) ? mineralAside : { x: 0, z: 0 });
+                }
+            });
+        });
+        const view = this.playerView;
+        if (view) {
+            for (const city of [...view["foreign-cities"], ...view.cities]) {
+                if (city.location.plane === this.plane && city.asset) add(city.asset, city.location.x, city.location.y, { x: 0, z: 0 });
+            }
+        }
+        return sites;
+    }
+
+    // a sprite's first frame as a texture
+    stillTexture(id) {
+        return this.spriteTexture(`${id}#0`, (context) => {
+            if (!context) return this.assets.size(id);
+            this.assets.draw(context, id, 0, 0, 0);
+        });
+    }
+
+    // the simple ground: per copy, the ground mesh (its geometry comes from updateHeights) and the
+    // water plane
+    buildSimplePlanes(width, height) {
+        if (!this.simpleGround) {
+            this.simpleGround = new SimpleGround(lightDirection, shadeAmbient);
+        }
+        this.simpleGround.setOverlay(this.texture);
+        this.ground = null;
+        this.copies = [-1, 0, 1].map((offset) => {
+            const copy = new THREE.Group();
+            copy.position.set(offset * width, 0, 0);
+            const { ground, water } = this.simpleGround.makeCopy(width, height);
+            copy.add(ground, water);
+            copy.userData.ground = ground;
+            this.scene.add(copy);
+            return copy;
+        });
+        this.billboards = [];
+        this.terrainKey = null;
+    }
+
+    // switch the ground's look: "textured" (the tile art) or "simple" (plain colours, terrain-simple.js)
+    setTerrainLook(look) {
+        this.simple = look === "simple";
+        this.drawsTerrain = !this.simple;
+        if (this.mapView) {
+            this.buildPlanes();
+            this.updateHeights();
+            this.draw();
+            this.buildBillboards();
+        }
+    }
+
+    toggleTerrainLook() {
+        this.setTerrainLook(this.simple ? "textured" : "simple");
+    }
+
+    // minerals and other bonuses stand up on the simple ground (its colours have no art to show them)
+    standsUp(overlay) {
+        return isStanding(overlay) || (this.simple && overlay.startsWith("bonus/"));
     }
 
     // a grid of vertices over the map (subdivisions per tile), with the texture's coordinates;
@@ -163,11 +269,21 @@ export class MapRenderer3D extends MapRenderer {
     // shading; only when the terrain changed (exploring, Change Terrain...)
     updateHeights() {
         const mapView = this.mapView;
-        const key = mapView.tiles.map((row) => row.map((tile) => (tile ? tile.terrain : "")).join(",")).join(";");
+        let key = mapView.tiles.map((row) => row.map((tile) => (tile ? tile.terrain : "")).join(",")).join(";");
+        if (this.simple) {
+            key += [...this.sites()].map(([tile, feet]) => `${tile}@${feet.map((foot) => `${foot.x},${foot.z}`).join("+")}`).join(";");
+        }
         if (key === this.terrainKey) {
             return;
         }
         this.terrainKey = key;
+        if (this.simple) {
+            const geometry = this.simpleGround.update(mapView, this.heightScale, this.sites());
+            for (const copy of this.copies) {
+                copy.userData.ground.geometry = geometry;
+            }
+            return;
+        }
         const width = mapView.width;
         const height = mapView.height;
         const scale = this.heightScale;
@@ -238,6 +354,9 @@ export class MapRenderer3D extends MapRenderer {
 
     // the ground's height at a world point (bilinear between the vertices; wraps east-west)
     heightAt(worldX, worldZ) {
+        if (this.simple && this.simpleGround) {
+            return this.simpleGround.heightAt(worldX, worldZ);
+        }
         if (!this.ground) {
             return 0;
         }
@@ -322,7 +441,7 @@ export class MapRenderer3D extends MapRenderer {
     // ground's pixels (billboardScale); in front: before anything else on the tile (the selected
     // stack in its city). An animated sprite keeps a material per frame and steps through them
     // (afterDraw)
-    billboard(textures, location, dimmed, inFront = false) {
+    billboard(textures, location, dimmed, inFront = false, offset = null) {
         const texture = textures[0];
         const materials = textures.map((frame) => this.spriteMaterial(frame, dimmed));
         const sprite = new THREE.Sprite(materials[this.frame % materials.length]);
@@ -335,7 +454,7 @@ export class MapRenderer3D extends MapRenderer {
         sprite.center.set(0.5, (height - 1 - bottom) / height);
         const scale = billboardScale / this.tileWidth;
         sprite.scale.set(width * scale, height * scale, 1);
-        sprite.position.copy(this.footAt(texture, location.x, location.y, inFront));
+        sprite.position.copy(this.footAt(texture, location.x + (offset ? offset.x : 0), location.y + (offset ? offset.z : 0), inFront));
         sprite.userData.tile = { plane: this.plane, x: location.x, y: location.y };
         return sprite;
     }
@@ -346,12 +465,17 @@ export class MapRenderer3D extends MapRenderer {
     // inside the tile's diamond (its front corner is 0.71 away). In front: nearer the camera than
     // any other billboard's foot on the tile (at most 0.6), and a little up (nearer still)
     footAt(texture, x, y, inFront = false) {
-        const { top, bottom } = texture.userData;
-        const drawn = (bottom - top + 1) * billboardScale / this.tileWidth;
-        const toward = inFront ? 0.68 : Math.min(0.6, drawn * billboardFoot / Math.sin(pitch));
+        const toward = inFront ? 0.68 : this.footToward(texture);
         const worldX = x + 0.5 - groundUp.x * toward;
         const worldZ = y + 0.5 - groundUp.z * toward;
         return new THREE.Vector3(worldX, this.heightAt(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
+    }
+
+    // how far towards the camera from the tile's centre a billboard of this texture stands
+    footToward(texture) {
+        const { top, bottom } = texture.userData;
+        const drawn = (bottom - top + 1) * billboardScale / this.tileWidth;
+        return Math.min(0.6, drawn * billboardFoot / Math.sin(pitch));
     }
 
     // a stack's texture: its banner square with the leader on it
@@ -438,13 +562,14 @@ export class MapRenderer3D extends MapRenderer {
         this.mapView.tiles.forEach((row, y) => {
             row.forEach((tile, x) => {
                 if (!tile) return;
-                // a node's tile stands up as well as lying on the ground
-                if (tile.terrain && tile.terrain.endsWith("Node")) {
+                // a node's tile stands up as well as lying on the ground (the simple ground colours
+                // nodes instead: their tile art has its own ground)
+                if (!this.simple && tile.terrain && tile.terrain.endsWith("Node")) {
                     things.push({ texture: plain(tile.asset), location: { x, y }, dimmed: !tile.visible });
                 }
                 for (const overlay of tile.overlays || []) {
-                    if (isStanding(overlay) && assets.has(overlay)) {
-                        things.push({ texture: plain(overlay), location: { x, y }, dimmed: !tile.visible });
+                    if (this.standsUp(overlay) && assets.has(overlay)) {
+                        things.push({ texture: plain(overlay), location: { x, y }, dimmed: !tile.visible, bonus: !isStanding(overlay) });
                     }
                 }
             });
@@ -484,11 +609,16 @@ export class MapRenderer3D extends MapRenderer {
         }
         this.animatedSprites = [];
         this.occupiedTiles = new Set(things.map((thing) => `${thing.location.x}/${thing.location.y}`));
+        // a mineral sharing its tile with a city or lair stands aside, to the right (not for
+        // stacks: they come and go, and the simple ground's ledge under the mineral stays put)
+        const crowded = this.settledTiles();
+        const aside = mineralAside;
         this.billboards = this.copies.map((copy) => {
             const group = new THREE.Group();
             for (const thing of things) {
                 // the selected stack stands in front of its city
-                const sprite = this.billboard(thing.texture, thing.location, thing.dimmed, !!thing.inCity);
+                const offset = thing.bonus && crowded.has(`${thing.location.x}/${thing.location.y}`) ? aside : null;
+                const sprite = this.billboard(thing.texture, thing.location, thing.dimmed, !!thing.inCity, offset);
                 if (thing.selected) {
                     this.selectedSprites.push(sprite);
                 }
@@ -497,6 +627,22 @@ export class MapRenderer3D extends MapRenderer {
             copy.add(group);
             return group;
         });
+
+        // trees and shrubs on the simple ground, out of the way of what stands on a tile
+        if (this.simple && this.simpleGround && this.simpleGround.terrains) {
+            if (!this.vegetation) this.vegetation = new Vegetation(lightDirection, shadeAmbient);
+            const feet = new Map();
+            for (const thing of things) {
+                const key = `${thing.location.x}/${thing.location.y}`;
+                const offset = thing.bonus && crowded.has(key) ? aside : { x: 0, z: 0 };
+                const toward = thing.inCity ? 0.68 : this.footToward(thing.texture[0]);
+                if (!feet.has(key)) feet.set(key, []);
+                feet.get(key).push({ x: 0.5 - groundUp.x * toward + offset.x, z: 0.5 - groundUp.z * toward + offset.z });
+            }
+            this.vegetation.update(this.simpleGround, this.mapView, this.copies, feet);
+        } else if (this.vegetation) {
+            this.vegetation.remove();
+        }
     }
 
     afterDraw() {
@@ -562,7 +708,7 @@ export class MapRenderer3D extends MapRenderer {
     // where a ray from the camera meets the ground: walk from above the highest ground down to
     // below the lowest, then narrow the crossing down
     groundHit(ray) {
-        const top = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.2 * Math.max(1, this.heightScale));
+        const top = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.6 * Math.max(1, this.heightScale));
         const bottom = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.3);
         const start = ray.intersectPlane(top, new THREE.Vector3());
         const end = ray.intersectPlane(bottom, new THREE.Vector3());

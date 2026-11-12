@@ -142,6 +142,7 @@ def main():
         try:
             start_screen(smoke, url)
             first_turn(smoke, url)
+            simple_terrain(smoke, url)
             battle(smoke, url)
             siege(smoke, url)
             spellbook(smoke, url)
@@ -182,6 +183,20 @@ def start_screen(smoke, url):
     check(you["player"]["wizard"] == "Smoky" and you["player"]["banner"] == "purple" and capital["race"] == "Klackon"
           and len(state("s.core.view()['known-wizards']")) <= 1,
           f"the start screen ({wizards} wizards) made Smoky (Freya), purple, with a Klackon capital {capital['name']}")
+
+
+def simple_terrain(smoke, url):
+    """?terrain=simple: the 3D map's plain coloured ground over a water plane; V goes back to the tile art."""
+    page, state, check = smoke.page, smoke.state, smoke.check
+    smoke.load(url + "?opponents=1&scenario=reveal&terrain=simple")
+    check(state("s.map.simple && s.map.simpleGround.geometry.attributes.position.count > 0"),
+          "?terrain=simple builds the simple ground over the revealed map")
+    check(state("!s.map.mapView.tiles.flat().some((tile) => tile && tile.overlays && tile.overlays.some((o) => o.startsWith('bonus/'))) || s.map.billboards[0].children.length > 0"),
+          "minerals stand up as billboards on the simple ground")
+    check(state("s.map.vegetation && s.map.vegetation.meshes.length > 0"), "trees and shrubs grow on the simple ground")
+    smoke.shot("1-simple-terrain")
+    page.keyboard.press("v")
+    check(state("!s.map.simple && s.map.ground !== null"), "V switches back to the tile art")
 
 
 def first_turn(smoke, url):
@@ -726,7 +741,8 @@ def walking_stack(smoke):
     })()""")
     check(moved is not None, f"a move queues a walk on the map (to {moved})")
     smoke.wait("!!window.civGame.map.walk", "the walk to start")
-    first = state("s.map.walk.sprites[0].position.x + s.map.walk.sprites[0].position.z")
+    # a one-step walk may already be over (220 ms) by the time this reads it
+    first = state("s.map.walk ? s.map.walk.sprites[0].position.x + s.map.walk.sprites[0].position.z : null")
     smoke.wait(f"!window.civGame.map.walk || window.civGame.map.walk.sprites[0].position.x + window.civGame.map.walk.sprites[0].position.z !== {first}", "the stack to glide")
     smoke.wait("!window.civGame.map.walk && window.civGame.map.walks.length === 0", "the walk to end")
     check(True, "the stack glides to its tile and the walk ends")

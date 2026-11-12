@@ -1338,6 +1338,8 @@ function bindControls() {
         if (event.key === "g" || event.key === "G") openGameMenu();
         // the 3D map: flatten the ground or give it back its height
         if ((event.key === "h" || event.key === "H") && state.map.toggleHeight) state.map.toggleHeight();
+        // the 3D map: the tile art or the simple coloured ground
+        if ((event.key === "v" || event.key === "V") && state.map.toggleTerrainLook) state.map.toggleTerrainLook();
         if (event.key === "c" || event.key === "C") openList("cities");
         if (event.key === "a" || event.key === "A") openList("armies");
         if (event.key === "Enter") endTurn();
@@ -1432,6 +1434,8 @@ async function main() {
         // the isometric 3D map; ?view=2d for the flat one
         const Renderer = params.get("view") === "2d" ? MapRenderer : MapRenderer3D;
         state.map = new Renderer(element("map"), assets, { onTileClick, onTileHover, onFrame: () => state.minimap.update() });
+        // ?terrain=simple: the 3D map's plain coloured ground instead of the tile art (V switches)
+        if (params.get("terrain") === "simple" && state.map.setTerrainLook) state.map.setTerrainLook("simple");
         state.minimap = new Minimap(element("minimap").querySelector("canvas"), state.map, assets);
         state.magic = new MagicScreen(element("magic"), assets, {
             confirm: (text, yes) => ask(text, [["Yes", yes], ["No", () => {}]]),

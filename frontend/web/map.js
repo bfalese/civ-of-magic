@@ -62,6 +62,9 @@ export class MapRenderer {
         // whether cities, stacks and encounters are painted on the map (the 3D view shows them as
         // billboards instead)
         this.drawsThings = true;
+        // whether the terrain's art is painted (the 3D view's simple ground has its own colours
+        // and shows only roads, fog, the grid and paths from this canvas, on a transparent one)
+        this.drawsTerrain = true;
         // a faint line along the tiles' edges (the 3D view's grid)
         this.showGrid = false;
         // a path being picked (a road): [{x, y}] on the shown plane, drawn over everything
@@ -146,8 +149,19 @@ export class MapRenderer {
         const tileHeight = this.tileHeight;
         const frame = this.frame;
 
-        context.fillStyle = "#000";
-        context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        if (this.drawsTerrain) {
+            context.fillStyle = "#000";
+            context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        } else {
+            // unexplored land stays black
+            context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            context.fillStyle = "#000";
+            this.mapView.tiles.forEach((row, y) => {
+                row.forEach((tile, x) => {
+                    if (!tile) context.fillRect(x * tileWidth, y * tileHeight, tileWidth, tileHeight);
+                });
+            });
+        }
 
         // terrain and what lies on it
         this.mapView.tiles.forEach((row, y) => {
@@ -155,9 +169,11 @@ export class MapRenderer {
                 if (!tile) {
                     return;
                 }
-                assets.draw(context, tile.asset, x * tileWidth, y * tileHeight, frame);
+                if (this.drawsTerrain) {
+                    assets.draw(context, tile.asset, x * tileWidth, y * tileHeight, frame);
+                }
                 for (const overlay of tile.overlays || []) {
-                    if (!this.drawsThings && isStanding(overlay)) continue;
+                    if (this.standsUp(overlay)) continue;
                     assets.draw(context, overlay, x * tileWidth, y * tileHeight, frame);
                 }
             });
@@ -262,6 +278,11 @@ export class MapRenderer {
 
         this.texture.needsUpdate = true;
         this.afterDraw();
+    }
+
+    // whether an overlay stands up as a billboard instead of being painted on the ground
+    standsUp(overlay) {
+        return !this.drawsThings && isStanding(overlay);
     }
 
     // after each repaint (the 3D view blinks the selected stack's billboard here)

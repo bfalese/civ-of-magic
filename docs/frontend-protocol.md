@@ -291,7 +291,7 @@ Settings (JSON): `opponents` (1-4, default 3), `landSize` (0-2), `raiders` (defa
 `wizardName`, `scenario` (a setup for tests, `core/game/scenario.go`: `battle` puts a guarded
 lair next to the capital and gives the wizard Fire Bolt, Wall of Stone, mana and skill; `siege`
 puts a human army next to an AI capital with walls, a wall of fire and darkness; `mastery` gives the wizard the Spell of Mastery with the mana and skill to cast it now; `proposal` loads the AI diplomacy's dice so a rival who likes you proposes a pact on the first end-turn; `orders` puts
-settlers where an outpost can go, engineers next to the capital and swordsmen on an open tower; the web page
+settlers where an outpost can go, engineers next to the capital and swordsmen on an open tower; `reveal` explores the whole map on both planes (to look at the map); the web page
 takes `?scenario=...`).
 
 A new game asks for the first research at once (`choose-research`); the turn loop asks again
