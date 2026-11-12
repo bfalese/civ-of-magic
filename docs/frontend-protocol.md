@@ -224,7 +224,7 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   `known-wizards`, `diplomacy` (per known wizard: `{wizard, mirror (portrait, books, retorts, fame, heroes), treaty (none/pact/alliance/war),
   relation (-100..100, how they feel about you), mood, peace-turns?, banished?, tribute-gold (what
   a gold tribute gives now), proposal? (the treaty they proposed to you), spells (yours they lack: for offer-tribute and trade-spells),
-  can-teach, trade-offer? {give, receive}, global-enchantments, fame, cities}`), `cities` (full detail: citizens, production, buy cost,
+  can-teach, trade-offer? {give, receive}, global-enchantments, fame, cities}`), `cities` (full detail: citizens, `population-growth` (people per turn), production, buy cost,
   buildings, `enchantments` `{name, upkeep, owner, yours}`; `subsistence-farmers`, the fewest farmers allowed; `can-build`, what
   `set-city-production` accepts, as `{name, unit?, cost, upkeep?, allows?}` (buildings: gold per turn
   and the buildings and units they let the city build), buildings in the game's order then units;

@@ -1069,7 +1069,7 @@ function renderCityScreen() {
 
     const title = state.cityRenaming
         ? `<span class="rename"><input id="cityName" maxlength="20" value="${escapeHtml(city.name)}"><button class="small" id="cityNameSave">Save</button><button class="small" id="cityNameCancel">Cancel</button></span>`
-        : `<h3>${escapeHtml(city.name)} <button class="tiny" id="cityRename" title="rename">✎</button> <span class="dim">${escapeHtml(city.race)} · ${city.population.toLocaleString()} people</span></h3>`;
+        : `<h3>${escapeHtml(city.name)} <button class="tiny" id="cityRename" title="rename">✎</button> <span class="dim">${escapeHtml(city.race)} · ${city.population.toLocaleString()} people <span class="${city["population-growth"] > 0 ? "good" : city["population-growth"] < 0 ? "bad" : ""}" id="cityGrowth" title="population growth per turn">(${city["population-growth"] > 0 ? "+" : ""}${city["population-growth"]})</span></span></h3>`;
     const enchantments = city.enchantments.map((enchantment) => `<div class="row">
             <span class="${enchantment.yours ? "" : "curse"}">${escapeHtml(enchantment.name)}${enchantment.yours ? "" : ` <span class="dim">(${escapeHtml(enchantment.owner)})</span>`}</span>
             <span>${enchantment.yours && enchantment.upkeep ? `<span class="dim">${enchantment.upkeep} mana</span> ` : ""}${enchantment.yours ? `<button class="small" data-cancel-enchantment="${escapeHtml(enchantment.name)}">cancel</button>` : ""}</span>

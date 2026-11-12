@@ -120,6 +120,8 @@ type CityView struct {
     // the city's sprite on the map
     Asset string `json:"asset"`
     Population int `json:"population"`
+    // people per turn (negative: shrinking), as the desktop's "Population: N (+g)"
+    PopulationGrowth int `json:"population-growth"`
     Citizens int `json:"citizens"`
     Farmers int `json:"farmers"`
     Workers int `json:"workers"`
@@ -217,6 +219,7 @@ func (model *GameModel) makeCityView(city *citylib.City) CityView {
         CityRef: *MakeCityRef(city),
         Asset: cityAsset(city),
         Population: city.Population,
+        PopulationGrowth: city.PopulationGrowthRate(),
         Citizens: city.Citizens(),
         Farmers: city.Farmers,
         Workers: city.Workers,

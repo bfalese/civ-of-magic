@@ -206,6 +206,10 @@ def first_turn(smoke, url):
     page.mouse.click(600, 400)
     smoke.visible("#city.open", "the city screen")
     check(state("s.cityOpen !== null"), "clicking the capital opens its city screen")
+    growth = page.inner_text("#cityGrowth")
+    rate = state("s.view.cities[0]['population-growth']")
+    check(growth == f"({'+' if rate > 0 else ''}{rate})",
+          f"the population shows its growth per turn: {page.inner_text('#city h3')}")
     smoke.shot("2-city")
 
     options = state("s.view.cities[0]['can-build'].map(o => o.name)")
