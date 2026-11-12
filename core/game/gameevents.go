@@ -113,13 +113,28 @@ type GameEventChooseSpellTarget struct {
     LocationType LocationType
 }
 
-// a battle involving the session's player started (Started) or ended (State)
+// a battle involving the session's player started (Started) or ended (State, with what the
+// end screen shows: once the outcome is applied to the overworld)
 type GameEventBattle struct {
     Attacker *playerlib.Player
     Defender *playerlib.Player
     Location Location
     Started bool
     State string
+    // units each side lost in the battle; DiedWhileFleeing counts those lost while fleeing
+    AttackerLosses int
+    DefenderLosses int
+    DiedWhileFleeing int
+    // fame gained (or lost, negative) by each side
+    AttackerFame int
+    DefenderFame int
+    // a city fought over: citizens lost and buildings destroyed
+    PopulationLost int
+    BuildingsLost int
+    // units the winner raised as undead
+    UndeadRaised int
+    // a hero of the human player died: its items went to the vault
+    HeroDied bool
 }
 
 // a stack of the session's player reached a lair / node / tower: enter? (confirm-encounter)

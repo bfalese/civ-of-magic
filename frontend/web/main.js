@@ -119,6 +119,50 @@ function describe(event) {
     return null;
 }
 
+// the end screen of a battle you fought, as the desktop shows it: the result, losses, fame and
+// what a city lost
+function battleReport(body) {
+    const youAttacked = mine(body.attacker);
+    const won = body.result === (youAttacked ? "attacker-won" : "defender-won") || body.result === (youAttacked ? "defender-fled" : "attacker-fled");
+    const fled = body.result === (youAttacked ? "attacker-fled" : "defender-fled");
+    const title = won ? "You are triumphant!" : fled ? "Your forces have retreated." : "You have been defeated.";
+    const units = (count) => `${count} unit${count === 1 ? "" : "s"}`;
+    const yourLosses = youAttacked ? body["attacker-losses"] : body["defender-losses"];
+    const enemyLosses = youAttacked ? body["defender-losses"] : body["attacker-losses"];
+    const fame = youAttacked ? body["attacker-fame"] : body["defender-fame"];
+    const lines = [title];
+    if (yourLosses > 0) {
+        lines.push(`You lost ${units(yourLosses)}${fled && body["died-while-fleeing"] > 0 ? `, ${body["died-while-fleeing"]} of them while fleeing` : ""}.`);
+    } else {
+        lines.push("You lost no units.");
+    }
+    if (enemyLosses > 0) {
+        lines.push(`The enemy lost ${units(enemyLosses)}.`);
+    }
+    if (fame > 0) {
+        lines.push(`You gained ${fame} fame.`);
+    } else if (fame < 0) {
+        lines.push(`You lost ${-fame} fame.`);
+    }
+    const population = body["population-lost"];
+    const buildings = body["buildings-lost"];
+    if (population > 0 || buildings > 0) {
+        const parts = [];
+        if (population > 0) parts.push(`${population} citizen${population === 1 ? " was" : "s were"} lost`);
+        if (buildings > 0) parts.push(`${buildings} building${buildings === 1 ? " was" : "s were"} destroyed`);
+        lines.push(`${parts.join(" and ")}.`.replace(/^./, (letter) => letter.toUpperCase()));
+    }
+    if (body["undead-raised"] > 0) {
+        lines.push(won
+            ? `${units(body["undead-raised"])} of the fallen rise as undead and join you.`
+            : `${units(body["undead-raised"])} of your fallen rise as undead for the enemy.`);
+    }
+    if (body["hero-died"]) {
+        lines.push("A hero died in combat: their items went to your vault.");
+    }
+    return lines.join("\n");
+}
+
 // ---- dialogs
 
 function ask(text, choices) {
@@ -240,6 +284,11 @@ function handleEvents() {
             case "war-declared":
                 if (mine(body.player) && !body.attacked) {
                     ask(`${body.wizard.wizard} declares war on you!`, [["OK", () => {}]]);
+                }
+                break;
+            case "battle-ended":
+                if (mine(body.attacker) || mine(body.defender)) {
+                    ask(battleReport(body), [["OK", () => {}]]);
                 }
                 break;
             case "trade-offer":

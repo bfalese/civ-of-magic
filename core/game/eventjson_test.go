@@ -78,9 +78,14 @@ func TestEncodeEvents(test *testing.T) {
         test.Errorf("random-event: %v %v", eventType, body)
     }
 
-    eventType, body = decodeTestEvent(test, model, &GameEventBattle{Attacker: player, Defender: enemy, Location: Location{X: 4, Y: 3}, State: "attacker-won"})
-    if eventType != "battle-ended" || body["result"] != "attacker-won" {
+    eventType, body = decodeTestEvent(test, model, &GameEventBattle{Attacker: player, Defender: enemy, Location: Location{X: 4, Y: 3}, State: "attacker-won", DefenderLosses: 3, AttackerFame: 2, DefenderFame: -1, PopulationLost: 1})
+    if eventType != "battle-ended" || body["result"] != "attacker-won" || body["defender-losses"] != float64(3) ||
+       body["attacker-fame"] != float64(2) || body["defender-fame"] != float64(-1) || body["population-lost"] != float64(1) {
         test.Errorf("battle-ended: %v %v", eventType, body)
+    }
+    eventType, body = decodeTestEvent(test, model, &GameEventBattle{Attacker: player, Defender: enemy, Location: Location{X: 4, Y: 3}, Started: true})
+    if _, hasResult := body["result"]; eventType != "battle-started" || hasResult {
+        test.Errorf("battle-started: %v %v", eventType, body)
     }
     eventType, body = decodeTestEvent(test, model, &GameEventChooseRaze{Player: player, City: city})
     if eventType != "choose-raze" || body["city"].(map[string]any)["name"] != "Testville" {

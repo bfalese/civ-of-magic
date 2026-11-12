@@ -182,7 +182,7 @@ attacking such a wizard breaks the treaty. Your own proposals are still always a
 | `hero-level-up` | `hero` | |
 | `banish` | `attacker`, `defender` | a wizard's fortress city fell |
 | `battle-started` | `attacker`, `defender`, `location` | a battle with you started: send battle commands |
-| `battle-ended` | `attacker`, `defender`, `location`, `result` | `attacker-won`, `defender-won`, `attacker-fled`, `defender-fled` |
+| `battle-ended` | `attacker`, `defender`, `location`, `result`, `attacker-losses`, `defender-losses`, `died-while-fleeing`, `attacker-fame`, `defender-fame`, `population-lost`, `buildings-lost`, `undead-raised`, `hero-died` | `result`: `attacker-won`, `defender-won`, `attacker-fled`, `defender-fled`. Sent once the outcome is applied (after a `choose-raze`), with what the end screen shows: units each side lost (`died-while-fleeing` of them while fleeing), fame gained or lost (negative) per side, citizens and buildings a fought-over city lost, units the winner raised as undead, and whether one of your heroes died (its items went to the vault) |
 | `choose-encounter` | `player`, `encounter`, `guards` | enter? answer with `confirm-encounter` |
 | `choose-raze` | `player`, `city` | raze or keep? answer with `raze-city` |
 | `spell-of-mastery` | `player`, `started?` | `started`: the wizard began casting the Spell of Mastery (every wizard hears it); otherwise the casting finished and that wizard won: the game is over (`gameOver` is `won` or `lost`) |
