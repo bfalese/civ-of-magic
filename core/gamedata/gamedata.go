@@ -39,6 +39,8 @@ type GameData struct {
     SpellDescriptions map[string]string
     // building name -> the build screen's description (for frontends)
     BuildingDescriptions map[string]string
+    // building name -> the help text the city screen shows on right-click (every building)
+    BuildingHelp map[string]string
 }
 
 // all of a spell's fields (spellbook.Spell marshals as its name only, which save games rely on)
@@ -61,6 +63,7 @@ type serializedGameData struct {
     // missing in files exported before the descriptions were
     SpellDescriptions map[string]string `json:"spell-descriptions,omitempty"`
     BuildingDescriptions map[string]string `json:"building-descriptions,omitempty"`
+    BuildingHelp map[string]string `json:"building-help,omitempty"`
 }
 
 const currentVersion = 1
@@ -97,6 +100,7 @@ func (gameData *GameData) serialize() serializedGameData {
         CityNames: gameData.CityNames,
         SpellDescriptions: gameData.SpellDescriptions,
         BuildingDescriptions: gameData.BuildingDescriptions,
+        BuildingHelp: gameData.BuildingHelp,
     }
 
     for _, spell := range gameData.Spells.Spells {
@@ -139,6 +143,7 @@ func deserialize(serialized serializedGameData) (*GameData, error) {
         CityNames: serialized.CityNames,
         SpellDescriptions: serialized.SpellDescriptions,
         BuildingDescriptions: serialized.BuildingDescriptions,
+        BuildingHelp: serialized.BuildingHelp,
         PowerCosts: make(map[artifact.Power]int),
         PowerCompatibilities: make(map[artifact.Power]set.Set[artifact.ArtifactType]),
     }

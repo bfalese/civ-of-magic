@@ -221,6 +221,11 @@ def first_turn(smoke, url):
     popup = page.inner_text("#modalText")
     check(popup.startswith(built) and "cost" in popup, f"right-clicking {built} tells what it does and costs: {' / '.join(popup.splitlines())}")
     page.click("#modalChoices button:has-text('OK')")
+    page.click("#city .row.building[data-building='Fortress']", button="right")
+    smoke.visible("#modal.open", "the Fortress popup")
+    popup = page.inner_text("#modalText")
+    check("banished" in popup, f"the Fortress has a description too: {' / '.join(popup.splitlines())}")
+    page.click("#modalChoices button:has-text('OK')")
     page.click(f"#city button.option[data-name='{choice}']")
     check(state("s.view.cities[0].producing") == choice, f"production changed to {choice}")
 

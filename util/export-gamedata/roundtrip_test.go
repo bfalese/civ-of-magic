@@ -4,6 +4,7 @@ import (
     "fmt"
     "os"
     "reflect"
+    "strings"
     "testing"
 
     "github.com/bfalese/civ-of-magic/core/gamedata"
@@ -46,6 +47,9 @@ func TestRoundTrip(test *testing.T) {
     }
     if loaded.BuildingDescriptions["Granary"] == "" || loaded.BuildingDescriptions["City Walls"] == "" {
         test.Errorf("building descriptions missing: %v", len(loaded.BuildingDescriptions))
+    }
+    if help := loaded.BuildingHelp["Fortress"]; !strings.Contains(help, "banished") || strings.ContainsRune(loaded.BuildingHelp["Granary"], 0x14) {
+        test.Errorf("building help: Fortress %q, Granary %q", help, loaded.BuildingHelp["Granary"])
     }
     if !reflect.DeepEqual(buildings, loaded.Buildings) {
         test.Errorf("buildings differ")

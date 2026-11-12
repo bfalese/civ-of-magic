@@ -45,6 +45,7 @@ const state = {
     gamedata: null,
     spellDescriptions: {},
     buildingDescriptions: {},
+    buildingHelp: {},
     // autosave at the start of every turn (not in test scenarios)
     autosave: true,
     // the date of the last autosave
@@ -1001,14 +1002,16 @@ function cityCommand(type, command) {
 
 // what a building does and costs (the build screen's text), as lines: name, cost and
 // maintenance, what it allows, the description
-function buildingLines(name, { cost, upkeep, allows, unit } = {}) {
+// help: the city screen's right-click text first (the original's help), else the build screen's
+function buildingLines(name, { cost, upkeep, allows, unit } = {}, help = false) {
     const lines = [name];
     const costs = [];
     if (cost) costs.push(`cost ${cost}`);
     if (!unit) costs.push(`maintenance ${upkeep ? `${upkeep} gold` : "none"}`);
     lines.push(costs.join(" · "));
     if (allows && allows.length) lines.push(`Allows: ${allows.join(", ")}`);
-    const description = unit ? "" : state.buildingDescriptions[name];
+    const texts = [state.buildingDescriptions[name], state.buildingHelp[name]];
+    const description = unit ? "" : (help ? texts.reverse() : texts).find((text) => text);
     if (description) lines.push(description);
     return lines;
 }
@@ -1119,9 +1122,9 @@ function renderCityScreen() {
     element("moreFarmers").onclick = () => cityCommand("set-city-farmers", { farmers: city.farmers + 1 });
     element("buy").onclick = () => cityCommand("buy-production", {});
     // what a building or unit is: hovering shows it under the options, right-click in a popup
-    const optionDetails = (name) => {
+    const optionDetails = (name, help = false) => {
         const option = city["can-build"].find((candidate) => candidate.name === name);
-        return option ? buildingLines(name, option) : buildingLines(name, city["building-costs"][name] || {});
+        return buildingLines(name, option || city["building-costs"][name] || {}, help);
     };
     const info = element("buildingInfo");
     const showInfo = (name) => {
@@ -1133,7 +1136,7 @@ function renderCityScreen() {
         target.onmouseenter = () => showInfo(name);
         target.oncontextmenu = (event) => {
             event.preventDefault();
-            ask(optionDetails(name).join("\n"), [["OK", () => {}]]);
+            ask(optionDetails(name, true).join("\n"), [["OK", () => {}]]);
         };
     }
     for (const button of screen.querySelectorAll("button.option")) {
@@ -1363,9 +1366,11 @@ async function main() {
             const parsed = JSON.parse(gamedata);
             state.spellDescriptions = parsed["spell-descriptions"] || {};
             state.buildingDescriptions = parsed["building-descriptions"] || {};
+            state.buildingHelp = parsed["building-help"] || {};
         } catch (error) {
             state.spellDescriptions = {};
             state.buildingDescriptions = {};
+            state.buildingHelp = {};
         }
         let settings;
         let saveText = null;

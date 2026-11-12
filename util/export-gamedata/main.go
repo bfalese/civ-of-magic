@@ -12,9 +12,11 @@ import (
     "fmt"
     "log"
     "os"
+    "strings"
 
     buildinglib "github.com/bfalese/civ-of-magic/core/building"
     "github.com/bfalese/civ-of-magic/core/gamedata"
+    helplib "github.com/bfalese/civ-of-magic/game/magic/help"
     "github.com/bfalese/civ-of-magic/game/magic/lbxdata"
     "github.com/bfalese/civ-of-magic/lib/lbx"
 )
@@ -57,6 +59,24 @@ func run(dataPath string, outPath string) error {
         }
     }
 
+    // the city screen's right-click help; "Maintenance: ...\x14" before the text is dropped (the
+    // page shows the maintenance itself)
+    helpTexts, err := helplib.ReadHelpFromCache(cache)
+    if err != nil {
+        return fmt.Errorf("help: %v", err)
+    }
+    buildingHelp := make(map[string]string)
+    for building := buildinglib.BuildingNone + 1; building < buildinglib.BuildingLast; building++ {
+        name := buildings.Name(building)
+        if entries := helpTexts.GetEntriesByName(name); len(entries) > 0 {
+            text := entries[0].Text
+            if index := strings.IndexRune(text, 0x14); index != -1 {
+                text = text[index + 1:]
+            }
+            buildingHelp[name] = strings.TrimSpace(text)
+        }
+    }
+
     cityNames, err := lbxdata.ReadCityNames(cache)
     if err != nil {
         return fmt.Errorf("city names: %v", err)
@@ -82,6 +102,7 @@ func run(dataPath string, outPath string) error {
         PowerCompatibilities: powerCompatibilities,
         SpellDescriptions: spellDescriptions,
         BuildingDescriptions: buildingDescriptions,
+        BuildingHelp: buildingHelp,
     }
 
     if err := gameData.Save(outPath); err != nil {
