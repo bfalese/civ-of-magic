@@ -4,6 +4,7 @@ import (
     "encoding/json"
     "errors"
     "fmt"
+    "slices"
     "strings"
 
     "github.com/bfalese/civ-of-magic/core/combat"
@@ -306,6 +307,7 @@ func (host *GameHost) playOthers() {
 
         player := model.Players[model.CurrentPlayer]
         if player == host.Human {
+            host.continueHumanMoves()
             return
         }
 
@@ -314,6 +316,29 @@ func (host *GameHost) playOthers() {
         host.ai.DiscoverWizards()
         host.drainEvents()
     }
+}
+
+// at the start of the human's turn, stacks sent further than their moves reached walk on along
+// the rest of their path (the desktop does it when it selects them); battles and encounters on the
+// way pause the turn as a move-stack would
+func (host *GameHost) continueHumanMoves() {
+    player := host.Human
+    selected := player.SelectedStack
+    for _, stack := range slices.Clone(player.Stacks) {
+        if len(stack.CurrentPath) == 0 || len(stack.ActiveUnits()) == 0 || !slices.Contains(player.Stacks, stack) {
+            continue
+        }
+        player.SelectedStack = stack
+        host.Model.MoveSelectedStack(host.Session, player)
+        host.drainEvents()
+        if host.GameOver() != "" {
+            break
+        }
+    }
+    if !slices.Contains(player.Stacks, selected) {
+        selected = nil
+    }
+    player.SelectedStack = selected
 }
 
 func (host *GameHost) startPlayerTurn(player *playerlib.Player) {

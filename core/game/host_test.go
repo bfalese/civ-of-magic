@@ -1046,3 +1046,82 @@ func TestHostOrdersScenario(test *testing.T) {
         }
     }
 }
+
+// a stack sent further than its moves reach walks on along the rest of its path at the start of
+// the next turn, without a new order
+func TestHostContinuesMoves(test *testing.T) {
+    dataPath := os.Getenv("CIV_GAMEDATA")
+    if dataPath == "" {
+        test.Skip("CIV_GAMEDATA not set")
+    }
+    gameData, err := gamedata.Load(dataPath)
+    if err != nil {
+        test.Fatalf("load: %v", err)
+    }
+    if !testing.Verbose() {
+        log.SetOutput(io.Discard)
+        defer log.SetOutput(os.Stderr)
+    }
+
+    host, err := MakeGameHost(gameData, HostSettings{Opponents: 1})
+    if err != nil {
+        test.Fatalf("setup: %v", err)
+    }
+    host.TakeEvents()
+    human := host.Human
+    stack := human.Stacks[0]
+    unit := stack.Units()[0]
+    moves := int(unit.GetMovesLeft(true).ToFloat())
+
+    // a destination two or more turns away, on explored land
+    mapUse := host.Model.GetMap(stack.Plane())
+    fog := human.GetFog(stack.Plane())
+    target := Location{Plane: stack.Plane(), X: -1}
+    search:
+    for distance := moves + 2; distance <= moves + 6; distance++ {
+        for dy := -distance; dy <= distance; dy++ {
+            for dx := -distance; dx <= distance; dx++ {
+                x, y := mapUse.WrapX(stack.X() + dx), stack.Y() + dy
+                if y < 0 || y >= mapUse.Height() {
+                    continue
+                }
+                path, ok := host.Model.FindPath(stack.X(), stack.Y(), x, y, human, stack, fog)
+                if ok && len(path) > moves + 1 {
+                    target.X, target.Y = x, y
+                    break search
+                }
+            }
+        }
+    }
+    if target.X < 0 {
+        test.Skip("no destination two turns away on this map")
+    }
+
+    from := Location{Plane: stack.Plane(), X: stack.X(), Y: stack.Y()}
+    if err := host.Execute(&MoveStackCommand{From: from, To: target}); err != nil {
+        test.Fatalf("move: %v", err)
+    }
+    walking := human.FindStackByUnit(unit)
+    left := len(walking.CurrentPath)
+    if left == 0 {
+        test.Fatalf("the stack should have a path left after its moves")
+    }
+    afterFirst := Location{Plane: walking.Plane(), X: walking.X(), Y: walking.Y()}
+
+    if err := host.Execute(&EndTurnCommand{}); err != nil {
+        test.Fatalf("end turn: %v", err)
+    }
+    for host.WaitingFor() == WaitingBattle {
+        if err := host.Execute(&BattleAutoCommand{}); err != nil {
+            test.Fatalf("auto battle: %v", err)
+        }
+    }
+    walking = human.FindStackByUnit(unit)
+    if walking == nil {
+        test.Skip("the unit died on the way")
+    }
+    now := Location{Plane: walking.Plane(), X: walking.X(), Y: walking.Y()}
+    if now == afterFirst || len(walking.CurrentPath) >= left {
+        test.Errorf("the stack should walk on at the start of the turn: at %v with %v steps left, now %v with %v", afterFirst, left, now, len(walking.CurrentPath))
+    }
+}
