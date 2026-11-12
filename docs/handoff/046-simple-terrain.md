@@ -35,16 +35,25 @@ plane-shift order). `?scenario=reveal` explores the whole map on both planes, to
 - `core/game/scenario.go`: `reveal`.
 - Smoke test: `simple_terrain` (simple ground, mineral billboards, trees, V back).
 
-## Numbers
+## Follow-ups done (same day)
 
-Full rebuild 200-400 ms in headless SwiftShader (first load, V, H); an exploration step ~20 ms.
+- View rotation: Q/E quarter turns (`rotateView`); billboards and ledges follow when a turn ends.
+- Foothills: a mountain next to hills sends a ridge down to them (`ridgeProfiles`).
+- Billboards stand at the highest ground right around their foot (`standingHeight`): stacks on
+  slopes don't sink in.
+- Nodes: `frontend/web/nodes3d.js`, a crystal per realm (sorcery: floating octahedron with orbiting
+  shards; nature: a crystal cluster; chaos: a jagged crystal over its peak) that turns, bobs and
+  pulses, a glow, and motes rising in a shader. Trees keep off the node's middle.
+- Rebuild speed: river courses and range segments cached per rebuild, typed per-tile arrays for
+  terrain codes, rivers and sites, no allocation per sample; sites count only on hills and
+  mountains in the 3x3. Full rebuild ~135 ms, a quarter turn ~45 ms, an exploration step ~11 ms.
+- The hint bar shows Q/E, V and H with the 3D map.
+- Per-plane colours (`palettes` in terrain-simple.js, `planeShades` in vegetation.js): Myrror has
+  brown-purple ground, ashen rock with lavender snow, dark violet water and dark purple woods;
+  nodes keep their colours. Nodes glow brighter (a wider pulsing halo) for now.
 
 ## Next / open
 
-- Speed up full rebuilds if they hitch on real hardware (the 5x5 signature strings, sampleAt).
-- Stacks on mountains stand on the slope (no ledge: they move); maybe lift them to the highest
-  ground near their foot.
-- Mountains and hills don't join each other (foothills could).
-- Nodes have no sparkle in the simple look (only a tint): 045 step 3's node models would fit here.
 - The smoke test's pact check failed once (passed on rerun): maybe flaky.
 - Decide which look is the default.
+- 045's model registry: low-poly models for encounters and cities.

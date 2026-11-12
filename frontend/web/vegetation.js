@@ -25,14 +25,25 @@ const plantings = {
     "Mountain": { tries: 3, kinds: { conifer: 0.15 } },
 };
 
-// canopy shades per kind and terrain (a few, picked per plant)
-const canopyShades = {
-    broadleaf: [0x2e6a2a, 0x3a7a30, 0x4a8a34, 0x58923a],
-    conifer: [0x1e4a2e, 0x24563a, 0x2c6034],
-    shrub: [0x3e7a30, 0x4c8a36, 0x5a9440, 0x6a8e3a],
-    dryShrub: [0x8a7a3a, 0x9a8444, 0x7a6a34],
-    swampShrub: [0x3a5030, 0x44582e, 0x34483a],
-    tundraConifer: [0x3a5a48, 0x46644e],
+// canopy shades per plane, kind and terrain (a few, picked per plant): Myrror's woods are dark,
+// purple and black
+const planeShades = {
+    Arcanus: {
+        broadleaf: [0x2e6a2a, 0x3a7a30, 0x4a8a34, 0x58923a],
+        conifer: [0x1e4a2e, 0x24563a, 0x2c6034],
+        shrub: [0x3e7a30, 0x4c8a36, 0x5a9440, 0x6a8e3a],
+        dryShrub: [0x8a7a3a, 0x9a8444, 0x7a6a34],
+        swampShrub: [0x3a5030, 0x44582e, 0x34483a],
+        tundraConifer: [0x3a5a48, 0x46644e],
+    },
+    Myrror: {
+        broadleaf: [0x34243c, 0x402a48, 0x4c3452, 0x3a2e36],
+        conifer: [0x1c1822, 0x241e2c, 0x2c2434],
+        shrub: [0x44344a, 0x503c50, 0x5a4652, 0x4a4040],
+        dryShrub: [0x5e4e40, 0x6a5848, 0x52443a],
+        swampShrub: [0x2c2a30, 0x34303a, 0x2a3036],
+        tundraConifer: [0x3a3446, 0x443c50],
+    },
 };
 const trunkColour = 0x5a4028;
 // how dark plants on explored land the player doesn't see now are (as dimColor in map3d.js)
@@ -172,6 +183,7 @@ export class Vegetation {
             if (y < lowestGround * Math.max(ground.scale, 0.05)) continue;
             const slope = Math.hypot(ground.heightAt(x + 0.04, z) - ground.heightAt(x - 0.04, z), ground.heightAt(x, z + 0.04) - ground.heightAt(x, z - 0.04)) / 0.08;
             if (slope > steepest) continue;
+            const canopyShades = planeShades[ground.plane] || planeShades.Arcanus;
             let palette = canopyShades[kind];
             if (terrain === "Swamp" && kind === "shrub") palette = canopyShades.swampShrub;
             if (terrain === "Tundra" && kind === "conifer") palette = canopyShades.tundraConifer;

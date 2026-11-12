@@ -33,9 +33,8 @@ const riverBed = -0.07;
 const riverBank = 0.1;
 // where the land turns to sand along the water (heights below this)
 const beachHeight = 0.035;
-// water by its distance from the coast: shallow by the land, deep from deepFrom tiles out
-const waterColor = 0x3a74b8;
-const deepWaterColor = 0x17336a;
+// water by its distance from the coast: shallow by the land, deep from deepFrom tiles out (the
+// colours are the plane's: palettes)
 const deepFrom = 3;
 const unexploredLevel = 0.06;
 // the flat ledge around a lair's or city's foot on hills and mountains, in tiles
@@ -101,29 +100,20 @@ function peak(wx, wz, tx, tz, radius, periodX) {
     return Math.max(0, 1 - Math.hypot(wx - cx, wz - cz) / radius);
 }
 
-// ranges: neighbouring tiles of the same kind are joined by a ridge from peak to peak, dipping to
-// a saddle halfway. Both tiles compute the same ridge (it is symmetric), so it runs on unbroken
-// across their border where their shapes blend
+// ranges: neighbouring mountains (or hills) are joined by a ridge from peak to peak, dipping to a
+// saddle halfway; a mountain next to hills sends a foothill ridge down to them. Both tiles of a
+// pair compute the same ridge, so it runs on unbroken across their border where their shapes
+// blend (SimpleGround.rangeSegments)
 const rangeKinds = { "Mountain": "mountain", "Volcano": "mountain", "Chaos Node": "mountain", "Hills": "hill" };
 const neighbourSteps = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-
-function range(wx, wz, tx, tz, periodX, ground, kind, width, top, saddle) {
-    const [ax, az] = peakCentre(tx, tz, periodX);
-    let best = 0;
-    for (const [dx, dz] of neighbourSteps) {
-        if (tz + dz < 0 || tz + dz >= ground.height) continue;
-        if (rangeKinds[ground.terrainAt(tx + dx, tz + dz)] !== kind) continue;
-        const [bx, bz] = peakCentre(tx + dx, tz + dz, periodX);
-        const abx = bx - ax;
-        const abz = bz - az;
-        const t = Math.max(0, Math.min(1, ((wx - ax) * abx + (wz - az) * abz) / (abx * abx + abz * abz)));
-        const across = Math.hypot(wx - ax - abx * t, wz - az - abz * t);
-        if (across >= width) continue;
-        const crest = saddle + (top - saddle) * 4 * (t - 0.5) * (t - 0.5);
-        best = Math.max(best, crest * Math.pow(1 - across / width, 1.5));
-    }
-    return best;
-}
+// per pair of kinds (this tile's, then its neighbour's): the ridge's height at this tile's peak
+// and at the neighbour's, how far it dips between them, and its half width
+const ridgeProfiles = {
+    "mountain/mountain": { from: 0.6, to: 0.6, dip: 0.15, width: 0.32 },
+    "hill/hill": { from: 0.15, to: 0.15, dip: 0.04, width: 0.42 },
+    "mountain/hill": { from: 0.45, to: 0.12, dip: 0.04, width: 0.36 },
+    "hill/mountain": { from: 0.12, to: 0.45, dip: 0.04, width: 0.36 },
+};
 
 // sharp ridges: value noise folded at its middle
 function ridges(wx, wz, frequency, periodX, seed) {
@@ -137,8 +127,8 @@ function mountainShape(wx, wz, tx, tz, periodX, ground) {
     const side = Math.pow(peak(wx + 0.22, wz - 0.14, tx, tz, 0.3, periodX), 1.8);
     const rocky = ridges(wx, wz, 3, periodX, 11) * 0.6 + ridges(wx, wz, 6, periodX, 12) * 0.4;
     const own = 0.75 * cone + 0.3 * side + 0.25 * rocky * (0.3 + 0.7 * cone);
-    // the range to neighbouring mountains, rocky along its crest
-    const ridge = range(wx, wz, tx, tz, periodX, ground, "mountain", 0.32, 0.6, 0.45) * (0.75 + 0.5 * rocky);
+    // the ranges to neighbouring mountains and hills, rocky along their crest
+    const ridge = ground.rangeHeight(wx, wz, tx, tz) * (0.75 + 0.5 * rocky);
     return Math.max(own, ridge);
 }
 
@@ -182,58 +172,100 @@ function mountainColour(out, wx, wz, height, periodX, tx, tz, shades, top, topFr
     return out;
 }
 
-const grassShades = [0x4f8f3e, 0x5e9e48, 0x72b050, 0x8bbd5a, 0x9db862];
-
-// per terrain: its level (tiles), vertices per tile edge, the shape on top of the level, and its
-// colour (given the ground's final height there)
-const terrainLooks = {
-    "Ocean": { level: -0.2, subdivisions: 2 },
-    "Lake": { level: -0.16, subdivisions: 2 },
-    "Shore": { level: -0.12, subdivisions: 2 },
-    "River": { ...flatLook(0.06, 0.01, 4, grassShades, 1), subdivisions: 16 },
-    "Grasslands": flatLook(0.06, 0.015, 4, grassShades, 1),
-    "Forest": flatLook(0.08, 0.035, 5, [0x24542a, 0x2c6230, 0x386e36, 0x44783c], 3),
-    "Swamp": flatLook(0.04, 0.012, 4, [0x3a4a3a, 0x46522e, 0x56603a, 0x4a5a40, 0x3c5852], 4),
-    "Desert": flatLook(0.07, 0.03, 3, [0xc99a4a, 0xd6ae4c, 0xe2c062, 0xedd286, 0xe8c878], 6),
-    "Tundra": flatLook(0.07, 0.015, 4, [0x96a294, 0xa8b4aa, 0xc2ccc6, 0xdde4e0], 7),
-    "Hills": {
-        level: 0.12, subdivisions: 8,
-        shape: (wx, wz, tx, tz, periodX, ground) => {
-            const mound = smoothstep(0, 1, peak(wx, wz, tx, tz, 0.6, periodX)) * 0.12;
-            // rolling ground joining neighbouring hills
-            const ridge = range(wx, wz, tx, tz, periodX, ground, "hill", 0.42, 0.15, 0.11);
-            const bumps = Math.pow(valueNoise(wx, wz, 3, periodX, 8), 2) * 0.14 + valueNoise(wx, wz, 6, periodX, 9) * 0.04;
-            return Math.max(mound, ridge) + bumps;
-        },
-        colour: (out, wx, wz, height, periodX, tx, tz) => {
-            tileTint(shaded(out, [0x6c7a44, 0x7a7444, 0x857a4a, 0x8c6c48, 0x7c6444], wx, wz, periodX, 10), tx, tz);
-            return mixInto(out, out, colour(0x8a8478), smoothstep(0.2, 0.36, height));
-        },
+// each plane's colours: Arcanus green and bright, Myrror gloomier (brown-purple ground, ashen rock,
+// pale lavender snow, dark violet water); nodes keep their magic colours on both
+const palettes = {
+    Arcanus: {
+        grass: [0x457d37, 0x518b3f, 0x609945, 0x73a34d, 0x82a254],
+        forest: [0x24542a, 0x2c6230, 0x386e36, 0x44783c],
+        swamp: [0x3a4a3a, 0x46522e, 0x56603a, 0x4a5a40, 0x3c5852],
+        desert: [0xc99a4a, 0xd6ae4c, 0xe2c062, 0xedd286, 0xe8c878],
+        tundra: [0x96a294, 0xa8b4aa, 0xc2ccc6, 0xdde4e0],
+        hills: [0x6c7a44, 0x7a7444, 0x857a4a, 0x8c6c48, 0x7c6444],
+        hillTop: 0x8a8478,
+        rock: [0x6a5642, 0x7a6450, 0x847a70, 0x908c88, 0xa09c98],
+        snow: 0xf0f0f0,
+        volcano: [0x4e423a, 0x443a36, 0x3a3434, 0x302c2c],
+        sand: 0xd6c48a,
+        seabed: 0xc8b07a,
+        water: 0x3a74b8,
+        deepWater: 0x17336a,
     },
-    "Mountain": {
-        level: 0.22, subdivisions: 16,
-        shape: mountainShape,
-        colour: (out, wx, wz, height, periodX, tx, tz) => mountainColour(out, wx, wz, height, periodX, tx, tz, [0x6a5642, 0x7a6450, 0x847a70, 0x908c88, 0xa09c98], 0xf0f0f0, 0.78),
-    },
-    "Volcano": {
-        level: 0.22, subdivisions: 16,
-        shape: mountainShape,
-        colour: (out, wx, wz, height, periodX, tx, tz) => mountainColour(out, wx, wz, height, periodX, tx, tz, [0x4e423a, 0x443a36, 0x3a3434, 0x302c2c], 0xb8401c, 0.72),
-    },
-    "Nature Node": flatLook(0.08, 0.035, 5, [0x2a8034, 0x3a9a40, 0x5cc25a, 0x7ad070], 3),
-    "Sorcery Node": flatLook(0.06, 0.015, 4, [0x3f8a98, 0x4f9aa8, 0x7cc0c8, 0x9ad0d4], 1),
-    "Chaos Node": {
-        level: 0.22, subdivisions: 16,
-        shape: mountainShape,
-        colour: (out, wx, wz, height, periodX, tx, tz) => mountainColour(out, wx, wz, height, periodX, tx, tz, [0x5a3028, 0x6a3a30, 0x7a4a3a, 0x8a5a4a], 0xd04a20, 0.75),
+    Myrror: {
+        grass: [0x4a4236, 0x54493a, 0x5e503e, 0x584650, 0x665648],
+        forest: [0x2e2a2c, 0x362e34, 0x3e3240, 0x463a42],
+        swamp: [0x2e3430, 0x3a3834, 0x443e3a, 0x3a3644, 0x343e4a],
+        desert: [0x8e765e, 0x9c8262, 0xa88e6a, 0xb49a74, 0x9e866e],
+        tundra: [0x7e788c, 0x8e889c, 0x9e98ac, 0xb2acbe],
+        hills: [0x584840, 0x62503e, 0x6c5648, 0x5c4a4e, 0x685250],
+        hillTop: 0x746a6e,
+        rock: [0x463a3c, 0x544648, 0x625456, 0x706466, 0x7e7274],
+        snow: 0xd6cce4,
+        volcano: [0x3a3030, 0x342a2c, 0x2c2628, 0x241f22],
+        sand: 0x9a8a7c,
+        seabed: 0x6a5e58,
+        water: 0x34467c,
+        deepWater: 0x10152e,
     },
 };
-const fallbackLook = terrainLooks["Grasslands"];
-const waterFloor = (out) => mixInto(out, colour(0xc8b07a), colour(0xc8b07a), 0);
+
+// per terrain: its level (tiles), vertices per tile edge, the shape on top of the level, and its
+// colour (given the ground's final height there), in a plane's colours
+function makeLooks(palette) {
+    return {
+        "Ocean": { level: -0.2, subdivisions: 2 },
+        "Lake": { level: -0.16, subdivisions: 2 },
+        "Shore": { level: -0.12, subdivisions: 2 },
+        "River": { ...flatLook(0.06, 0.01, 4, palette.grass, 1), subdivisions: 16 },
+        "Grasslands": flatLook(0.06, 0.015, 4, palette.grass, 1),
+        "Forest": flatLook(0.08, 0.035, 5, palette.forest, 3),
+        "Swamp": flatLook(0.04, 0.012, 4, palette.swamp, 4),
+        "Desert": flatLook(0.07, 0.03, 3, palette.desert, 6),
+        "Tundra": flatLook(0.07, 0.015, 4, palette.tundra, 7),
+        "Hills": {
+            level: 0.12, subdivisions: 8,
+            shape: (wx, wz, tx, tz, periodX, ground) => {
+                const mound = smoothstep(0, 1, peak(wx, wz, tx, tz, 0.6, periodX)) * 0.12;
+                // rolling ground joining neighbouring hills, rising towards neighbouring mountains
+                const ridge = ground.rangeHeight(wx, wz, tx, tz);
+                const bumps = Math.pow(valueNoise(wx, wz, 3, periodX, 8), 2) * 0.14 + valueNoise(wx, wz, 6, periodX, 9) * 0.04;
+                return Math.max(mound, ridge) + bumps;
+            },
+            colour: (out, wx, wz, height, periodX, tx, tz) => {
+                tileTint(shaded(out, palette.hills, wx, wz, periodX, 10), tx, tz);
+                return mixInto(out, out, colour(palette.hillTop), smoothstep(0.2, 0.36, height));
+            },
+        },
+        "Mountain": {
+            level: 0.22, subdivisions: 16,
+            shape: mountainShape,
+            colour: (out, wx, wz, height, periodX, tx, tz) => mountainColour(out, wx, wz, height, periodX, tx, tz, palette.rock, palette.snow, 0.78),
+        },
+        "Volcano": {
+            level: 0.22, subdivisions: 16,
+            shape: mountainShape,
+            colour: (out, wx, wz, height, periodX, tx, tz) => mountainColour(out, wx, wz, height, periodX, tx, tz, palette.volcano, 0xb8401c, 0.72),
+        },
+        "Nature Node": flatLook(0.08, 0.035, 5, [0x2a8034, 0x3a9a40, 0x5cc25a, 0x7ad070], 3),
+        "Sorcery Node": flatLook(0.06, 0.015, 4, [0x3f8a98, 0x4f9aa8, 0x7cc0c8, 0x9ad0d4], 1),
+        "Chaos Node": {
+            level: 0.22, subdivisions: 16,
+            shape: mountainShape,
+            colour: (out, wx, wz, height, periodX, tx, tz) => mountainColour(out, wx, wz, height, periodX, tx, tz, [0x5a3028, 0x6a3a30, 0x7a4a3a, 0x8a5a4a], 0xd04a20, 0.75),
+        },
+        sand: palette.sand,
+        seabed: palette.seabed,
+    };
+}
+const planeLooks = { Arcanus: makeLooks(palettes.Arcanus), Myrror: makeLooks(palettes.Myrror) };
+// the plane being built (SimpleGround.update sets it; one ground at a time)
+let terrainLooks = planeLooks.Arcanus;
+
+const waterFloor = (out) => mixInto(out, colour(terrainLooks.seabed), colour(terrainLooks.seabed), 0);
 const unexploredColour = (out) => mixInto(out, colour(0x101010), colour(0x101010), 0);
 
 function lookOf(terrain) {
-    return terrainLooks[terrain] || fallbackLook;
+    return terrainLooks[terrain] || terrainLooks["Grasslands"];
 }
 
 function subdivisionsOf(terrain) {
@@ -305,7 +337,7 @@ export class SimpleGround {
             lightDirection: { value: lightDirection.clone() },
             ambient: { value: ambient },
             depthMap: { value: new THREE.DataTexture(new Uint8Array(4), 1, 1) },
-            deepTint: { value: new THREE.Color(deepWaterColor) },
+            deepTint: { value: new THREE.Color(palettes.Arcanus.deepWater) },
         };
         const material = (tint, vertexColors, defines) => new THREE.ShaderMaterial({
             uniforms: { ...this.uniforms, tint: { value: new THREE.Color(tint) } },
@@ -315,7 +347,7 @@ export class SimpleGround {
             defines,
         });
         this.groundMaterial = material(0xffffff, true, {});
-        this.waterMaterial = material(waterColor, false, { WATER: 1 });
+        this.waterMaterial = material(palettes.Arcanus.water, false, { WATER: 1 });
         this.geometry = new THREE.BufferGeometry();
         this.waterGeometry = null;
         // per tile: its patch and the neighbourhood it was built for
@@ -346,8 +378,8 @@ export class SimpleGround {
     }
 
     siteAt(x, y) {
-        if (!this.sites || y < 0 || y >= this.height) return null;
-        return this.sites.get(`${((x % this.width) + this.width) % this.width}/${y}`) || null;
+        if (!this.siteList || y < 0 || y >= this.height) return null;
+        return this.siteList[y * this.width + ((x % this.width) + this.width) % this.width];
     }
 
     terrainAt(x, y) {
@@ -360,11 +392,51 @@ export class SimpleGround {
     // from its corner), where hills and mountains leave a flat ledge; returns the new geometry
     update(mapView, scale, sites = new Map()) {
         const terrains = mapView.tiles.map((row) => row.map((tile) => (tile ? tile.terrain : null)));
+        // the plane's colours (another plane: every patch anew)
+        const plane = palettes[mapView.plane] ? mapView.plane : "Arcanus";
+        terrainLooks = planeLooks[plane];
+        this.waterMaterial.uniforms.tint.value.set(palettes[plane].water);
+        this.uniforms.deepTint.value.set(palettes[plane].deepWater);
+        if (plane !== this.plane) {
+            this.patches.clear();
+            this.plane = plane;
+        }
         if (scale !== this.scale || mapView.width !== this.width || mapView.height !== this.height) {
             this.patches.clear();
         }
         this.terrains = terrains;
         this.sites = sites;
+        // per tile, for this terrain: river courses and range ridges
+        this.courses = new Map();
+        this.ranges = new Map();
+        // per tile (y * width + x): a code for its terrain (signatures), whether it's a river,
+        // and its sites
+        const codes = new Map();
+        this.terrainCodes = new Uint16Array(mapView.width * mapView.height);
+        this.rivers = new Uint8Array(mapView.width * mapView.height);
+        this.siteList = new Array(mapView.width * mapView.height).fill(null);
+        terrains.forEach((row, y) => row.forEach((terrain, x) => {
+            if (!codes.has(terrain)) codes.set(terrain, codes.size + 1);
+            this.terrainCodes[y * mapView.width + x] = codes.get(terrain);
+            this.rivers[y * mapView.width + x] = terrain === "River" ? 1 : 0;
+        }));
+        // tiles with a river tile in their 3x3 (only their samples look for channels)
+        this.nearRivers = new Uint8Array(mapView.width * mapView.height);
+        for (let y = 0; y < mapView.height; y++) {
+            for (let x = 0; x < mapView.width; x++) {
+                if (!this.rivers[y * mapView.width + x]) continue;
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (y + dy < 0 || y + dy >= mapView.height) continue;
+                    for (let dx = -1; dx <= 1; dx++) {
+                        this.nearRivers[(y + dy) * mapView.width + ((x + dx + mapView.width) % mapView.width)] = 1;
+                    }
+                }
+            }
+        }
+        for (const [key, feet] of sites) {
+            const [x, y] = key.split("/").map(Number);
+            if (rangeKinds[terrains[y][x]]) this.siteList[y * mapView.width + x] = feet;
+        }
         this.width = mapView.width;
         this.height = mapView.height;
         this.scale = scale;
@@ -479,16 +551,27 @@ export class SimpleGround {
     // what a tile's patch depends on: the terrain and sites of its 5x5 neighbourhood (a
     // neighbour's ranges reach towards its own neighbours)
     neighbourhood(x, y) {
-        let signature = "";
+        const codes = neighbourCodes;
+        let sites = "";
+        let index = 0;
         for (let dy = -2; dy <= 2; dy++) {
             for (let dx = -2; dx <= 2; dx++) {
-                signature += (y + dy < 0 || y + dy >= this.height ? "-" : this.terrainAt(x + dx, y + dy) ?? "?") + ",";
-                for (const foot of this.siteAt(x + dx, y + dy) || []) {
-                    signature += `${foot.x.toFixed(3)}:${foot.z.toFixed(3)},`;
+                const row = y + dy;
+                if (row < 0 || row >= this.height) {
+                    codes[index++] = 0;
+                    continue;
+                }
+                const column = ((x + dx) % this.width + this.width) % this.width;
+                codes[index++] = this.terrainCodes[row * this.width + column];
+                // ledges change only their own tile's shape (and the blend around it), and only
+                // on hills and mountains
+                const feet = Math.abs(dx) <= 1 && Math.abs(dy) <= 1 ? this.siteList[row * this.width + column] : null;
+                if (feet) {
+                    for (const foot of feet) sites += `${index}:${foot.x.toFixed(3)}:${foot.z.toFixed(3)},`;
                 }
             }
         }
-        return signature;
+        return String.fromCharCode.apply(null, codes) + sites;
     }
 
     // a tile's grid of vertices; along an edge shared with a coarser tile, the vertices between
@@ -565,91 +648,153 @@ export class SimpleGround {
         const periodX = this.width;
         const fx = Math.floor(wx);
         const fz = Math.floor(wz);
-        const weights = [];
+        // the tiles around the point that take part of it (up to 4), and how much
+        const tilesX = sampleTilesX;
+        const tilesZ = sampleTilesZ;
+        const weights = sampleWeights;
+        const terrains = sampleTerrains;
+        let count = 0;
         for (let dz = -1; dz <= 1; dz++) {
             const wzWeight = ramp(Math.abs(wz - (fz + dz + 0.5)));
             if (wzWeight <= 0) continue;
             for (let dx = -1; dx <= 1; dx++) {
                 const wxWeight = ramp(Math.abs(wx - (fx + dx + 0.5)));
                 if (wxWeight <= 0) continue;
-                weights.push({ tx: fx + dx, tz: fz + dz, weight: wxWeight * wzWeight });
+                tilesX[count] = fx + dx;
+                tilesZ[count] = fz + dz;
+                weights[count] = wxWeight * wzWeight;
+                count++;
             }
         }
 
         let height = 0;
-        for (const entry of weights) {
-            const terrain = this.terrainAt(entry.tx, entry.tz);
-            entry.terrain = terrain;
+        for (let index = 0; index < count; index++) {
+            const tx = tilesX[index];
+            const tz = tilesZ[index];
+            const terrain = this.terrainAt(tx, tz);
+            terrains[index] = terrain;
             if (terrain === null) {
-                height += entry.weight * unexploredLevel;
+                height += weights[index] * unexploredLevel;
                 continue;
             }
             const look = lookOf(terrain);
-            let shape = look.shape ? look.shape(wx, wz, entry.tx, entry.tz, periodX, this) : 0;
+            let shape = look.shape ? look.shape(wx, wz, tx, tz, periodX, this) : 0;
             // a ledge where a lair, city or mineral stands, so it doesn't perch on a slope or
             // sink into one
-            const feet = shape > 0 ? this.siteAt(entry.tx, entry.tz) : null;
-            for (const foot of feet || []) {
-                shape *= smoothstep(siteRadius * 0.4, siteRadius, Math.hypot(wx - entry.tx - foot.x, wz - entry.tz - foot.z));
+            const feet = shape > 0 && rangeKinds[terrain] ? this.siteAt(tx, tz) : null;
+            if (feet) {
+                for (const foot of feet) {
+                    shape *= smoothstep(siteRadius * 0.4, siteRadius, Math.hypot(wx - tx - foot.x, wz - tz - foot.z));
+                }
             }
-            height += entry.weight * (look.level + shape);
+            height += weights[index] * (look.level + shape);
         }
         height = this.carveRivers(wx, wz, fx, fz, height);
 
         const colourSum = out.colour;
         colourSum[0] = colourSum[1] = colourSum[2] = 0;
-        const part = [0, 0, 0];
-        for (const entry of weights) {
-            const terrain = entry.terrain;
+        const part = samplePart;
+        for (let index = 0; index < count; index++) {
+            const terrain = terrains[index];
             if (terrain === null) {
                 unexploredColour(part);
             } else if (waterTerrains.has(terrain)) {
                 waterFloor(part);
             } else {
-                lookOf(terrain).colour(part, wx, wz, height, periodX, entry.tx, entry.tz);
+                lookOf(terrain).colour(part, wx, wz, height, periodX, tilesX[index], tilesZ[index]);
             }
-            colourSum[0] += part[0] * entry.weight;
-            colourSum[1] += part[1] * entry.weight;
-            colourSum[2] += part[2] * entry.weight;
+            colourSum[0] += part[0] * weights[index];
+            colourSum[1] += part[1] * weights[index];
+            colourSum[2] += part[2] * weights[index];
         }
         // sand along the water
-        mixInto(colourSum, colourSum, colour(0xd6c48a), 1 - smoothstep(0, beachHeight, height));
+        mixInto(colourSum, colourSum, colour(terrainLooks.sand), 1 - smoothstep(0, beachHeight, height));
         out.height = height;
         return out;
+    }
+
+    // a tile's ridges to its neighbours (rangeKinds, ridgeProfiles), from its corner, cached per
+    // terrain: [{ax, az, abx, abz, length, from, to, dip, width}]
+    rangeSegments(tx, tz) {
+        const column = ((tx % this.width) + this.width) % this.width;
+        const key = tz * this.width + column;
+        let segments = this.ranges.get(key);
+        if (!segments) {
+            segments = [];
+            const kind = rangeKinds[this.terrainAt(tx, tz)];
+            if (kind) {
+                const [ax, az] = peakCentre(column, tz, this.width);
+                for (const [dx, dz] of neighbourSteps) {
+                    if (tz + dz < 0 || tz + dz >= this.height) continue;
+                    const profile = ridgeProfiles[`${kind}/${rangeKinds[this.terrainAt(column + dx, tz + dz)]}`];
+                    if (!profile) continue;
+                    const [bx, bz] = peakCentre(column + dx, tz + dz, this.width);
+                    const abx = bx - ax;
+                    const abz = bz - az;
+                    segments.push({ ax: ax - column, az: az - tz, abx, abz, length: abx * abx + abz * abz, ...profile });
+                }
+            }
+            this.ranges.set(key, segments);
+        }
+        return segments;
+    }
+
+    // the highest ridge of a tile's ranges at a point (0 off them)
+    rangeHeight(wx, wz, tx, tz) {
+        let best = 0;
+        for (const segment of this.rangeSegments(tx, tz)) {
+            const ax = tx + segment.ax;
+            const az = tz + segment.az;
+            const t = Math.max(0, Math.min(1, ((wx - ax) * segment.abx + (wz - az) * segment.abz) / segment.length));
+            const across = Math.hypot(wx - ax - segment.abx * t, wz - az - segment.abz * t);
+            if (across >= segment.width) continue;
+            const crest = segment.from + (segment.to - segment.from) * t - segment.dip * 4 * t * (1 - t);
+            best = Math.max(best, crest * Math.pow(1 - across / segment.width, 1.5));
+        }
+        return best;
     }
 
     // a river tile's course: from its middle (moved a little per tile, so rivers wind) to the
     // middle of each edge it shares with another river tile or water; a lone river tile gets a
     // short stretch across
+    // (from the tile's corner, cached per terrain; the same for a tile and its copy across the
+    // map's east-west edge)
     riverCourse(tx, tz) {
-        // the same for a tile and its copy across the map's east-west edge
         const column = ((tx % this.width) + this.width) % this.width;
-        const cx = tx + 0.5 + (hash(column * 3 + 7, tz * 17 + 1) - 0.5) * 0.3;
-        const cz = tz + 0.5 + (hash(column * 19 + 2, tz * 5 + 3) - 0.5) * 0.3;
-        const ends = [];
-        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-            const neighbour = tz + dz < 0 || tz + dz >= this.height ? null : this.terrainAt(tx + dx, tz + dz);
-            if (neighbour !== null && riverJoins.has(neighbour)) {
-                ends.push([tx + 0.5 + dx * 0.5, tz + 0.5 + dz * 0.5]);
+        const key = tz * this.width + column;
+        let course = this.courses.get(key);
+        if (!course) {
+            const cx = 0.5 + (hash(column * 3 + 7, tz * 17 + 1) - 0.5) * 0.3;
+            const cz = 0.5 + (hash(column * 19 + 2, tz * 5 + 3) - 0.5) * 0.3;
+            const ends = [];
+            for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const neighbour = tz + dz < 0 || tz + dz >= this.height ? null : this.terrainAt(tx + dx, tz + dz);
+                if (neighbour !== null && riverJoins.has(neighbour)) {
+                    ends.push([0.5 + dx * 0.5, 0.5 + dz * 0.5]);
+                }
             }
+            if (ends.length === 0) {
+                ends.push([cx - 0.3, cz], [cx + 0.3, cz]);
+            }
+            course = { cx, cz, ends };
+            this.courses.set(key, course);
         }
-        if (ends.length === 0) {
-            ends.push([cx - 0.3, cz], [cx + 0.3, cz]);
-        }
-        return { cx, cz, ends };
+        return course;
     }
 
     // the ground lowered along the river channels near a point (the river tiles around it)
     carveRivers(wx, wz, fx, fz, height) {
+        const row = Math.max(0, Math.min(this.height - 1, fz));
+        if (!this.nearRivers[row * this.width + ((fx % this.width) + this.width) % this.width]) return height;
         let nearest = Infinity;
         for (let dz = -1; dz <= 1; dz++) {
             for (let dx = -1; dx <= 1; dx++) {
                 const tx = fx + dx;
                 const tz = fz + dz;
-                if (tz < 0 || tz >= this.height || this.terrainAt(tx, tz) !== "River") continue;
+                if (tz < 0 || tz >= this.height || !this.rivers[tz * this.width + ((tx % this.width) + this.width) % this.width]) continue;
                 const { cx, cz, ends } = this.riverCourse(tx, tz);
                 for (const [ex, ez] of ends) {
-                    nearest = Math.min(nearest, distanceToSegment(wx, wz, cx, cz, ex, ez));
+                    nearest = Math.min(nearest, distanceToSegment(wx, wz, tx + cx, tz + cz, tx + ex, tz + ez));
                 }
             }
         }
@@ -662,10 +807,19 @@ export class SimpleGround {
     // H key's scale
     heightAt(wx, wz) {
         if (!this.terrains) return 0;
-        const sample = this.sampleAt(wx, Math.max(0, Math.min(this.height - 0.001, wz)), { height: 0, colour: [0, 0, 0] });
+        const sample = this.sampleAt(wx, Math.max(0, Math.min(this.height - 0.001, wz)), heightSample);
         return Math.max(0, this.scaled(sample.height));
     }
 }
+
+const heightSample = { height: 0, colour: [0, 0, 0] };
+const neighbourCodes = new Uint16Array(25);
+// scratch space for sampleAt (no allocation per sample)
+const sampleTilesX = new Int32Array(4);
+const sampleTilesZ = new Int32Array(4);
+const sampleWeights = new Float64Array(4);
+const sampleTerrains = new Array(4);
+const samplePart = [0, 0, 0];
 
 function distanceToSegment(px, pz, ax, az, bx, bz) {
     const abx = bx - ax;

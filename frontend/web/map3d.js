@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { MapRenderer, isStanding } from "./map.js";
 import { SimpleGround, hash } from "./terrain-simple.js";
 import { Vegetation } from "./vegetation.js";
+import { NodeEffects } from "./nodes3d.js";
 
 // true isometric: the camera looks down 35.26° from the horizon, turned 45° (north-east is up);
 // the view turns around the vertical axis in quarter turns (rotateView), these being for turn 0
@@ -25,6 +26,8 @@ const pitch = Math.asin(baseCameraOffset.y / baseCameraOffset.length());
 const baseGroundRight = new THREE.Vector3(1, 0, 1).normalize();
 const baseGroundUp = new THREE.Vector3(1, 0, -1).normalize();
 const verticalAxis = new THREE.Vector3(0, 1, 0);
+// where standingHeight looks around a billboard's foot, in tiles
+const footSamples = [[0.08, 0], [-0.08, 0], [0, 0.08], [0, -0.08], [0.06, 0.06], [-0.06, -0.06], [0.06, -0.06], [-0.06, 0.06]];
 // how long a quarter turn of the view takes, in milliseconds
 const turnMilliseconds = 250;
 // how dark billboards on explored land the player doesn't see now are drawn
@@ -83,6 +86,8 @@ export class MapRenderer3D extends MapRenderer {
         this.simpleGround = null;
         // trees and shrubs on the simple ground
         this.vegetation = null;
+        // magic nodes' crystals and motes on the simple ground
+        this.nodeEffects = null;
         // the view's turn around the vertical axis, in radians: where it is and where it's going
         // (quarter turns: rotateView)
         this.rotation = 0;
@@ -517,7 +522,17 @@ export class MapRenderer3D extends MapRenderer {
         const toward = inFront ? 0.68 : this.footToward(texture);
         const worldX = x + 0.5 - this.groundUp.x * toward;
         const worldZ = y + 0.5 - this.groundUp.z * toward;
-        return new THREE.Vector3(worldX, this.heightAt(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
+        return new THREE.Vector3(worldX, this.standingHeight(worldX, worldZ) + (inFront ? 0.05 : 0), worldZ);
+    }
+
+    // the height a billboard stands at: the highest ground right around its foot, so on a slope
+    // it stands on it instead of sinking into the side rising behind it
+    standingHeight(worldX, worldZ) {
+        let height = this.heightAt(worldX, worldZ);
+        for (const [dx, dz] of footSamples) {
+            height = Math.max(height, this.heightAt(worldX + dx, worldZ + dz));
+        }
+        return height;
     }
 
     // how far towards the camera from the tile's centre a billboard of this texture stands
@@ -556,6 +571,9 @@ export class MapRenderer3D extends MapRenderer {
     }
 
     beforeRender(now) {
+        if (this.nodeEffects) {
+            this.nodeEffects.animate(now / 1000, this.tileWidth * this.zoom * this.renderer.getPixelRatio());
+        }
         // the view turning
         if (this.rotation !== this.targetRotation) {
             const elapsed = this.turnTime === null ? 0 : now - this.turnTime;
@@ -702,9 +720,25 @@ export class MapRenderer3D extends MapRenderer {
                 if (!feet.has(key)) feet.set(key, []);
                 feet.get(key).push({ x: 0.5 - this.groundUp.x * toward + offset.x, z: 0.5 - this.groundUp.z * toward + offset.z });
             }
+            // no trees in the middle of a node (its crystals stand there)
+            this.mapView.tiles.forEach((row, y) => row.forEach((tile, x) => {
+                if (!tile || !tile.terrain || !tile.terrain.endsWith("Node")) return;
+                const key = `${x}/${y}`;
+                if (!feet.has(key)) feet.set(key, []);
+                feet.get(key).push({ x: 0.5, z: 0.5 });
+            }));
             this.vegetation.update(this.simpleGround, this.mapView, this.copies, feet);
-        } else if (this.vegetation) {
-            this.vegetation.remove();
+
+            // magic nodes: crystals and motes (their tile art stands up only on the textured ground)
+            if (!this.nodeEffects) this.nodeEffects = new NodeEffects(lightDirection, shadeAmbient);
+            const nodes = [];
+            this.mapView.tiles.forEach((row, y) => row.forEach((tile, x) => {
+                if (tile && tile.terrain && tile.terrain.endsWith("Node")) nodes.push({ terrain: tile.terrain, x, y, dimmed: !tile.visible });
+            }));
+            this.nodeEffects.update(nodes, this.copies, (x, z) => this.standingHeight(x, z));
+        } else {
+            if (this.vegetation) this.vegetation.remove();
+            if (this.nodeEffects) this.nodeEffects.remove();
         }
     }
 

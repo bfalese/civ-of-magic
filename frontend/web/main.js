@@ -1437,6 +1437,8 @@ async function main() {
         // the isometric 3D map; ?view=2d for the flat one
         const Renderer = params.get("view") === "2d" ? MapRenderer : MapRenderer3D;
         state.map = new Renderer(element("map"), assets, { onTileClick, onTileHover, onFrame: () => state.minimap.update() });
+        // the 3D map's keys in the hint bar only with the 3D map
+        element("hint").querySelector(".keys3d").hidden = Renderer !== MapRenderer3D;
         // ?terrain=simple: the 3D map's plain coloured ground instead of the tile art (V switches)
         if (params.get("terrain") === "simple" && state.map.setTerrainLook) state.map.setTerrainLook("simple");
         state.minimap = new Minimap(element("minimap").querySelector("canvas"), state.map, assets);
