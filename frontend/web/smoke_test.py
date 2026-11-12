@@ -426,6 +426,19 @@ def battle(smoke, url):
     check(True, "auto finished the battle and the screen closed")
     log = page.inner_text("#log")
     check("the battle at" in log, f"the log reports it: {next((line for line in log.splitlines() if 'battle at' in line), '')}")
+    battle_report(smoke, ["You are triumphant", "You have been defeated", "Your forces have retreated"])
+
+
+def battle_report(smoke, titles):
+    """The end screen of a battle: a dialog with the result and the losses."""
+    page, check = smoke.page, smoke.check
+    smoke.visible("#modal.open", "the battle report")
+    report = page.inner_text("#modalText")
+    lines = report.splitlines()
+    check(any(lines[0].startswith(title) for title in titles) and "You lost" in report,
+          f"a dialog reports the battle: {' / '.join(lines)}")
+    page.click("#modalChoices button:has-text('OK')")
+    check(not smoke.state("s.modalOpen"), "OK closes the report")
 
 
 # the siege scenario's army: a stack of yours next to an enemy city
@@ -464,6 +477,7 @@ def siege(smoke, url):
     page.click("#battle button[data-command='battle-flee']")
     smoke.wait("!window.civGame.battle.open", "the battle to end after fleeing", BATTLE_TIMEOUT)
     check(True, "fled: the battle screen closed")
+    battle_report(smoke, ["Your forces have retreated"])
 
 
 def spellbook(smoke, url):

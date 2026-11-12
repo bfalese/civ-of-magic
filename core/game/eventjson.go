@@ -292,12 +292,30 @@ func (model *GameModel) eventJSON(event GameEvent) (string, any, bool) {
             if battle.Started {
                 eventType = "battle-started"
             }
+            if battle.Started {
+                return eventType, struct {
+                    Attacker *PlayerRef `json:"attacker"`
+                    Defender *PlayerRef `json:"defender"`
+                    Location Location `json:"location"`
+                }{MakePlayerRef(battle.Attacker), MakePlayerRef(battle.Defender), battle.Location}, true
+            }
             return eventType, struct {
                 Attacker *PlayerRef `json:"attacker"`
                 Defender *PlayerRef `json:"defender"`
                 Location Location `json:"location"`
-                Result string `json:"result,omitempty"`
-            }{MakePlayerRef(battle.Attacker), MakePlayerRef(battle.Defender), battle.Location, battle.State}, true
+                Result string `json:"result"`
+                AttackerLosses int `json:"attacker-losses"`
+                DefenderLosses int `json:"defender-losses"`
+                DiedWhileFleeing int `json:"died-while-fleeing"`
+                AttackerFame int `json:"attacker-fame"`
+                DefenderFame int `json:"defender-fame"`
+                PopulationLost int `json:"population-lost"`
+                BuildingsLost int `json:"buildings-lost"`
+                UndeadRaised int `json:"undead-raised"`
+                HeroDied bool `json:"hero-died"`
+            }{MakePlayerRef(battle.Attacker), MakePlayerRef(battle.Defender), battle.Location, battle.State,
+                battle.AttackerLosses, battle.DefenderLosses, battle.DiedWhileFleeing, battle.AttackerFame, battle.DefenderFame,
+                battle.PopulationLost, battle.BuildingsLost, battle.UndeadRaised, battle.HeroDied}, true
 
         case *GameEventChooseEncounter:
             choose := event.(*GameEventChooseEncounter)

@@ -194,12 +194,14 @@ func (session *CommandSession) DoCombat(attacker *playerlib.Player, attackerStac
     events := make(chan combat.CombatEvent, 1000)
     battle := model.MakeBattle(model.AllSpells, attacker, attackerStack, defender, defenderStack, zone, events)
 
+    location := Location{Plane: defenderStack.Plane(), X: defenderStack.X(), Y: defenderStack.Y()}
     var result BattleResult
-    if attacker != session.Player && defender != session.Player {
+    humanFought := attacker == session.Player || defender == session.Player
+    if !humanFought {
         result = battle.Run(false)
     } else {
         session.Battle = makeBattleSession(battle, session.Player)
-        session.announce(&GameEventBattle{Attacker: attacker, Defender: defender, Location: Location{Plane: defenderStack.Plane(), X: defenderStack.X(), Y: defenderStack.Y()}, Started: true})
+        session.announce(&GameEventBattle{Attacker: attacker, Defender: defender, Location: location, Started: true})
 
         for {
             session.Battle.advance()
@@ -218,13 +220,32 @@ func (session *CommandSession) DoCombat(attacker *playerlib.Player, attackerStac
             session.inputErr = session.Battle.apply(command)
         }
 
-        session.announce(&GameEventBattle{Attacker: attacker, Defender: defender, Location: Location{Plane: defenderStack.Plane(), X: defenderStack.X(), Y: defenderStack.Y()}, State: battleStateName(result.State)})
         session.Battle = nil
         session.waiting = WaitingNothing
     }
 
-    model.ApplyBattleOutcome(battle, result, session.DefeatCity)
-    model.ApplyBattleAftermath(battle, result)
+    outcome := model.ApplyBattleOutcome(battle, result, session.DefeatCity)
+    aftermath := model.ApplyBattleAftermath(battle, result)
+
+    // the end screen's content: announced once the outcome is applied (a won city may have
+    // asked whether to raze it first)
+    if humanFought {
+        session.announce(&GameEventBattle{
+            Attacker: attacker,
+            Defender: defender,
+            Location: location,
+            State: battleStateName(result.State),
+            AttackerLosses: result.DefeatedAttackers,
+            DefenderLosses: result.DefeatedDefenders,
+            DiedWhileFleeing: battle.Combat.DiedWhileFleeing,
+            AttackerFame: outcome.AttackerFame,
+            DefenderFame: outcome.DefenderFame,
+            PopulationLost: outcome.CityPopulationLoss,
+            BuildingsLost: len(outcome.CityBuildingLoss),
+            UndeadRaised: aftermath.UndeadUnits,
+            HeroDied: aftermath.HumanHeroDied,
+        })
+    }
     return result.State
 }
 
