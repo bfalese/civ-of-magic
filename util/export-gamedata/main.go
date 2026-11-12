@@ -29,6 +29,17 @@ func run(dataPath string, outPath string) error {
         return fmt.Errorf("spells: %v", err)
     }
 
+    descriptions, err := lbxdata.ReadSpellDescriptionsFromCache(cache)
+    if err != nil {
+        return fmt.Errorf("spell descriptions: %v", err)
+    }
+    spellDescriptions := make(map[string]string)
+    for _, spell := range spells.Spells {
+        if spell.Index >= 0 && spell.Index < len(descriptions) {
+            spellDescriptions[spell.Name] = descriptions[spell.Index]
+        }
+    }
+
     buildings, err := lbxdata.ReadBuildingInfo(cache)
     if err != nil {
         return fmt.Errorf("buildings: %v", err)
@@ -57,13 +68,14 @@ func run(dataPath string, outPath string) error {
         Artifacts: artifacts,
         PowerCosts: powerCosts,
         PowerCompatibilities: powerCompatibilities,
+        SpellDescriptions: spellDescriptions,
     }
 
     if err := gameData.Save(outPath); err != nil {
         return err
     }
 
-    log.Printf("wrote %v spells, %v buildings, %v city names, %v artifacts, %v powers to %v", len(spells.Spells), len(buildings), len(cityNames), len(artifacts), len(powerCosts), outPath)
+    log.Printf("wrote %v spells (%v descriptions), %v buildings, %v city names, %v artifacts, %v powers to %v", len(spells.Spells), len(spellDescriptions), len(buildings), len(cityNames), len(artifacts), len(powerCosts), outPath)
     return nil
 }
 

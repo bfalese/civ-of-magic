@@ -43,6 +43,7 @@ const state = {
     lastDate: null,
     // the data tables' text, for loading a save
     gamedata: null,
+    spellDescriptions: {},
     // autosave at the start of every turn (not in test scenarios)
     autosave: true,
     // the date of the last autosave
@@ -165,23 +166,69 @@ function battleReport(body) {
 
 // ---- dialogs
 
-function ask(text, choices) {
-    state.questions.push({ text, choices });
+// choices: [label, action] or [label, action, { html, group, data }]: html replaces the label in
+// the button, group puts a heading over the buttons that share it; wide widens the dialog
+function ask(text, choices, { wide = false } = {}) {
+    state.questions.push({ text, choices, wide });
     showNextQuestion();
 }
+
+// the realms' colours (the spellbook's)
+const realmColors = {
+    Life: "#f4f0d8", Death: "#b07ae0", Chaos: "#ff7a50", Nature: "#7ed06a", Sorcery: "#6ab4ff", Arcane: "#c8c0b0",
+};
+const sectionOrder = ["Summoning", "Special Spells", "City Spells", "Enchantment", "Unit Spells", "Combat Spells"];
+
+// what to research, as the desktop's spellbook shows it: the spells by section, quickest first,
+// each with its realm (and your books in it), rarity, research cost and turns, casting cost and
+// the spellbook's description
+function askResearch() {
+    const you = state.core.view().you;
+    const spells = [...(you["research-spells"] || [])].sort((a, b) =>
+        (sectionOrder.indexOf(a.section) - sectionOrder.indexOf(b.section)) || ((a.turns || 1e9) - (b.turns || 1e9)) || a.name.localeCompare(b.name));
+    if (spells.length === 0) return;
+    const books = (you.mirror && you.mirror.books) || {};
+    const turns = (count) => (count > 0 ? `${count} turn${count === 1 ? "" : "s"}` : "no research");
+    const card = (spell) => {
+        const realmBooks = books[spell.magic] ? ` · ${books[spell.magic]} book${books[spell.magic] === 1 ? "" : "s"}` : "";
+        const description = state.spellDescriptions[spell.name] || "";
+        return `<span class="research-head"><span class="tome" style="--realm: ${realmColors[spell.magic] || "#c8c0b0"}"></span>`
+            + `<b style="color: ${realmColors[spell.magic] || "inherit"}">${escapeHtml(spell.name)}</b></span>`
+            + `<span class="dim">${escapeHtml(spell.magic)}${realmBooks} · ${escapeHtml(spell.rarity)}</span>`
+            + `<span>Research ${spell["research-cost"]} (${turns(spell.turns)}) · cast ${spell["casting-cost"]}</span>`
+            + (description ? `<span class="research-description">${escapeHtml(description)}</span>` : "");
+    };
+    ask("What should your sages research?", spells.map((spell) => [spell.name, () => execute("set-research", { spell: spell.name }),
+        { html: card(spell), group: spell.section, data: { spell: spell.name } }]), { wide: true });
+}
+
 
 function showNextQuestion() {
     if (state.modalOpen || state.questions.length === 0) {
         return;
     }
-    const { text, choices } = state.questions.shift();
+    const { text, choices, wide } = state.questions.shift();
     state.modalOpen = true;
+    element("modal").classList.toggle("wide", wide);
     element("modalText").textContent = text;
     const box = element("modalChoices");
     box.innerHTML = "";
-    for (const [label, action] of choices) {
+    let group = null;
+    for (const [label, action, options = {}] of choices) {
+        if (options.group && options.group !== group) {
+            group = options.group;
+            const heading = document.createElement("h3");
+            heading.textContent = group;
+            box.appendChild(heading);
+        }
         const button = document.createElement("button");
-        button.textContent = label;
+        if (options.html) {
+            button.innerHTML = options.html;
+            button.classList.add("card");
+        } else {
+            button.textContent = label;
+        }
+        Object.assign(button.dataset, options.data || {});
         button.onclick = () => {
             element("modal").classList.remove("open");
             state.modalOpen = false;
@@ -232,7 +279,7 @@ function handleEvents() {
         switch (event.type) {
             case "choose-research":
                 if (mine(body.player) && body.candidates.length > 0) {
-                    ask("What should your sages research?", body.candidates.map((spell) => [spell, () => execute("set-research", { spell })]));
+                    askResearch();
                 }
                 break;
             case "hire-hero":
@@ -1221,6 +1268,12 @@ async function main() {
         // URL parameters skip the start screen (tests, bookmarks): ?opponents=2&difficulty=hard,
         // ?wizard=Merlin&race=High Elf&banner=red, or a test setup (core/game/scenario.go) ?scenario=battle
         state.gamedata = gamedata;
+        // the spellbook's descriptions (missing in data exported before them: re-export)
+        try {
+            state.spellDescriptions = JSON.parse(gamedata)["spell-descriptions"] || {};
+        } catch (error) {
+            state.spellDescriptions = {};
+        }
         let settings;
         let saveText = null;
         if (params.has("load")) {

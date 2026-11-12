@@ -121,6 +121,13 @@
     #modal .panel { position: static; max-width: min(420px, calc(100% - 32px)); padding: 12px 14px; }
     #modalText { white-space: pre-line; }
     #modal .choices { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    #modal.wide .panel { max-width: min(760px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; }
+    #modal .choices h3 { flex-basis: 100%; margin: 6px 0 0; }
+    #modal button.card { flex: 1 1 220px; max-width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 6px 8px; }
+    #modal .research-head { display: flex; align-items: center; gap: 6px; }
+    #modal .research-description { color: var(--dim); font-size: 12px; }
+    /* a closed book in the realm's colour */
+    .tome { display: inline-block; width: 9px; height: 12px; background: var(--realm); border-radius: 1px 2px 2px 1px; box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.45), inset 0 -2px 0 rgba(255, 255, 255, 0.35); flex: none; }
     #city { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35); }
     #city.open { display: flex; }
     #city > .panel { position: static; width: min(760px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; padding: 10px 12px; }

@@ -186,8 +186,15 @@ def first_turn(smoke, url):
     check(state("s.map.assets.has('fog/0') && s.map.assets.has('fog/13')"), "the soft fog edges are in the assets (re-export them if not)")
     smoke.visible("#modal.open", "the first research question")
     candidates = state("s.view.you['research-candidates'].length")
-    page.click("#modalChoices button >> nth=0")
-    check(state("s.view.you.researching") is not None, f"the first turn asks what to research: {state('s.view.you.researching')} (of {candidates})")
+    cards = page.locator("#modalChoices button.card")
+    check(cards.count() == candidates and page.locator("#modalChoices h3").count() > 0,
+          f"the research dialog has a card per spell ({candidates}), grouped by section")
+    first = cards.nth(0).inner_text()
+    check("Research" in first and "turn" in first and len(first.splitlines()) >= 4,
+          f"each card has the realm, cost, turns and description (re-export gamedata if not): {' / '.join(first.splitlines())}")
+    chosen = cards.nth(0).get_attribute("data-spell")
+    cards.nth(0).click()
+    check(state("s.view.you.researching") == chosen, f"the first turn asks what to research: {chosen} (of {candidates})")
     smoke.shot("1-start")
 
     # the camera starts on the capital: its tile is in the middle of the map area

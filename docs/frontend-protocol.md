@@ -199,7 +199,9 @@ Heroes: `{"name", "title", "level", "location"}`. Artifacts: the save-game form
   label, unrest}`), casting skill, research and casting progress, known spells,
   `global-enchantments` (`{name, upkeep, owner, yours}`); for the magic screen `power`, `power-distribution` {mana, research, skill},
   `research-per-turn`, `skill-per-turn`, `remaining-casting-skill` (left this turn),
-  `casting-cost`, `research-candidates`, `alchemy-full-rate`, and `spells`: the overland spells
+  `casting-cost`, `research-candidates`, `research-spells` (the same spells for the research
+  screen: `{name, magic, section, rarity, research-cost, research-per-turn, turns, casting-cost}`,
+  `turns` 0 without research), `alchemy-full-rate`, and `spells`: the overland spells
   `cast-spell` takes, `{name, magic, section, cost, target?, now, needs-design?}` (`target` uses
   `choose-spell-target`'s names; `now`: mana and the skill left this turn cover it, so it's cast
   at once and a target must come with it; otherwise cast-spell starts it over the next turns;
@@ -332,7 +334,8 @@ then starts on Myrror); `scenario` for tests.
 
 Status is `{"error"?, "waiting", "gameOver"?}`. Every function returns a JSON string. The page
 calls `window.onCivReady` (if defined) once the API is there. The page loads the user's own
-`gamedata.json`; it is never shipped.
+`gamedata.json`; it is never shipped. Its `spell-descriptions` (spell name → the spellbook's
+description) are for the page alone; files exported before them lack it.
 
 ```sh
 make core-wasm                                     # frontend/wasm/core.wasm + wasm_exec.js

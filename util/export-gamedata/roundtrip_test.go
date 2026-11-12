@@ -38,6 +38,12 @@ func TestRoundTrip(test *testing.T) {
     if !reflect.DeepEqual(spells.Spells, loaded.Spells.Spells) {
         test.Errorf("spells differ")
     }
+    if description := loaded.SpellDescriptions["Fireball"]; description == "" {
+        test.Errorf("Fireball has no description")
+    }
+    if len(loaded.SpellDescriptions) < len(spells.Spells) * 9 / 10 {
+        test.Errorf("only %v descriptions for %v spells", len(loaded.SpellDescriptions), len(spells.Spells))
+    }
     if !reflect.DeepEqual(buildings, loaded.Buildings) {
         test.Errorf("buildings differ")
     }
