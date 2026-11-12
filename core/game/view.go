@@ -54,6 +54,8 @@ type WizardView struct {
     CastingCost int `json:"casting-cost,omitempty"`
     // the spells set-research may pick
     ResearchCandidates []string `json:"research-candidates"`
+    // the same spells with what the research screen shows (the description is in gamedata.json)
+    ResearchSpells []ResearchSpellView `json:"research-spells"`
     // the spellbook: overland spells cast-spell takes
     Spells []SpellView `json:"spells"`
     // alchemy converts at full rate (the Alchemy retort), otherwise at half
@@ -64,6 +66,23 @@ type WizardView struct {
     Items VaultView `json:"items"`
     // your books, retorts, fame, heroes and casting skill (the mirror)
     Mirror MirrorView `json:"mirror"`
+}
+
+// a spell the player may research
+type ResearchSpellView struct {
+    Name string `json:"name"`
+    // the realm: Life, Death, Chaos, Nature, Sorcery or Arcane
+    Magic string `json:"magic"`
+    // Summoning, Unit Enchantments, City Enchantments, ...
+    Section string `json:"section"`
+    // Common, Uncommon, Rare or Very Rare
+    Rarity string `json:"rarity"`
+    ResearchCost int `json:"research-cost"`
+    // research points per turn put into this spell (retorts and books can speed up a realm)
+    ResearchPerTurn int `json:"research-per-turn"`
+    // turns to learn it at the current research rate (0: no research)
+    Turns int `json:"turns"`
+    CastingCost int `json:"casting-cost"`
 }
 
 type PowerDistributionView struct {
@@ -342,8 +361,29 @@ func (model *GameModel) MakePlayerView(player *playerlib.Player) PlayerView {
     you.Mirror = makeMirrorView(player)
     you.Mirror.CastingSkill = you.CastingSkill
     you.ResearchCandidates = []string{}
+    you.ResearchSpells = []ResearchSpellView{}
+    researchPoints := player.SpellResearchPerTurn(power)
     for _, spell := range player.ResearchCandidateSpells.Spells {
         you.ResearchCandidates = append(you.ResearchCandidates, spell.Name)
+        perTurn := player.ComputeEffectiveResearchPerTurn(researchPoints, spell)
+        turns := 0
+        if perTurn > 0 {
+            left := spell.ResearchCost
+            if spell.Name == player.ResearchingSpell.Name {
+                left -= player.ResearchProgress
+            }
+            turns = max(1, (left + perTurn - 1) / perTurn)
+        }
+        you.ResearchSpells = append(you.ResearchSpells, ResearchSpellView{
+            Name: spell.Name,
+            Magic: spell.Magic.String(),
+            Section: spell.Section.Name(),
+            Rarity: spell.Rarity.String(),
+            ResearchCost: spell.ResearchCost,
+            ResearchPerTurn: perTurn,
+            Turns: turns,
+            CastingCost: player.ComputeEffectiveSpellCost(spell, true),
+        })
     }
     you.Spells = []SpellView{}
     for _, spell := range player.KnownSpells.OverlandSpells().Spells {
